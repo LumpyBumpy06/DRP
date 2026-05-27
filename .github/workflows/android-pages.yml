@@ -93,7 +93,7 @@ jobs:
           echo JAYCE
           mkdir public
           cp app-debug.apk public/
-          cp -r public-site/* public/ 
+          cp -r public-site/. public/ 
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
