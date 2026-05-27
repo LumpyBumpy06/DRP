@@ -74,6 +74,12 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with: 
+          sparse-checkout: |
+            public-site
+
       - name: Download APK artifact
         uses: actions/download-artifact@v4
         with:
@@ -83,7 +89,7 @@ jobs:
         run: |
           pwd 
           ls -la 
-          echo "JAYCE <> Rafi"
+          echo JAYCE
           mkdir public
           cp app-debug.apk public/
           cp -r public-site/* public/ 
