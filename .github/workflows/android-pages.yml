@@ -83,15 +83,7 @@ jobs:
         run: |
           mkdir public
           cp app-debug.apk public/
-
-          cat > public/index.html <<EOF
-          <html>
-          <body>
-            <h1>APK Download</h1>
-            <a href="app-debug.apk">Download APK</a>
-          </body>
-          </html>
-          EOF
+          cp -r public-site/* public/ 
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
