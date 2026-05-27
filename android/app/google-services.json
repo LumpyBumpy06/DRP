@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "946972612793",
+    "project_id": "quietsignal-f4d42",
+    "storage_bucket": "quietsignal-f4d42.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:946972612793:android:9068758a6163bd8d966368",
+        "android_client_info": {
+          "package_name": "com.drp33.quietsignal"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyArS69xx1gODu-p5u7iSiuKc1JstCISK6E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
