@@ -89,6 +89,7 @@ jobs:
         run: |
           pwd 
           ls -la 
+          ls public-site
           echo JAYCE
           mkdir public
           cp app-debug.apk public/
