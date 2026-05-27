@@ -81,6 +81,9 @@ jobs:
 
       - name: Create Pages content
         run: |
+          pwd 
+          ls -la 
+          echo "JAYCE <> Rafi"
           mkdir public
           cp app-debug.apk public/
           cp -r public-site/* public/ 
