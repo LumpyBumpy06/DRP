@@ -22,7 +22,7 @@ jobs:
           #   file: frontend.dockerfile
           - service: backend
             context: ./backend
-            file: Dockerfile
+            file: ./backend/Dockerfile
 
     steps:
       - uses: actions/checkout@v5
