@@ -37,6 +37,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Lowercase owner
+        run: echo "OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Build and push image
         uses: docker/build-push-action@v5
         with:
@@ -49,5 +52,5 @@ jobs:
           cache-to: type=gha,mode=max
 
           tags: |
-            ghcr.io/${{ toLower(github.repository_owner) }}/${{ matrix.service }}:${{ github.sha }}
-            ghcr.io/${{ toLower(github.repository_owner) }}/${{ matrix.service }}:latest
+            ghcr.io/${{ env.OWNER }}/${{ matrix.service }}:${{ github.sha }}
+            ghcr.io/${{ env.OWNER }}/${{ matrix.service }}:latest
