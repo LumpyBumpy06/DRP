@@ -4,9 +4,13 @@ on:
   push:
     branches:
       - master
+    paths:
+      "android/**"
   pull_request:
     branches:
       - master
+    paths:
+      "android/**"
   workflow_dispatch:
 
 env:
