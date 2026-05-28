@@ -67,6 +67,8 @@ dependencies {
     // Retrofit
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
+    // RetroFit debugging
+    implementation(libs.logging.interceptor)
 
 
 
