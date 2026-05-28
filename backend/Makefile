@@ -4,7 +4,7 @@ install:
 format:
 	ruff format app tests
 
-format-check:
+format-check: lint format
 	ruff format --check app tests
 
 lint:
