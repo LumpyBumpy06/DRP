@@ -27,6 +27,9 @@ jobs:
       - name: lint
         run: make lint
 
+      - name: format
+        run: make format
+
       - name: format check
         run: make format-check
 
