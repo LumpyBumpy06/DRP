@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: ghcr.io/lumpybumpy06/backend:1779985928410 # {"$imagepolicy": "quiet-signal:quiet-signal-backend"}
+          image: ghcr.io/lumpybumpy06/backend:1779989955199 # {"$imagepolicy": "quiet-signal:quiet-signal-backend"}
           ports:
             - containerPort: 80
           readinessProbe:
