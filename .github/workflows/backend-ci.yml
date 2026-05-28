@@ -12,19 +12,29 @@ jobs:
         working-directory: ./backend
     steps:
       - uses: actions/checkout@v5
+
       - name: setup python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.14.5'
           cache: 'pip'
+
       - name: install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
-      - name: run checks
-        run: echo "Add and make a MakeFile for the following; format (ruff), format-check, spell (codespell), typecheck (mypy),  "
-      - name: run tests
-        run: |
-          echo "Add a MakeFile or something to run tests"
-          echo "All tests passed"
+          pip install ".[dev]"
+
+      - name: lint
+        run: make lint
+
+      - name: format check
+        run: make format-check
+
+      - name: type check
+        run: make typecheck
+
+      - name: spell check
+        run: make spell
+
+      - name: tests
+        run: echo "All tests passed" #make test

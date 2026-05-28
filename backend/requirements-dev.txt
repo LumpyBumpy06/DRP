@@ -1,5 +1,0 @@
-ruff
-mypy
-codespell
-pytest
-pytest-cov
