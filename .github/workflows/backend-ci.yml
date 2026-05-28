@@ -24,11 +24,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install ".[dev]"
 
-      - name: lint
-        run: make lint
-
-      - name: format
-        run: make format
+      - name: lint check
+        run: make lint-check
 
       - name: format check
         run: make format-check
@@ -40,4 +37,4 @@ jobs:
         run: make spell
 
       - name: tests
-        run: echo "All tests passed" #make test
+        run: make test

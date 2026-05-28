@@ -4,10 +4,13 @@ install:
 format:
 	ruff format app tests
 
-format-check: lint format
+format-check:
 	ruff format --check app tests
 
 lint:
+	ruff check app tests --fix
+
+lint-check:
 	ruff check app tests
 
 typecheck:
@@ -17,7 +20,6 @@ spell:
 	codespell app tests
 
 test:
-	echo "Go to make file"
-#	pytest -q
+	pytest -q --cov=app
 
 all: format-check lint typecheck spell test
