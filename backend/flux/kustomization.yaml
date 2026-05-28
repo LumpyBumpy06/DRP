@@ -5,3 +5,4 @@ resources:
   - service.yaml
   - httproute.yaml
   - image-update.yaml
+  - cnpg.yaml
