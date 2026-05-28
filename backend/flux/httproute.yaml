@@ -4,9 +4,9 @@ metadata:
   name: backend
 spec:
   parentRefs:
-    - name: your-gateway-name
-  hostnames:
-    - backend.example.com
+    - name: noxbound-gateway
+      namespace: noxbound-edge
+      sectionName: quiet-signal-https
   rules:
     - matches:
         - path:
