@@ -5,7 +5,6 @@ WORKDIR /code
 COPY pyproject.toml .
 RUN pip install --no-cache-dir .
 
-
 COPY app ./app
 
 EXPOSE 80
