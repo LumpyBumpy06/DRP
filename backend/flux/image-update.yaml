@@ -1,0 +1,46 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: quiet-signal-backend
+  namespace: quiet-signal
+spec:
+  image: ghcr.io/lumpybumpy06/backend
+  interval: 1m
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: quiet-signal-backend
+  namespace: quiet-signal
+spec:
+  imageRepositoryRef:
+    name: quiet-signal-backend
+  policy:
+    numerical:
+      order: asc
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageUpdateAutomation
+metadata:
+  name: quiet-signal-backend
+  namespace: quiet-signal
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: quiet-signal
+  git:
+    checkout:
+      ref:
+        branch: master
+    commit:
+      author:
+        name: flux-bot
+        email: flux@noxbound.com
+      messageTemplate: |
+        chore(image): update {{range .Updated.Images}}{{.}}{{end}}
+    push:
+      branch: master
+  update:
+    strategy: Setters
+    path: ./backend/flux
