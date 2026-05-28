@@ -3,6 +3,10 @@ FROM python:3.14-slim
 WORKDIR /code
 
 COPY pyproject.toml .
+
+#cheeky fix
+RUN mkdir -p app && touch app/__init__.py
+
 RUN pip install --no-cache-dir .
 
 COPY app ./app
