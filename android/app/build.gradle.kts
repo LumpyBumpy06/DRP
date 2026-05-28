@@ -61,6 +61,9 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
 
+    // Navigation for compose
+    implementation(libs.androidx.navigation.compose)
+
 
 
 }

@@ -18,6 +18,7 @@ import com.drp33.quietsignal.ui.theme.QuietSignalTheme
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
+import com.drp33.quietsignal.ui.navigation.NavGraph
 import com.drp33.quietsignal.ui.screens.AdultScreen
 import com.drp33.quietsignal.ui.screens.ElderlyScreen
 
@@ -33,8 +34,7 @@ class MainActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-//                    AdultScreen()
-                    ElderlyScreen ()
+                    NavGraph()
                 }
             }
         }
