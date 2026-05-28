@@ -18,6 +18,7 @@ import com.drp33.quietsignal.ui.theme.QuietSignalTheme
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
+import com.drp33.quietsignal.ui.screens.AdultScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -1,13 +1,10 @@
-package com.drp33.quietsignal
+package com.drp33.quietsignal.viewmodels
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
-/*
-TODO
-1. Need a button to copy token
-*/
+import com.drp33.quietsignal.data.AdultState
 
 class AdultViewModel: ViewModel() {
     var state by mutableStateOf(AdultState())

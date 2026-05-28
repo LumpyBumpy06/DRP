@@ -1,4 +1,4 @@
-package com.drp33.quietsignal
+package com.drp33.quietsignal.ui.screens
 
 import android.content.ClipData
 import android.widget.Toast

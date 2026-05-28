@@ -1,4 +1,4 @@
-package com.drp33.quietsignal
+package com.drp33.quietsignal.services
 
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
