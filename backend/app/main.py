@@ -1,4 +1,10 @@
+from enum import Enum
 from fastapi import FastAPI
+
+class ModelName(str, Enum):
+    alexnet = "alexnet"
+    resnet = "resnet"
+    lenet = "lenet"
 
 app = FastAPI()
 
@@ -12,7 +18,12 @@ def read_root() -> dict[str, str]:
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
+@app.get("/models/{model_name}")
+async def get_model(model_name: ModelName):
+    if model_name is ModelName.alexnet:
+        return {"model_name": model_name, "message": "Deep Learning FTW!"}
 
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: int) -> dict[str, int]:
-    return {"item_id": item_id, "q": q}
+    if model_name.value == "lenet":
+        return {"model_name": model_name, "message": "LeCNN all the images"}
+
+    return {"model_name": model_name, "message": "Have some residuals"}
