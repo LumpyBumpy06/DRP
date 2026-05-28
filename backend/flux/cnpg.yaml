@@ -1,0 +1,28 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: quiet-signal-postgres
+  namespace: quiet-signal
+spec:
+  instances: 3
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "100m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  bootstrap:
+    initdb:
+      database: quiet-signal
+      owner: quiet-signal
+      secret:
+        name: quiet-signal-postgres-secret
+  managed:
+    roles:
+      - name: quiet-signal
+        superuser: true
+        login: true
+  storage:
+    storageClass: longhorn-local
+    size: 5Gi
