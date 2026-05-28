@@ -5,7 +5,7 @@ app = FastAPI()
 
 @app.get("/")
 def read_root() -> dict[str, str]:
-    return {"Hello": "Dudu World"}
+    return {"Hello": "Dudus World"}
 
 
 @app.get("/health")
