@@ -40,7 +40,7 @@ spec:
         name: flux-bot
         email: flux@noxbound.com
       messageTemplate: |
-        chore(image): update {{range .Updated.Images}}{{.}}{{end}}
+        chore(image): update {{range .Changed.Changes}}{{.}}{{end}}
     push:
       branch: master
   update:
