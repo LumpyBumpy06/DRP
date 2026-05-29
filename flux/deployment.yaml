@@ -25,12 +25,12 @@ spec:
               value: 5432
             - name: POSTGRES_DB
               value: quiet-signal
-            - name: DATABASE_USERNAME
+            - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
                   name: quiet-signal-postgres-secret
                   key: username
-            - name: DATABASE_PASSWORD
+            - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: quiet-signal-postgres-secret
