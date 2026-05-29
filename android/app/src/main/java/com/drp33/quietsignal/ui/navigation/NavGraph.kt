@@ -9,7 +9,10 @@ import androidx.navigation.compose.rememberNavController
 import com.drp33.quietsignal.data.remote.RetroFitProvider
 import com.drp33.quietsignal.data.repo.CheckInRepository
 import com.drp33.quietsignal.data.repo.CheckInRepositoryImpl
+import com.drp33.quietsignal.model.UserRole
+import com.drp33.quietsignal.ui.screens.AdultScreen
 import com.drp33.quietsignal.ui.screens.ElderlyScreen
+import com.drp33.quietsignal.ui.screens.RoleSelectScreen
 import com.drp33.quietsignal.ui.screens.ThankYouScreen
 import com.drp33.quietsignal.viewmodels.ElderlyViewModel
 import com.drp33.quietsignal.viewmodels.ElderlyViewModelFactory
@@ -26,8 +29,26 @@ fun NavGraph() {
 
     NavHost(
         navController = navController,
-        startDestination = Routes.ELDERLY
+        startDestination = Routes.ROLE_SELECT
     ){
+
+        composable(Routes.ROLE_SELECT) {
+            RoleSelectScreen { role ->
+                when (role) {
+                    UserRole.SADIE -> {
+                        navController.navigate(Routes.ADULT) {
+                            popUpTo(Routes.ROLE_SELECT) {inclusive = true}
+                        }
+                    }
+                    UserRole.NORMAN -> {
+                        navController.navigate(Routes.ELDERLY) {
+                            popUpTo(Routes.ROLE_SELECT) {inclusive = true}
+                        }
+                    }
+                }
+            }
+        }
+
         composable(Routes.ELDERLY) {
             ElderlyScreen(
                 onOkayClick = {
@@ -44,6 +65,10 @@ fun NavGraph() {
                     navController.navigate(Routes.THANK_YOU)
                 }
             )
+        }
+
+        composable(Routes.ADULT) {
+            AdultScreen()
         }
 
         composable(Routes.THANK_YOU) {
