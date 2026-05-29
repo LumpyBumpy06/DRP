@@ -71,7 +71,7 @@ jobs:
 
   android-deploy:
     if: github.event_name != 'pull_request'
-    needs: build
+    needs: android-build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
