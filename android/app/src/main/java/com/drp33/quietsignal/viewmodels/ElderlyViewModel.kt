@@ -35,11 +35,12 @@ class ElderlyViewModel(
                 .onSuccess { shouldShow ->
                     _uiState.value = ElderlyUIState(
                         isLoading = false,
-                        showCheckIn = shouldShow
+                        showCheckIn = !shouldShow
                     )
                 }
                 .onFailure {
                     Log.e("Elderly", "API failed to give me get okay")
+                    Log.e("Elderly", it.message!!)
                     _uiState.value = ElderlyUIState(
                         isLoading = false,
                         showCheckIn = false

@@ -13,10 +13,11 @@ interface CheckInAPI {
     suspend fun postRegisterToken(@Body request: TokenRequest)
 
     @POST("okay")
-    suspend fun postSendOkay(@Body request: OkayRequest)
+//    suspend fun postSendOkay(@Body request: OkayRequest)
+    suspend fun postSendOkay(@Query("user_id") userId: Int)
 
     @GET("okay")
     suspend fun getOkayStatus(
-        @Query("userId") userId: Int
+        @Query("user_id") userId: Int
     ): OkayStatusResponse
 }

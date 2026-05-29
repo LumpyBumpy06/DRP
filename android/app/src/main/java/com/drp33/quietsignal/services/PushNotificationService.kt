@@ -1,5 +1,7 @@
 package com.drp33.quietsignal.services
 
+import android.util.Log
+import android.widget.Toast
 import com.drp33.quietsignal.model.NotificationBus
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
@@ -16,6 +18,8 @@ class PushNotificationService: FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
+
+        Log.i("RAFIMISHA", "Notification received!!")
 
         // TODO Based on message data received from backend do some stuff.
         val type = message.data["type"]

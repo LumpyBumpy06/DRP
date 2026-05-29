@@ -1,5 +1,6 @@
 package com.drp33.quietsignal.data.repo
 
+import android.util.Log
 import com.drp33.quietsignal.data.remote.CheckInAPI
 import com.drp33.quietsignal.data.remote.models.OkayRequest
 import com.drp33.quietsignal.data.remote.models.TokenRequest
@@ -14,11 +15,13 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
     }
 
     override suspend fun postSendOkay(userId: Int): Result<Unit> = runCatching {
-        api.postSendOkay(OkayRequest(userId))
+        api.postSendOkay(userId)
     }
 
     override suspend fun getOkayStatus(userId: Int): Result<Boolean> = runCatching {
-        api.getOkayStatus(userId).okay
+        val res = api.getOkayStatus(userId).okay
+        Log.i("JAYCE", "Returned result is $res")
+        res
     }
 
 }
