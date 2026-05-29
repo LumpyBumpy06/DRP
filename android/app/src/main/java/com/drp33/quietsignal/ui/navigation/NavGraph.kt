@@ -83,7 +83,12 @@ fun NavGraph() {
         }
 
         composable(Routes.ADULT) {
-            AdultScreen()
+
+            LaunchedEffect(Unit) {
+                adultViewModel.loadInitialState(1)
+            }
+
+            AdultScreen(adultViewModel)
         }
 
         composable(Routes.THANK_YOU) {
