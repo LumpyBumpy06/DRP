@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlmodel import Session, select
 
@@ -51,5 +51,6 @@ def get_latest_okay_event(session: Session, user_id: int) -> OkayEvent | None:
 def is_okay_within_6h(event: OkayEvent | None) -> bool:
     if not event:
         return False
+    event_timestamp = event.timestamp.replace(tzinfo=timezone.utc)
 
-    return event.timestamp >= datetime.utcnow() - timedelta(hours=6)
+    return event_timestamp >= datetime.now(timezone.utc) - timedelta(seconds=30)

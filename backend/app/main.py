@@ -57,17 +57,17 @@ def get_okay(user_id: int, session: Session = Depends(SessionDep)) -> bool:
 # ---------- OKAY EVENT + NOTIFY ----------
 
 @app.post("/okay")
-def tap_okay(user: User, session: Session = Depends(SessionDep)) -> dict:
-    event = create_okay_event(session, user.user_id)
+def tap_okay(user_id: int, session: Session = Depends(SessionDep)) -> dict:
+    event = create_okay_event(session, user_id)
 
-    linked_users = get_linked_users(session, user.user_id)
+    linked_users = get_linked_users(session, user_id)
 
     for linked_id in linked_users:
         linked_user = session.get(User, linked_id)
         if linked_user and linked_user.token:
             send_notification(
                 linked_user.token,
-                f"User {user.user_id} checked in OK",
+                f"User {user_id} checked in OK",
             )
 
     return {"ok": True, "timestamp": event.timestamp.isoformat()}
