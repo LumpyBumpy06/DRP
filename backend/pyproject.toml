@@ -7,6 +7,10 @@ dependencies = [
     "fastapi==0.136.3",
     "uvicorn[standard]==0.48.0",
     "pydantic-settings==2.14.1",
+
+    #DB
+    "sqlmodel==0.0.38",
+    "asyncpg==0.31.0",
 ]
 
 [project.optional-dependencies]
