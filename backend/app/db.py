@@ -6,15 +6,17 @@ from sqlmodel import Session, SQLModel, create_engine
 from app.settings import Settings
 
 
-def create_engine_from_settings(settings: Settings) -> Engine:
+def create_engine_from_settings(settings: Settings):
+    url = settings.database_url
+
     connect_args = {}
 
-    if settings.database_url.startswith("sqlite"):
+    if url.startswith("sqlite"):
         connect_args = {"check_same_thread": False}
 
     return create_engine(
-        settings.database_url,
-        echo=settings.database_echo,
+        url,
+        echo=settings.db_echo,
         pool_pre_ping=True,
         connect_args=connect_args,
     )
