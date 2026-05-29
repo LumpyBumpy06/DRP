@@ -1,0 +1,35 @@
+#Http route
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: backend
+  namespace: quiet-signal
+spec:
+  parentRefs:
+    - name: noxbound-gateway
+      namespace: noxbound-edge
+      sectionName: quiet-signal-https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: backend
+          port: 80
+---
+#Database route
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: quiet-signal-postgres
+  namespace: quiet-signal
+spec:
+  parentRefs:
+    - name: noxbound-gateway
+      namespace: noxbound-edge
+      sectionName: quiet-signal-tcp
+  rules:
+    - backendRefs:
+        - name: quiet-signal-postgres-rw
+          port: 5432

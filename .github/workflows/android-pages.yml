@@ -4,9 +4,13 @@ on:
   push:
     branches:
       - master
+    paths:
+      "android/**"
   pull_request:
     branches:
       - master
+    paths:
+      "android/**"
   workflow_dispatch:
 
 env:
@@ -24,7 +28,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  android-build:
     runs-on: ubuntu-latest
 
     env:
@@ -65,7 +69,7 @@ jobs:
           name: app-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
 
-  deploy:
+  android-deploy:
     if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest

@@ -1,0 +1,42 @@
+name: backend merge request ci checks
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      "backend/**"
+
+jobs:
+  backend-checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14.5'
+          cache: 'pip'
+
+      - name: install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[dev]"
+
+      - name: lint check
+        run: make lint-check
+
+      - name: format check
+        run: make format-check
+
+      - name: type check
+        run: make typecheck
+
+      - name: spell check
+        run: make spell
+
+      - name: tests
+        run: make test
