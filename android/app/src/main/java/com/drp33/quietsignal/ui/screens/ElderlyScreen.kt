@@ -15,16 +15,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.drp33.quietsignal.model.ElderlyUIState
 
 @Composable
 fun ElderlyScreen(
     name: String = "Norman",
     onOkayClick: () -> Unit = {},
     onNotTodayClick: () -> Unit = {},
-    onReplyLaterClick: () -> Unit = {}
+    onReplyLaterClick: () -> Unit = {},
+    state: ElderlyUIState
 ) {
     Column(
         modifier = Modifier
@@ -42,52 +43,66 @@ fun ElderlyScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text(
-            text = "Just checking in.",
-            style = MaterialTheme.typography.titleMedium
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "How are you feeling today?",
-            fontSize = 22.sp
-        )
-
-        Spacer(modifier = Modifier.height(40.dp))
-
-        Button(
-            onClick = onOkayClick,
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        if (state.isLoading){
             Text(
-                text = "😊 I'm okay",
-                fontSize = 20.sp
+                text = "Loading..." ,
+                style = MaterialTheme.typography.titleMedium
             )
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = onNotTodayClick,
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        else if (!state.showCheckIn){
             Text(
-                text = "😕 Not feeling great today",
-                fontSize = 20.sp
+                text = "You have already checked in for today..." ,
+                style = MaterialTheme.typography.titleMedium
             )
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        OutlinedButton(
-            onClick = onReplyLaterClick,
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        else{
             Text(
-                text = "⏰ I'll reply later",
-                fontSize = 20.sp
+                text = "Just checking in.",
+                style = MaterialTheme.typography.titleMedium
             )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "How are you feeling today?",
+                fontSize = 22.sp
+            )
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            Button(
+                onClick = onOkayClick,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "😊 I'm okay",
+                    fontSize = 20.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = onNotTodayClick,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "😕 Not feeling great today",
+                    fontSize = 20.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedButton(
+                onClick = onReplyLaterClick,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "⏰ I'll reply later",
+                    fontSize = 20.sp
+                )
+            }
         }
     }
 }

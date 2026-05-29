@@ -17,8 +17,8 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
         api.postSendOkay(OkayRequest(userId))
     }
 
-    override suspend fun getOkayStatus(): Result<Boolean> = runCatching {
-        api.getOkayStatus().okay
+    override suspend fun getOkayStatus(userId: Int): Result<Boolean> = runCatching {
+        api.getOkayStatus(userId).okay
     }
 
 }

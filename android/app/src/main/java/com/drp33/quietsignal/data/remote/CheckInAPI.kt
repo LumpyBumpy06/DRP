@@ -6,6 +6,7 @@ import com.drp33.quietsignal.data.remote.models.TokenRequest
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Query
 
 interface CheckInAPI {
     @POST("token")
@@ -15,5 +16,7 @@ interface CheckInAPI {
     suspend fun postSendOkay(@Body request: OkayRequest)
 
     @GET("okay")
-    suspend fun getOkayStatus(): OkayStatusResponse
+    suspend fun getOkayStatus(
+        @Query("userId") userId: Int
+    ): OkayStatusResponse
 }
