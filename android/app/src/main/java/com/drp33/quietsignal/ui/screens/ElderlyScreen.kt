@@ -57,7 +57,7 @@ fun ElderlyScreen(
         }
         else{
             Text(
-                text = "Just checking in.",
+                text = "Just checking in! updated!",
                 style = MaterialTheme.typography.titleMedium
             )
 
