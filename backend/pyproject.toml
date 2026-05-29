@@ -10,7 +10,7 @@ dependencies = [
 
     #DB
     "sqlmodel==0.0.38",
-    "asyncpg==0.31.0",
+    "psycopg[binary]==3.3.4",
 ]
 
 [project.optional-dependencies]
