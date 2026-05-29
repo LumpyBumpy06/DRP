@@ -6,7 +6,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object RetroFitProvider {
-    private const val BASE_URL = "https://quietsignal.noxbound.com"
+    private const val BASE_URL = "https://quietsignal.noxbound.com/"
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY

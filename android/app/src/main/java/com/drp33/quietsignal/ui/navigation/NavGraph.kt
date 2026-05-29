@@ -14,6 +14,8 @@ import com.drp33.quietsignal.ui.screens.AdultScreen
 import com.drp33.quietsignal.ui.screens.ElderlyScreen
 import com.drp33.quietsignal.ui.screens.RoleSelectScreen
 import com.drp33.quietsignal.ui.screens.ThankYouScreen
+import com.drp33.quietsignal.viewmodels.AdultViewModel
+import com.drp33.quietsignal.viewmodels.AdultViewModelFactory
 import com.drp33.quietsignal.viewmodels.ElderlyViewModel
 import com.drp33.quietsignal.viewmodels.ElderlyViewModelFactory
 
@@ -26,6 +28,7 @@ fun NavGraph() {
     }
 
     val elderlyViewModel: ElderlyViewModel = viewModel(factory = ElderlyViewModelFactory(repository))
+    val adultViewModel: AdultViewModel = viewModel(factory = AdultViewModelFactory(repository))
 
     NavHost(
         navController = navController,
@@ -34,13 +37,16 @@ fun NavGraph() {
 
         composable(Routes.ROLE_SELECT) {
             RoleSelectScreen { role ->
+
                 when (role) {
                     UserRole.SADIE -> {
+                        adultViewModel.postFCMToken(2)
                         navController.navigate(Routes.ADULT) {
                             popUpTo(Routes.ROLE_SELECT) {inclusive = true}
                         }
                     }
                     UserRole.NORMAN -> {
+                        elderlyViewModel.postFCMToken(1)
                         navController.navigate(Routes.ELDERLY) {
                             popUpTo(Routes.ROLE_SELECT) {inclusive = true}
                         }

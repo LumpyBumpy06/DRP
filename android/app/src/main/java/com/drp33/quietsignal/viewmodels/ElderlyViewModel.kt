@@ -5,7 +5,10 @@ import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.drp33.quietsignal.data.repo.CheckInRepository
+import com.google.firebase.Firebase
+import com.google.firebase.messaging.messaging
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class ElderlyViewModel(
     private val repository: CheckInRepository
@@ -17,4 +20,11 @@ class ElderlyViewModel(
                 .onFailure { Log.e("Elderly", "API failed while sending poset send") }
         }
     }
+
+    fun postFCMToken(userId: Int) {
+        viewModelScope.launch {
+            repository.postRegisterToken(userId, Firebase.messaging.token.await())
+        }
+    }
+
 }
