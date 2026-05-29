@@ -20,6 +20,6 @@ spell:
 	codespell app tests
 
 test:
-	pytest -q --cov=app
+	python -m pytest
 
 all: format-check lint-check typecheck spell test
