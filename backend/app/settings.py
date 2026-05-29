@@ -26,14 +26,7 @@ class Settings(BaseSettings):
         if self.database_type == "sqlite":
             return f"sqlite:///./{self.sqlite_file}"
 
-        return (
-            "postgresql+psycopg://"
-            f"{self.postgres_user}:"
-            f"{self.postgres_password}@"
-            f"{self.postgres_host}:"
-            f"{self.postgres_port}/"
-            f"{self.postgres_db}"
-        )
+        return f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
 
 
 @lru_cache

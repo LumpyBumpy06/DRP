@@ -3,16 +3,15 @@ from sqlmodel import Session
 
 from app.crud import (
     create_okay_event,
-    get_linked_users,
     get_latest_okay_event,
+    get_linked_users,
     is_okay_within_6h,
     upsert_user_token,
 )
 from app.db import create_engine_from_settings, get_session, init_db
-from app.models import User, UserLink
+from app.models import User
 from app.services.notifications import send_notification
 from app.settings import get_settings
-
 
 app = FastAPI()
 
@@ -22,6 +21,7 @@ app = FastAPI()
 settings = get_settings()
 engine = create_engine_from_settings(settings)
 SessionDep = get_session(engine)
+SessionDependency = Depends(SessionDep)
 
 
 @app.on_event("startup")
@@ -31,6 +31,7 @@ def startup() -> None:
 
 # ---------- ROUTES ----------
 
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
@@ -38,26 +39,29 @@ def health() -> dict:
 
 # ---------- TOKEN ----------
 
+
 @app.post("/token")
 def update_token(
     payload: User,
-    session: Session = Depends(SessionDep),
+    session: Session = SessionDependency,
 ) -> User:
     return upsert_user_token(session, payload.user_id, payload.token or "")
 
 
 # ---------- OKAY CHECK ----------
 
+
 @app.get("/okay/{user_id}")
-def get_okay(user_id: int, session: Session = Depends(SessionDep)) -> bool:
+def get_okay(user_id: int, session: Session = SessionDependency) -> bool:
     event = get_latest_okay_event(session, user_id)
     return is_okay_within_6h(event)
 
 
 # ---------- OKAY EVENT + NOTIFY ----------
 
+
 @app.post("/okay")
-def tap_okay(user_id: int, session: Session = Depends(SessionDep)) -> dict:
+def tap_okay(user_id: int, session: Session = SessionDependency) -> dict:
     event = create_okay_event(session, user_id)
 
     linked_users = get_linked_users(session, user_id)

@@ -1,4 +1,4 @@
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, SQLModel, create_engine
@@ -6,7 +6,7 @@ from sqlmodel import Session, SQLModel, create_engine
 from app.settings import Settings
 
 
-def create_engine_from_settings(settings: Settings):
+def create_engine_from_settings(settings: Settings) -> Engine:
     url = settings.database_url
 
     connect_args = {}
@@ -26,8 +26,8 @@ def init_db(engine: Engine) -> None:
     SQLModel.metadata.create_all(engine)
 
 
-def get_session(engine: Engine):
-    def _get_session() -> Generator[Session, None, None]:
+def get_session(engine: Engine) -> Callable[[], Generator[Session]]:
+    def _get_session() -> Generator[Session]:
         with Session(engine) as session:
             yield session
 

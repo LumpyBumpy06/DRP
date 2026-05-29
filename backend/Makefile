@@ -22,4 +22,4 @@ spell:
 test:
 	pytest -q --cov=app
 
-all: format-check lint typecheck spell test
+all: format-check lint-check typecheck spell test
