@@ -35,6 +35,11 @@ spec:
                 secretKeyRef:
                   name: quiet-signal-postgres-secret
                   key: password
+            - name: FIREBASE_CREDENTIALS_JSON
+              valueFrom:
+                secretKeyRef:
+                  name: firebase-auth-secret
+                  key: firebase-credentials.json
           ports:
             - containerPort: 80
           readinessProbe:
