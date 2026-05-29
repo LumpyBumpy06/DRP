@@ -69,9 +69,6 @@ def tap_okay(user_id: int, session: Session = SessionDependency) -> dict:
     for linked_id in linked_users:
         linked_user = session.get(User, linked_id)
         if linked_user and linked_user.token:
-            send_notification(
-                linked_user.token,
-                f"User {user_id} checked in OK",
-            )
+            send_notification(linked_user.token, f"User {user_id} checked in OK")
 
     return {"ok": True, "timestamp": event.timestamp.isoformat()}

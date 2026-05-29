@@ -11,6 +11,8 @@ dependencies = [
     #DB
     "sqlmodel==0.0.38",
     "psycopg[binary]==3.3.4",
+
+    "firebase-admin==7.4.0",
 ]
 
 [project.optional-dependencies]

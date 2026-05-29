@@ -1,3 +1,4 @@
+import typing
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,6 +21,8 @@ class Settings(BaseSettings):
     sqlite_file: str = ""
 
     db_echo: bool = False
+
+    firebase_credentials_json: typing.Any = None
 
     @property
     def database_url(self) -> str:
