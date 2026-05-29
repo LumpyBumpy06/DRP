@@ -5,6 +5,6 @@ client = TestClient(app)
 
 
 def test_root() -> None:
-    response = client.get("/")
+    response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"Hello": "Dudus World"}
+    assert response.json() == {"status": "ok"}

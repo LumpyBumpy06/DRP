@@ -1,51 +1,77 @@
-from fastapi import FastAPI
-from pydantic import BaseModel, ConfigDict
+from fastapi import Depends, FastAPI
+from sqlmodel import Session
 
-
-def camelize(s: str) -> str:
-    parts = s.replace("-", "_").split("_")
-    return parts[0] + "".join(p.capitalize() for p in parts[1:])
-
-
-class CamelModel(BaseModel):
-    model_config = ConfigDict(
-        alias_generator=camelize,
-        validate_by_name=True,
-    )
-
-
-class UserId(CamelModel):
-    user_id: int
-
+from app.crud import (
+    create_okay_event,
+    get_latest_okay_event,
+    get_linked_users,
+    is_okay_within_6h,
+    upsert_user_token,
+)
+from app.db import create_engine_from_settings, get_session, init_db
+from app.models import User
+from app.services.notifications import send_notification
+from app.settings import get_settings
 
 app = FastAPI()
 
 
-@app.get("/")
-def read_root() -> dict[str, str]:
-    return {"Hello": "Dudus World"}
+# ---------- ENGINE (stateless per deployment) ----------
+
+settings = get_settings()
+engine = create_engine_from_settings(settings)
+SessionDep = get_session(engine)
+SessionDependency = Depends(SessionDep)
+
+
+@app.on_event("startup")
+def startup() -> None:
+    init_db(engine)
+
+
+# ---------- ROUTES ----------
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
+def health() -> dict:
     return {"status": "ok"}
 
 
-@app.get("/okay/{user_id}")
-async def get_tapped_okay(user_id: int) -> bool:
-    """Checks if elderly person has tapped they are ok yet"""
-    return False
-
-
-@app.post("/okay")
-async def tap_okay(user_id: UserId) -> None:
-    """Elderly person has tapping they are ok"""
-    print(f"{user_id} is okay")
-    pass
+# ---------- TOKEN ----------
 
 
 @app.post("/token")
-async def update_user_notif_token(user_id: UserId, token: str) -> None:
-    """Update database with new user's (firebase) device token for sending notifications"""
-    print(f"{user_id} has new token: {token}")
-    pass
+def update_token(
+    payload: User,
+    session: Session = SessionDependency,
+) -> User:
+    return upsert_user_token(session, payload.user_id, payload.token or "")
+
+
+# ---------- OKAY CHECK ----------
+
+
+@app.get("/okay/{user_id}")
+def get_okay(user_id: int, session: Session = SessionDependency) -> bool:
+    event = get_latest_okay_event(session, user_id)
+    return is_okay_within_6h(event)
+
+
+# ---------- OKAY EVENT + NOTIFY ----------
+
+
+@app.post("/okay")
+def tap_okay(user_id: int, session: Session = SessionDependency) -> dict:
+    event = create_okay_event(session, user_id)
+
+    linked_users = get_linked_users(session, user_id)
+
+    for linked_id in linked_users:
+        linked_user = session.get(User, linked_id)
+        if linked_user and linked_user.token:
+            send_notification(
+                linked_user.token,
+                f"User {user_id} checked in OK",
+            )
+
+    return {"ok": True, "timestamp": event.timestamp.isoformat()}

@@ -15,7 +15,26 @@ spec:
     spec:
       containers:
         - name: backend
-          image: ghcr.io/lumpybumpy06/backend:1780015160629 # {"$imagepolicy": "quiet-signal:quiet-signal-backend"}
+          image: ghcr.io/lumpybumpy06/backend:1780014180727 # {"$imagepolicy": "quiet-signal:quiet-signal-backend"}
+          env:
+            - name: DATABASE_TYPE
+              value: postgres
+            - name: POSTGRES_HOST
+              value: quiet-signal-postgres-rw
+            - name: POSTGRES_PORT
+              value: 5432
+            - name: POSTGRES_DB
+              value: quiet-signal
+            - name: DATABASE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: quiet-signal-postgres-secret
+                  key: username
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: quiet-signal-postgres-secret
+                  key: password
           ports:
             - containerPort: 80
           readinessProbe:
