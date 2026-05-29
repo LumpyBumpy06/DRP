@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: ghcr.io/lumpybumpy06/backend:1780034182554 # {"$imagepolicy": "quiet-signal:quiet-signal-backend"}
+          image: ghcr.io/lumpybumpy06/backend:1780035086077 # {"$imagepolicy": "quiet-signal:quiet-signal-backend"}
           env:
             - name: DATABASE_TYPE
               value: postgres
