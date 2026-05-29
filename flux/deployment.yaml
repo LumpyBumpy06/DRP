@@ -22,7 +22,7 @@ spec:
             - name: POSTGRES_HOST
               value: quiet-signal-postgres-rw
             - name: POSTGRES_PORT
-              value: 5432
+              value: "5432"
             - name: POSTGRES_DB
               value: quiet-signal
             - name: DATABASE_USERNAME
