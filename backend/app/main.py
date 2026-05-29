@@ -52,9 +52,9 @@ def update_token(
 
 
 @app.get("/okay")
-def get_okay(user_id: int, session: Session = SessionDependency) -> bool:
+def get_okay(user_id: int, session: Session = SessionDependency) -> dict[str, bool]:
     event = get_latest_okay_event(session, user_id)
-    return is_okay_within_6h(event)
+    return {"okay": is_okay_within_6h(event)}
 
 
 # ---------- OKAY EVENT + NOTIFY ----------
