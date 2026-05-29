@@ -10,6 +10,7 @@ from app.crud import (
 )
 from app.db import create_engine_from_settings, get_session, init_db
 from app.models import User
+from app.services.firebase import init_firebase
 from app.services.notifications import send_notification
 from app.settings import get_settings
 
@@ -27,6 +28,7 @@ SessionDependency = Depends(SessionDep)
 @app.on_event("startup")
 def startup() -> None:
     init_db(engine)
+    init_firebase(settings)
 
 
 # ---------- ROUTES ----------

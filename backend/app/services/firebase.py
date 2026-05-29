@@ -9,10 +9,8 @@ _firebase_initialized = False
 
 
 def init_firebase(settings: Settings) -> None:
-    global _firebase_initialized
-
-    if _firebase_initialized:
-        return
+    if firebase_admin._apps:
+        return  # already initialized (extra safety)
 
     if not settings.firebase_credentials_json:
         raise RuntimeError("Missing Firebase credentials")
@@ -21,8 +19,6 @@ def init_firebase(settings: Settings) -> None:
 
     cred = credentials.Certificate(cred_dict)
     firebase_admin.initialize_app(cred)
-
-    _firebase_initialized = True
 
 
 def send_push(token: str, title: str, body: str, message_type: str | None = None) -> None:
