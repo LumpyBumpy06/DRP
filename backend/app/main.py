@@ -51,7 +51,7 @@ def update_token(
 # ---------- OKAY CHECK ----------
 
 
-@app.get("/okay/{user_id}")
+@app.get("/okay")
 def get_okay(user_id: int, session: Session = SessionDependency) -> bool:
     event = get_latest_okay_event(session, user_id)
     return is_okay_within_6h(event)
