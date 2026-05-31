@@ -10,7 +10,7 @@ dependencies = [
 
     #DB
     "sqlmodel==0.0.22",
-    "psycopg[binary]==3.2.3",
+    "psycopg[binary]==3.3.4",
 
     "firebase-admin==6.6.0",
 ]
