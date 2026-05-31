@@ -7,9 +7,10 @@ from app.settings import Settings
 
 _firebase_initialized = False
 
+
 def init_firebase(settings: Settings) -> None:
     if firebase_admin._apps:
-        return # already initialized (extra safety)
+        return  # already initialized (extra safety)
 
     if settings.firebase_credentials_file:
         cred = credentials.Certificate(settings.firebase_credentials_file)
@@ -34,7 +35,9 @@ def send_push(token: str, title: str, body: str, message_type: str | None = None
             "body": body,
         },
         token=token,
-        android=messaging.AndroidConfig(priority="high",),
+        android=messaging.AndroidConfig(
+            priority="high",
+        ),
     )
 
     messaging.send(message)

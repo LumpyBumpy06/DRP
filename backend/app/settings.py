@@ -1,4 +1,3 @@
-import typing
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,9 +21,9 @@ class Settings(BaseSettings):
 
     db_echo: bool = False
 
-    #Local
+    # Local
     firebase_credentials_file: str | None = None
-    #Kubernetes
+    # Kubernetes
     firebase_credentials_json: str | None = None
 
     @property
