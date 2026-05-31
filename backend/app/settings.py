@@ -22,7 +22,10 @@ class Settings(BaseSettings):
 
     db_echo: bool = False
 
-    firebase_credentials_json: typing.Any = None
+    #Local
+    firebase_credentials_file: str | None = None
+    #Kubernetes
+    firebase_credentials_json: str | None = None
 
     @property
     def database_url(self) -> str:
