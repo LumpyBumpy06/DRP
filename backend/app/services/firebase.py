@@ -12,12 +12,15 @@ def init_firebase(settings: Settings) -> None:
     if firebase_admin._apps:
         return  # already initialized (extra safety)
 
-    if not settings.firebase_credentials_json:
+    if settings.firebase_credentials_file:
+        cred = credentials.Certificate(settings.firebase_credentials_file)
+
+    elif settings.firebase_credentials_json:
+        cred = credentials.Certificate(json.loads(settings.firebase_credentials_json))
+
+    else:
         raise RuntimeError("Missing Firebase credentials")
 
-    cred_dict = json.loads(settings.firebase_credentials_json)
-
-    cred = credentials.Certificate(cred_dict)
     firebase_admin.initialize_app(cred)
 
 
