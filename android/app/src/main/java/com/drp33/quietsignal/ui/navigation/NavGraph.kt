@@ -78,6 +78,9 @@ fun NavGraph() {
                 },
                 onReplyLaterClick = {
                     navController.navigate(Routes.THANK_YOU)
+                },
+                onVoiceRecorded = { audio ->
+                    elderlyViewModel.onVoiceRecorded(audio)
                 }
             )
         }

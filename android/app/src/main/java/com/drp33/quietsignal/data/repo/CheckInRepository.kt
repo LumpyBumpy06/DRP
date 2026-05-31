@@ -4,4 +4,5 @@ interface CheckInRepository {
     suspend fun postRegisterToken(userId: Int, token: String): Result<Unit>
     suspend fun postSendOkay(userId: Int ): Result<Unit>
     suspend fun getOkayStatus(userId: Int): Result<Boolean>
+    suspend fun postVoice(audio: ByteArray): Result<Unit>
 }

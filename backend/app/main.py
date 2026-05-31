@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from sqlmodel import Session
 
 from app.crud import (
@@ -74,3 +74,13 @@ def tap_okay(user_id: int, session: Session = SessionDependency) -> dict:
             send_notification(linked_user.token, f"User {user_id} checked in OK")
 
     return {"ok": True, "timestamp": event.timestamp.isoformat()}
+
+
+# ---------- VOICE ----------
+
+
+@app.post("/voice")
+async def receive_voice(request: Request) -> dict:
+    body = await request.body()
+    print(body)
+    return {"received_bytes": len(body)}

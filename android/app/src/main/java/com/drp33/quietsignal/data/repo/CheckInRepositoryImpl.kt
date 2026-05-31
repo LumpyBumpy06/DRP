@@ -4,6 +4,8 @@ import android.util.Log
 import com.drp33.quietsignal.data.remote.CheckInAPI
 import com.drp33.quietsignal.data.remote.models.OkayRequest
 import com.drp33.quietsignal.data.remote.models.TokenRequest
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /* Adapter for RetroFit's CheckInApi to comply with CheckInRepository */
 class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
@@ -22,6 +24,11 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
         val res = api.getOkayStatus(userId).okay
         Log.i("JAYCE", "Returned result is $res")
         res
+    }
+
+    override suspend fun postVoice(audio: ByteArray): Result<Unit> = runCatching {
+        val body = audio.toRequestBody("application/octet-stream".toMediaType())
+        api.postVoice(body)
     }
 
 }
