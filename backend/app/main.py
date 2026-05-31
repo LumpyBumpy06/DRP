@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, UploadFile
 from sqlmodel import Session
 
 from app.crud import (
@@ -80,7 +80,9 @@ def tap_okay(user_id: int, session: Session = SessionDependency) -> dict:
 
 
 @app.post("/voice")
-async def receive_voice(request: Request) -> dict:
-    body = await request.body()
-    print(body)
-    return {"received_bytes": len(body)}
+async def receive_voice(file: UploadFile) -> None:
+    print("Recevied a file")
+    print("FIle Name is", file.filename)
+    # Receives the .m4a clip as multipart/form-data.
+    # TODO: stream `file` to block storage. Not implemented yet.
+    ...
