@@ -1,0 +1,25 @@
+
+   FastAPI   Starting development server 🚀
+ 
+             Searching for package file structure from directories with         
+             __init__.py files                                                  
+             Importing from /Users/dulithkuruppu/Desktop/DRP/backend
+ 
+    module   📁 app            
+             ├── 🐍 __init__.py
+             └── 🐍 main.py    
+ 
+      code   Importing the FastAPI app object from the module with the following
+             code:                                                              
+ 
+             from app.main import app
+ 
+       app   Using import string: app.main:app
+ 
+    server   Server started at http://127.0.0.1:8000
+    server   Documentation at http://127.0.0.1:8000/docs
+ 
+       tip   Running in development mode, for production use: fastapi run
+ 
+             Logs:
+ 

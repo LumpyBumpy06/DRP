@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, UploadFile
 from sqlmodel import Session
 
 from app.crud import (
@@ -74,3 +74,15 @@ def tap_okay(user_id: int, session: Session = SessionDependency) -> dict:
             send_notification(linked_user.token, f"User {user_id} checked in OK")
 
     return {"ok": True, "timestamp": event.timestamp.isoformat()}
+
+
+# ---------- VOICE ----------
+
+
+@app.post("/voice")
+async def receive_voice(file: UploadFile) -> None:
+    print("Received a file")
+    print("FIle Name is", file.filename)
+    # Receives the .m4a clip as multipart/form-data.
+    # TODO: stream `file` to block storage. Not implemented yet.
+    ...
