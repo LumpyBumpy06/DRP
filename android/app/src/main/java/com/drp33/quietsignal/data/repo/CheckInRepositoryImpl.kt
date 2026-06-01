@@ -5,6 +5,7 @@ import com.drp33.quietsignal.data.remote.CheckInAPI
 import com.drp33.quietsignal.data.remote.models.OkayRequest
 import com.drp33.quietsignal.data.remote.models.TokenRequest
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 
 /* Adapter for RetroFit's CheckInApi to comply with CheckInRepository */
@@ -26,9 +27,14 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
         res
     }
 
-    override suspend fun postVoice(audio: ByteArray): Result<Unit> = runCatching {
-        val body = audio.toRequestBody("application/octet-stream".toMediaType())
-        api.postVoice(body)
+    override suspend fun postVoice(clientId: Int, audio: ByteArray): Result<Unit> = runCatching {
+        val requestBody = audio.toRequestBody("audio/mp4".toMediaType())
+        val part = MultipartBody.Part.createFormData(
+            name = "file",
+            filename = "$clientId/${System.currentTimeMillis()}.m4a",
+            body = requestBody
+        )
+        api.postVoice(part)
     }
 
 }

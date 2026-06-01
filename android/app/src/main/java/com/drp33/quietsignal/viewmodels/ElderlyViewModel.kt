@@ -55,9 +55,9 @@ class ElderlyViewModel(
         }
     }
 
-    fun onVoiceRecorded(audio: ByteArray) {
+    fun onVoiceRecorded(clientId: Int, audio: ByteArray) {
         viewModelScope.launch {
-            repository.postVoice(audio)
+            repository.postVoice(clientId, audio)
                 .onSuccess { Log.i("Elderly", "Voice uploaded (${audio.size} bytes)") }
                 .onFailure { Log.e("Elderly", "Voice upload failed", it) }
         }

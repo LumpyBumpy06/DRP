@@ -80,7 +80,7 @@ fun NavGraph() {
                     navController.navigate(Routes.THANK_YOU)
                 },
                 onVoiceRecorded = { audio ->
-                    elderlyViewModel.onVoiceRecorded(audio)
+                    elderlyViewModel.onVoiceRecorded(1, audio)
                 }
             )
         }
