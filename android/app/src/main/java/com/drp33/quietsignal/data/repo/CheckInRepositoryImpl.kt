@@ -4,6 +4,8 @@ import android.util.Log
 import com.drp33.quietsignal.data.remote.CheckInAPI
 import com.drp33.quietsignal.data.remote.models.OkayRequest
 import com.drp33.quietsignal.data.remote.models.TokenRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -35,6 +37,13 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
             body = requestBody
         )
         api.postVoice(part)
+    }
+
+    override suspend fun getLatestVoice(userId: Int): Result<ByteArray> = runCatching {
+        // Read the streamed body off the main thread.
+        withContext(Dispatchers.IO) {
+            api.getLatestVoice(userId).bytes()
+        }
     }
 
 }

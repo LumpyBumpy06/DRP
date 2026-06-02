@@ -4,6 +4,7 @@ import com.drp33.quietsignal.data.remote.models.OkayRequest
 import com.drp33.quietsignal.data.remote.models.OkayStatusResponse
 import com.drp33.quietsignal.data.remote.models.TokenRequest
 import okhttp3.MultipartBody
+import okhttp3.ResponseBody
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Multipart
@@ -18,6 +19,9 @@ interface CheckInAPI {
     @Multipart
     @POST("voice")
     suspend fun postVoice(@Part file: MultipartBody.Part)
+
+    @GET("voice/latest")
+    suspend fun getLatestVoice(@Query("user_id") userId: Int): ResponseBody
 
     @POST("okay")
 //    suspend fun postSendOkay(@Body request: OkayRequest)

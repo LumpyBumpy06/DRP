@@ -45,3 +45,23 @@ def upload_audio(
         length=len(data),
         content_type=content_type,
     )
+
+
+def latest_object_name(settings: Settings, prefix: str) -> str | None:
+    """Newest object stored under `prefix` (keys are timestamp-ordered)."""
+    client = get_storage(settings)
+    objects = client.list_objects(settings.minio_bucket, prefix=prefix, recursive=True)
+    names: list[str] = [o.object_name for o in objects if o.object_name]
+    if not names:
+        return None
+    return max(names)
+
+
+def download_audio(settings: Settings, object_name: str) -> bytes:
+    client = get_storage(settings)
+    response = client.get_object(settings.minio_bucket, object_name)
+    try:
+        return response.read()
+    finally:
+        response.close()
+        response.release_conn()
