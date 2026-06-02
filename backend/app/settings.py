@@ -38,7 +38,6 @@ class Settings(BaseSettings):
 
     minio_access_key: str = "minioadmin"
     minio_secret_key: str = "minioadmin"
-    minio_secure: bool = False
     # S3/MinIO bucket names must be lowercase (no uppercase allowed), so the
     # requested "audioFiles" becomes "audio-files".
     minio_bucket: str = "audio-files"
