@@ -54,8 +54,6 @@ spec:
                 secretKeyRef:
                   name: quiet-signal-minio-secret
                   key: secret-key
-            - name: MINIO_SECURE
-              value: false
             - name: MINIO_BUCKET
               value: audio-files
           ports:
