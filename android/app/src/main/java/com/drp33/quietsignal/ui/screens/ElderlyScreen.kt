@@ -3,11 +3,8 @@ package com.drp33.quietsignal.ui.screens
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -19,13 +16,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +43,7 @@ import com.drp33.quietsignal.model.ElderlyUIState
 import com.drp33.quietsignal.util.AudioRecorder
 import com.drp33.quietsignal.util.vibrateDoubleTap
 import com.drp33.quietsignal.util.vibrateTick
+import kotlinx.coroutines.delay
 
 @Composable
 fun ElderlyScreen(
@@ -51,8 +52,10 @@ fun ElderlyScreen(
     onNotTodayClick: () -> Unit = {},
     onReplyLaterClick: () -> Unit = {},
     onVoiceRecorded: (ByteArray) -> Unit = {},
+    onSwitchRole: () -> Unit = {},
     state: ElderlyUIState
 ) {
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -135,6 +138,17 @@ fun ElderlyScreen(
             }
         }
     }
+
+        TextButton(
+            onClick = onSwitchRole,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .statusBarsPadding()
+                .padding(8.dp)
+        ) {
+            Text("← Switch role")
+        }
+    }
 }
 
 @Composable
@@ -143,25 +157,30 @@ private fun VoiceButton(onVoiceRecorded: (ByteArray) -> Unit) {
     val recorder = remember { AudioRecorder(context) }
     var isRecording by remember { mutableStateOf(false) }
 
-    // Gentle "breathing" of the mic itself + an expanding ripple ring while listening.
-    val transition = rememberInfiniteTransition(label = "mic")
-    val pulse by transition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.12f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 650, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "mic-pulse"
-    )
-    val ring by transition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.9f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1400, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "mic-ring"
+    // Live mic level (0..1). Driven by the real microphone amplitude, so the
+    // button only reacts when Norman is actually speaking — and how much it
+    // reacts tracks how loud he is. Stays still during silence.
+    var rawLevel by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(isRecording) {
+        if (!isRecording) {
+            rawLevel = 0f
+            return@LaunchedEffect
+        }
+        while (true) {
+            val amp = recorder.amplitude() // 0..32767
+            val normalized = (amp / 6000f).coerceIn(0f, 1f)
+            // Ignore background hiss so it doesn't twitch when the room is quiet.
+            rawLevel = if (normalized < 0.08f) 0f else normalized
+            delay(60)
+        }
+    }
+
+    // Smooth the gaps between samples so movement looks fluid, not steppy.
+    val level by animateFloatAsState(
+        targetValue = rawLevel,
+        animationSpec = tween(durationMillis = 120, easing = LinearEasing),
+        label = "mic-level"
     )
 
     val containerColor by animateColorAsState(
@@ -172,13 +191,13 @@ private fun VoiceButton(onVoiceRecorded: (ByteArray) -> Unit) {
 
     Box(contentAlignment = Alignment.Center) {
 
-        // Expanding, fading ring behind the button (radar-style) only while recording.
-        if (isRecording) {
+        // Ring grows/fades with his voice — invisible and still when silent.
+        if (isRecording && level > 0f) {
             Box(
                 modifier = Modifier
                     .size(120.dp)
-                    .scale(ring)
-                    .alpha((1.9f - ring) / 0.9f * 0.4f)
+                    .scale(1f + 0.9f * level)
+                    .alpha(0.45f * level)
                     .background(rippleColor, CircleShape)
             )
         }
@@ -206,7 +225,7 @@ private fun VoiceButton(onVoiceRecorded: (ByteArray) -> Unit) {
             colors = ButtonDefaults.buttonColors(containerColor = containerColor),
             modifier = Modifier
                 .size(120.dp)
-                .scale(if (isRecording) pulse else 1f)
+                .scale(1f + 0.18f * level) // mic swells with how loud he speaks
         ) {
             Text(
                 text = "🎤",

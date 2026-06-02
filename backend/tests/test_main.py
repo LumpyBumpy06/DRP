@@ -33,7 +33,7 @@ def test_voice_uploads_to_storage(monkeypatch) -> None:
 
 
 def test_voice_latest_streams_audio(monkeypatch) -> None:
-    monkeypatch.setattr(main_module, "latest_object_name", lambda settings, prefix: "1/123.m4a")
+    monkeypatch.setattr(main_module, "latest_recent_object_name", lambda settings, prefix, max_age: "1/123.m4a")
     monkeypatch.setattr(main_module, "download_audio", lambda settings, name: b"AUDIO-BYTES")
 
     response = client.get("/voice/latest", params={"user_id": 1})
@@ -43,8 +43,9 @@ def test_voice_latest_streams_audio(monkeypatch) -> None:
     assert response.headers["content-type"] == "audio/mp4"
 
 
-def test_voice_latest_404_when_none(monkeypatch) -> None:
-    monkeypatch.setattr(main_module, "latest_object_name", lambda settings, prefix: None)
+def test_voice_latest_404_when_expired_or_missing(monkeypatch) -> None:
+    # latest_recent_object_name returns None for both "nothing there" and "too old".
+    monkeypatch.setattr(main_module, "latest_recent_object_name", lambda settings, prefix, max_age: None)
 
     response = client.get("/voice/latest", params={"user_id": 99})
 

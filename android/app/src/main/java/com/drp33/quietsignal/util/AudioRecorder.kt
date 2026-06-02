@@ -31,6 +31,17 @@ class AudioRecorder(private val context: Context) {
         }
     }
 
+    /**
+     * Peak microphone amplitude since the previous call (0..32767), or 0 when not
+     * recording. Used to drive a live, speech-reactive visualisation.
+     */
+    fun amplitude(): Int =
+        try {
+            recorder?.maxAmplitude ?: 0
+        } catch (e: IllegalStateException) {
+            0
+        }
+
     /** Stops recording and returns the recorded bytes, or null on failure. */
     fun stop(): ByteArray? {
         val file = outputFile
