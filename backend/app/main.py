@@ -1,4 +1,7 @@
-from fastapi import Depends, FastAPI, UploadFile
+import uuid
+from datetime import UTC, datetime
+
+from fastapi import Depends, FastAPI, Request
 from sqlmodel import Session
 
 from app.crud import (
@@ -12,6 +15,7 @@ from app.db import create_engine_from_settings, get_session, init_db
 from app.models import User
 from app.services.firebase import init_firebase
 from app.services.notifications import send_notification
+from app.services.storage import upload_audio
 from app.settings import get_settings
 
 app = FastAPI()
@@ -80,9 +84,12 @@ def tap_okay(user_id: int, session: Session = SessionDependency) -> dict:
 
 
 @app.post("/voice")
-async def receive_voice(file: UploadFile) -> None:
-    print("Received a file")
-    print("FIle Name is", file.filename)
-    # Receives the .m4a clip as multipart/form-data.
-    # TODO: stream `file` to block storage. Not implemented yet.
-    ...
+async def receive_voice(request: Request) -> dict:
+    data = await request.body()
+
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
+    object_name = f"{timestamp}-{uuid.uuid4().hex}.m4a"
+
+    upload_audio(settings, data, object_name)
+
+    return {"object": object_name, "bytes": len(data)}
