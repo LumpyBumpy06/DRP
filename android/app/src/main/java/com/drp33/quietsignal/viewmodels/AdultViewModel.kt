@@ -60,7 +60,12 @@ class AdultViewModel(
         viewModelScope.launch {
             repository.getOkayStatus(userId)
                 .onSuccess { checkedIn ->
-                    state = state.copy(checkedIn = checkedIn)
+                    state = if (checkedIn) {
+                        state.copy(checkedIn = true)
+                    } else {
+                        // Day window passed: reset check-in and clear the pending voice.
+                        state.copy(checkedIn = false, hasNewVoice = false, voiceStatus = "")
+                    }
                 }
                 .onFailure {
                     state = state.copy(checkedIn = false)

@@ -62,6 +62,16 @@ fun AdultScreen(viewModel: AdultViewModel) {
 
     val state = viewModel.state
 
+    // If the day window passes while a clip is loaded, close the player too.
+    LaunchedEffect(state.checkedIn) {
+        if (!state.checkedIn && hasClip) {
+            player.release()
+            hasClip = false
+            isPlaying = false
+            positionMs = 0
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()

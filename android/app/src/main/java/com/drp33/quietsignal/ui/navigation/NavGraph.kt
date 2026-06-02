@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.delay
 import com.drp33.quietsignal.data.remote.RetroFitProvider
 import com.drp33.quietsignal.data.repo.CheckInRepositoryImpl
 import com.drp33.quietsignal.model.UserRole
@@ -87,8 +88,13 @@ fun NavGraph() {
 
         composable(Routes.ADULT) {
 
+            // Re-poll the check-in status so the screen reflects the day window
+            // expiring (Norman drops back to "not checked in" after ~30s).
             LaunchedEffect(Unit) {
-                adultViewModel.loadInitialState(1)
+                while (true) {
+                    adultViewModel.loadInitialState(1)
+                    delay(5000)
+                }
             }
 
             AdultScreen(adultViewModel)
