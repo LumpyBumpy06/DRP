@@ -79,9 +79,16 @@ fun NavGraph() {
 
         composable(Routes.ELDERLY) {
 
+            // Re-poll so Norman's screen also resets after the day window: once his
+            // check-in expires he sees the check-in (and voice) UI again.
             LaunchedEffect(Unit) {
                 elderlyViewModel.postFCMToken(1)
-                elderlyViewModel.loadCheckIn(1)
+                var first = true
+                while (true) {
+                    elderlyViewModel.loadCheckIn(1, showLoading = first)
+                    first = false
+                    delay(5000)
+                }
             }
 
             val state = elderlyViewModel.uiState.collectAsState().value
