@@ -28,9 +28,11 @@ class ElderlyViewModel(
         }
     }
 
-    fun loadCheckIn(userId: Int){
+    fun loadCheckIn(userId: Int, showLoading: Boolean = true){
         viewModelScope.launch {
-            _uiState.value = ElderlyUIState(isLoading = true)
+            if (showLoading) {
+                _uiState.value = _uiState.value.copy(isLoading = true)
+            }
             repository.getOkayStatus(userId)
                 .onSuccess { shouldShow ->
                     _uiState.value = ElderlyUIState(
@@ -40,11 +42,9 @@ class ElderlyViewModel(
                 }
                 .onFailure {
                     Log.e("Elderly", "API failed to give me get okay")
-                    Log.e("Elderly", it.message!!)
-                    _uiState.value = ElderlyUIState(
-                        isLoading = false,
-                        showCheckIn = false
-                    )
+                    Log.e("Elderly", it.message ?: "unknown error")
+                    // Keep the current view on a refresh failure; just stop the spinner.
+                    _uiState.value = _uiState.value.copy(isLoading = false)
                 }
         }
     }
