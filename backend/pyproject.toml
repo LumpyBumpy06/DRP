@@ -13,6 +13,9 @@ dependencies = [
     "psycopg[binary]==3.3.4",
 
     "firebase-admin==7.4.0",
+
+    #Block storage
+    "minio==7.2.20",
 ]
 
 [project.optional-dependencies]

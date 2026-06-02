@@ -1,5 +1,6 @@
 package com.drp33.quietsignal.viewmodels
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -30,8 +31,26 @@ class AdultViewModel(
                     "CHECKED_IN" -> {
                         state = state.copy(checkedIn = true)
                     }
+                    "VOICE_MESSAGE" -> {
+                        state = state.copy(hasNewVoice = true)
+                    }
                 }
             }
+        }
+    }
+
+    fun playLatestVoice(normanId: Int, play: (ByteArray) -> Unit) {
+        viewModelScope.launch {
+            state = state.copy(voiceStatus = "Loading…")
+            repository.getLatestVoice(normanId)
+                .onSuccess { bytes ->
+                    state = state.copy(voiceStatus = "Playing", hasNewVoice = false)
+                    play(bytes)
+                }
+                .onFailure {
+                    Log.e("Adult", "Failed to fetch voice message", it)
+                    state = state.copy(voiceStatus = "No message yet")
+                }
         }
     }
 
