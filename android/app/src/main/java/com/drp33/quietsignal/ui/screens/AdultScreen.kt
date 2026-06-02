@@ -1,6 +1,7 @@
 package com.drp33.quietsignal.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
@@ -17,6 +19,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -39,7 +42,7 @@ import kotlinx.coroutines.delay
 private const val NORMAN_ID = 1
 
 @Composable
-fun AdultScreen(viewModel: AdultViewModel) {
+fun AdultScreen(viewModel: AdultViewModel, onSwitchRole: () -> Unit = {}) {
     val context = LocalContext.current
     val player = remember { AudioPlayer(context) }
 
@@ -72,6 +75,7 @@ fun AdultScreen(viewModel: AdultViewModel) {
         }
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -150,6 +154,17 @@ fun AdultScreen(viewModel: AdultViewModel) {
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
+        }
+    }
+
+        TextButton(
+            onClick = onSwitchRole,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .statusBarsPadding()
+                .padding(8.dp)
+        ) {
+            Text("← Switch role")
         }
     }
 }
