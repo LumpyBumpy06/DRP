@@ -40,6 +40,24 @@ spec:
                 secretKeyRef:
                   name: firebase-auth-secret
                   key: firebase-credentials.json
+            - name: STORAGE_TARGET
+              value: deployment
+            - name: MINIO_DEPLOYMENT_ENDPOINT
+              value: quiet-signal-minio:9000
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: quiet-signal-minio-secret
+                  key: access-key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: quiet-signal-minio-secret
+                  key: secret-key
+            - name: MINIO_SECURE
+              value: false
+            - name: MINIO_BUCKET
+              value: audio-files
           ports:
             - containerPort: 80
           readinessProbe:
