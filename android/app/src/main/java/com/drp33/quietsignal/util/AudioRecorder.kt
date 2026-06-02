@@ -18,7 +18,7 @@ class AudioRecorder(private val context: Context) {
     fun start() {
         if (recorder != null) return
 
-        val file = File(context.cacheDir, "voice_${System.currentTimeMillis()}.m4a")
+        val file = File(context.cacheDir, "voice_${System.currentTimeMillis()}.aac")
         outputFile = file
 
         recorder = createRecorder().apply {

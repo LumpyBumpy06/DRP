@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, UploadFile
 from sqlmodel import Session
 
 from app.crud import (
@@ -83,13 +83,34 @@ def tap_okay(user_id: int, session: Session = SessionDependency) -> dict:
 # ---------- VOICE ----------
 
 
+# @app.post("/voice")
+# async def receive_voice(request: Request) -> dict:
+#     data = await request.body()
+#     print(data)
+
+#     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
+#     object_name = f"{timestamp}-{uuid.uuid4().hex}.m4a"
+
+#     upload_audio(settings, data, object_name)
+
+#     return {"object": object_name, "bytes": len(data)}
+
 @app.post("/voice")
-async def receive_voice(request: Request) -> dict:
-    data = await request.body()
+async def receive_voice(file: UploadFile) -> dict:
+
+    data = await file.read()
 
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
     object_name = f"{timestamp}-{uuid.uuid4().hex}.m4a"
 
-    upload_audio(settings, data, object_name)
+    upload_audio(
+        settings,
+        data,
+        object_name,
+        content_type=file.content_type,
+    )
 
-    return {"object": object_name, "bytes": len(data)}
+    return {
+        "object": object_name,
+        "bytes": len(data),
+    }
