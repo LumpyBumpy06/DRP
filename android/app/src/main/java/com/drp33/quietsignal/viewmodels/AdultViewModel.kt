@@ -32,7 +32,8 @@ class AdultViewModel(
                         state = state.copy(checkedIn = true)
                     }
                     "VOICE_MESSAGE" -> {
-                        state = state.copy(hasNewVoice = true)
+                        // A voice message is also a check-in.
+                        state = state.copy(checkedIn = true, hasNewVoice = true)
                     }
                 }
             }
@@ -49,7 +50,8 @@ class AdultViewModel(
                 }
                 .onFailure {
                     Log.e("Adult", "Failed to fetch voice message", it)
-                    state = state.copy(voiceStatus = "No message yet")
+                    // 404 also means the message has expired (past the day window).
+                    state = state.copy(voiceStatus = "No message right now", hasNewVoice = false)
                 }
         }
     }

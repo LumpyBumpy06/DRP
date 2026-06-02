@@ -1,4 +1,5 @@
 import io
+from datetime import UTC, datetime, timedelta
 
 from minio import Minio
 
@@ -47,14 +48,23 @@ def upload_audio(
     )
 
 
-def latest_object_name(settings: Settings, prefix: str) -> str | None:
-    """Newest object stored under `prefix` (keys are timestamp-ordered)."""
+def latest_recent_object_name(settings: Settings, prefix: str, max_age_seconds: int) -> str | None:
+    """Newest object under `prefix`, but only if stored within `max_age_seconds`.
+
+    Returns None when nothing is there or the newest clip has expired, so callers
+    can treat an old message as gone.
+    """
     client = get_storage(settings)
-    objects = client.list_objects(settings.minio_bucket, prefix=prefix, recursive=True)
-    names: list[str] = [o.object_name for o in objects if o.object_name]
-    if not names:
+    objects = [o for o in client.list_objects(settings.minio_bucket, prefix=prefix, recursive=True) if o.object_name and o.last_modified]
+    if not objects:
         return None
-    return max(names)
+
+    latest = max(objects, key=lambda o: o.last_modified)
+    if datetime.now(UTC) - latest.last_modified > timedelta(seconds=max_age_seconds):
+        return None
+
+    name: str | None = latest.object_name
+    return name
 
 
 def download_audio(settings: Settings, object_name: str) -> bytes:

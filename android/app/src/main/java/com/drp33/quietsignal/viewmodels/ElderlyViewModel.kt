@@ -58,7 +58,11 @@ class ElderlyViewModel(
     fun onVoiceRecorded(clientId: Int, audio: ByteArray) {
         viewModelScope.launch {
             repository.postVoice(clientId, audio)
-                .onSuccess { Log.i("Elderly", "Voice uploaded (${audio.size} bytes)") }
+                .onSuccess {
+                    Log.i("Elderly", "Voice uploaded (${audio.size} bytes)")
+                    // A voice message counts as today's check-in, so refresh the UI.
+                    loadCheckIn(clientId)
+                }
                 .onFailure { Log.e("Elderly", "Voice upload failed", it) }
         }
     }

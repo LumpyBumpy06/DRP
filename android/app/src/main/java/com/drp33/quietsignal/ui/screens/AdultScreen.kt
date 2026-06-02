@@ -114,8 +114,11 @@ fun AdultScreen(viewModel: AdultViewModel) {
                 onClick = {
                     viewModel.playLatestVoice(NORMAN_ID) { bytes ->
                         durationMs = player.play(bytes) {
+                            // On finish, drop back to the button so replaying must
+                            // re-fetch — the server then enforces the expiry window.
                             isPlaying = false
-                            positionMs = durationMs
+                            hasClip = false
+                            positionMs = 0
                         }
                         positionMs = 0
                         isPlaying = true

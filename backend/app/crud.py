@@ -4,6 +4,10 @@ from sqlmodel import Session, desc, select
 
 from app.models import OkayEvent, User, UserLink
 
+# One "day" in the current simulation. A check-in (or voice message) is only
+# considered current for this long.
+CHECK_IN_WINDOW_SECONDS = 30
+
 # ---------- USERS ----------
 
 
@@ -50,4 +54,4 @@ def is_okay_within_6h(event: OkayEvent | None) -> bool:
         return False
     event_timestamp = event.timestamp.replace(tzinfo=UTC)
 
-    return event_timestamp >= datetime.now(UTC) - timedelta(seconds=30)
+    return event_timestamp >= datetime.now(UTC) - timedelta(seconds=CHECK_IN_WINDOW_SECONDS)

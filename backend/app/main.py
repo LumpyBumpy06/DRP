@@ -5,6 +5,7 @@ from fastapi import Depends, FastAPI, HTTPException, Response, UploadFile
 from sqlmodel import Session
 
 from app.crud import (
+    CHECK_IN_WINDOW_SECONDS,
     create_okay_event,
     get_latest_okay_event,
     get_linked_users,
@@ -15,7 +16,7 @@ from app.db import create_engine_from_settings, get_session, init_db
 from app.models import User
 from app.services.firebase import init_firebase
 from app.services.notifications import send_notification
-from app.services.storage import download_audio, latest_object_name, upload_audio
+from app.services.storage import download_audio, latest_recent_object_name, upload_audio
 from app.settings import get_settings
 
 app = FastAPI()
@@ -98,30 +99,36 @@ async def receive_voice(file: UploadFile, session: Session = SessionDependency) 
         content_type=file.content_type or "audio/mp4",
     )
 
-    _notify_linked_of_voice(session, object_name)
+    sender_id = _sender_id_from(object_name)
+    if sender_id is not None:
+        # Recording a voice message counts as today's "I'm okay" check-in.
+        create_okay_event(session, sender_id)
+
+        for linked_id in get_linked_users(session, sender_id):
+            linked_user = session.get(User, linked_id)
+            if linked_user and linked_user.token:
+                send_notification(linked_user.token, "Norman sent a voice message", message_type="VOICE_MESSAGE")
 
     return {"object": object_name, "bytes": len(data)}
 
 
-def _notify_linked_of_voice(session: Session, object_name: str) -> None:
-    """Push a voice-message alert to the sender's linked users (e.g. Sadie)."""
+def _sender_id_from(object_name: str) -> int | None:
     try:
-        sender_id = int(object_name.split("/")[0])
+        return int(object_name.split("/")[0])
     except ValueError:
-        return
-
-    for linked_id in get_linked_users(session, sender_id):
-        linked_user = session.get(User, linked_id)
-        if linked_user and linked_user.token:
-            send_notification(linked_user.token, "Norman sent a voice message", message_type="VOICE_MESSAGE")
+        return None
 
 
 @app.get("/voice/latest")
 def get_latest_voice(user_id: int) -> Response:
-    """Stream the most recent voice clip from `user_id` (for the linked listener)."""
-    object_name = latest_object_name(settings, f"{user_id}/")
+    """Stream the latest clip from `user_id`, only within the current day window.
+
+    A voice message expires with the check-in window, so once a "day"
+    (CHECK_IN_WINDOW_SECONDS) has passed the listener can no longer play it.
+    """
+    object_name = latest_recent_object_name(settings, f"{user_id}/", CHECK_IN_WINDOW_SECONDS)
     if object_name is None:
-        raise HTTPException(status_code=404, detail="No voice message found")
+        raise HTTPException(status_code=404, detail="No current voice message")
 
     data = download_audio(settings, object_name)
     return Response(content=data, media_type="audio/mp4")
