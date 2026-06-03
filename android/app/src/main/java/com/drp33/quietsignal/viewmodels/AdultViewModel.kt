@@ -1,6 +1,5 @@
 package com.drp33.quietsignal.viewmodels
 
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -28,31 +27,12 @@ class AdultViewModel(
         viewModelScope.launch {
             NotificationBus.events.collect { event ->
                 when (event){
-                    "CHECKED_IN" -> {
+                    // Norman tapping okay or leaving a voice note both mean "checked in".
+                    "CHECKED_IN", "VOICE_MESSAGE" -> {
                         state = state.copy(checkedIn = true)
-                    }
-                    "VOICE_MESSAGE" -> {
-                        // A voice message is also a check-in.
-                        state = state.copy(checkedIn = true, hasNewVoice = true)
                     }
                 }
             }
-        }
-    }
-
-    fun playLatestVoice(normanId: Int, play: (ByteArray) -> Unit) {
-        viewModelScope.launch {
-            state = state.copy(voiceStatus = "Loading…")
-            repository.getLatestVoice(normanId)
-                .onSuccess { bytes ->
-                    state = state.copy(voiceStatus = "Playing", hasNewVoice = false)
-                    play(bytes)
-                }
-                .onFailure {
-                    Log.e("Adult", "Failed to fetch voice message", it)
-                    // 404 also means the message has expired (past the day window).
-                    state = state.copy(voiceStatus = "No message right now", hasNewVoice = false)
-                }
         }
     }
 
@@ -60,12 +40,7 @@ class AdultViewModel(
         viewModelScope.launch {
             repository.getOkayStatus(userId)
                 .onSuccess { checkedIn ->
-                    state = if (checkedIn) {
-                        state.copy(checkedIn = true)
-                    } else {
-                        // Day window passed: reset check-in and clear the pending voice.
-                        state.copy(checkedIn = false, hasNewVoice = false, voiceStatus = "")
-                    }
+                    state = state.copy(checkedIn = checkedIn)
                 }
                 .onFailure {
                     state = state.copy(checkedIn = false)
