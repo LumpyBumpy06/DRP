@@ -21,6 +21,9 @@ from app.settings import get_settings
 
 app = FastAPI()
 
+# Display names for push messages (demo: two fixed users).
+USER_NAMES = {1: "Norman", 2: "Sadie"}
+
 
 # ---------- ENGINE (stateless per deployment) ----------
 
@@ -104,10 +107,11 @@ async def receive_voice(file: UploadFile, session: Session = SessionDependency) 
         # Recording a voice message counts as today's "I'm okay" check-in.
         create_okay_event(session, sender_id)
 
+        sender_name = USER_NAMES.get(sender_id, "Someone")
         for linked_id in get_linked_users(session, sender_id):
             linked_user = session.get(User, linked_id)
             if linked_user and linked_user.token:
-                send_notification(linked_user.token, "Norman sent a voice message", message_type="VOICE_MESSAGE")
+                send_notification(linked_user.token, f"{sender_name} sent a voice message", message_type="VOICE_MESSAGE")
 
     return {"object": object_name, "bytes": len(data)}
 

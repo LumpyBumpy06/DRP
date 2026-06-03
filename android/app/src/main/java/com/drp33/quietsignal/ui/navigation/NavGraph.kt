@@ -22,6 +22,8 @@ import com.drp33.quietsignal.viewmodels.AdultViewModel
 import com.drp33.quietsignal.viewmodels.AdultViewModelFactory
 import com.drp33.quietsignal.viewmodels.ElderlyViewModel
 import com.drp33.quietsignal.viewmodels.ElderlyViewModelFactory
+import com.drp33.quietsignal.viewmodels.VoiceMessagingViewModel
+import com.drp33.quietsignal.viewmodels.VoiceMessagingViewModelFactory
 
 @Composable
 fun NavGraph() {
@@ -79,6 +81,10 @@ fun NavGraph() {
 
         composable(Routes.ELDERLY) {
 
+            // Norman: records into mailbox 1, plays Sadie's (mailbox 2).
+            val voiceVm: VoiceMessagingViewModel =
+                viewModel(factory = VoiceMessagingViewModelFactory(repository, selfId = 1, peerId = 2))
+
             // Re-poll so Norman's screen also resets after the day window: once his
             // check-in expires he sees the check-in (and voice) UI again.
             LaunchedEffect(Unit) {
@@ -94,6 +100,7 @@ fun NavGraph() {
             val state = elderlyViewModel.uiState.collectAsState().value
 
             ElderlyScreen(
+                voiceVm = voiceVm,
                 state = state,
                 onOkayClick = {
                     elderlyViewModel.onOkayClick(1) {
@@ -108,14 +115,16 @@ fun NavGraph() {
                 onReplyLaterClick = {
                     navController.navigate(Routes.THANK_YOU)
                 },
-                onVoiceRecorded = { audio ->
-                    elderlyViewModel.onVoiceRecorded(1, audio)
-                },
-                onSwitchRole = switchRole
+                onSwitchRole = switchRole,
+                onCheckInRefresh = { elderlyViewModel.loadCheckIn(1, showLoading = false) }
             )
         }
 
         composable(Routes.ADULT) {
+
+            // Sadie: records into mailbox 2, plays Norman's (mailbox 1).
+            val voiceVm: VoiceMessagingViewModel =
+                viewModel(factory = VoiceMessagingViewModelFactory(repository, selfId = 2, peerId = 1))
 
             // Re-poll the check-in status so the screen reflects the day window
             // expiring (Norman drops back to "not checked in" after ~30s).
@@ -127,7 +136,7 @@ fun NavGraph() {
                 }
             }
 
-            AdultScreen(adultViewModel, onSwitchRole = switchRole)
+            AdultScreen(viewModel = adultViewModel, voiceVm = voiceVm, onSwitchRole = switchRole)
         }
 
         composable(Routes.THANK_YOU) {
