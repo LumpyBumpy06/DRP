@@ -94,19 +94,12 @@ private fun getDeadColor(original: Color): Color {
     )
 }
 
-/**
- * The shared tree. [stage] (backend growth) sets the Lottie progress; [deathLevel]
- * wilts it: leaves dry to brown, the whole tree shrinks, and every 0.4 of death
- * regresses the growth stage by one (so neglect literally un-grows the tree).
- */
 @Composable
 fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.tree))
     val death = deathLevel.coerceIn(0f, 1f)
 
-    // Regress the growth stage: −1 stage for every 0.4 of death.
-    val regress = (death / 0.4f).toInt()
-    val idx = (stage - regress).coerceIn(0, STAGE_ENDPOINTS.lastIndex)
+    val idx = (stage).coerceIn(0, STAGE_ENDPOINTS.lastIndex)
 
     val progress by animateFloatAsState(
         targetValue = STAGE_ENDPOINTS[idx],
@@ -124,12 +117,6 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
         },
         animationSpec = tween(1500, easing = FastOutSlowInEasing),
         label = "tree-zoom",
-    )
-    // Shrink as it dies.
-    val wiltScale by animateFloatAsState(
-        targetValue = 1f - 0.3f * death,
-        animationSpec = tween(1500, easing = FastOutSlowInEasing),
-        label = "tree-wilt",
     )
 
     // Target every individual color blob in the leaf layers to preserve depth.
@@ -166,7 +153,7 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                 .size(220.dp)
                 .offset(y = 24.dp)
                 .graphicsLayer {
-                    val f = zoom * 1.9f * wiltScale
+                    val f = zoom * 1.9f // * wiltScale
                     scaleX = f
                     scaleY = f
                     transformOrigin = TransformOrigin(0.5f, 0.89f)
