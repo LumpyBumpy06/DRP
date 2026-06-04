@@ -190,18 +190,6 @@ private fun LottieTreeAnimation() {
         label = ""
     )
 
-    val treeOffsetY by animateDpAsState(
-        targetValue = when (animationState) {
-            0 -> 60.dp
-            1 -> 55.dp
-            2 -> 40.dp
-            3 -> 25.dp
-            4 -> 10.dp
-            else -> 0.dp
-        },
-        label = ""
-    )
-
     val clipSpec =
         if (animationState == 0) {
             LottieClipSpec.Progress(
@@ -241,16 +229,21 @@ private fun LottieTreeAnimation() {
             contentAlignment = Alignment.BottomCenter
         ) {
             LottieAnimation(
-
                 composition = composition,
                 progress = { progress },
                 modifier = Modifier
-                    .scale(2.0f)
                     .size(200.dp)
+                    // Offset the animation down so the tree base (at 89% height)
+                    // sits exactly at the bottom of the 200dp bounds.
+                    // 200dp * (1 - 0.89) = 22dp
+                    .offset(y = 22.dp)
                     .graphicsLayer {
-                        scaleX = treeScale
-                        scaleY = treeScale
-                        transformOrigin = TransformOrigin(0.5f, 0.75f)
+                        val finalScale = treeScale * 2.0f
+                        scaleX = finalScale
+                        scaleY = finalScale
+                        // Anchor the transformation at the base of the tree (approx 89% down)
+                        // so it stays perfectly still during zoom changes.
+                        transformOrigin = TransformOrigin(0.5f, 0.89f)
                     }
             )
         }
