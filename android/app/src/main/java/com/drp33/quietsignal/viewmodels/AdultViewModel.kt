@@ -31,9 +31,18 @@ class AdultViewModel(
                     "CHECKED_IN", "VOICE_MESSAGE" -> {
                         state = state.copy(checkedIn = true)
                     }
+                    // Norman pressed the SOS button — surface the emergency popup.
+                    "EMERGENCY" -> {
+                        state = state.copy(emergency = true)
+                    }
                 }
             }
         }
+    }
+
+    /** Sadie acknowledged the emergency ("All good") — clear the popup. */
+    fun dismissEmergency() {
+        state = state.copy(emergency = false)
     }
 
     fun loadInitialState(userId: Int) {

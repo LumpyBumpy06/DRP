@@ -84,6 +84,30 @@ def tap_okay(user_id: int, session: Session = SessionDependency) -> dict:
     return {"ok": True, "timestamp": event.timestamp.isoformat()}
 
 
+# ---------- EMERGENCY ----------
+
+
+@app.post("/emergency")
+def trigger_emergency(user_id: int, session: Session = SessionDependency) -> dict:
+    """Immediately alert everyone linked to `user_id` that they need help.
+
+    Unlike a check-in this carries no "I'm okay" meaning — it's a one-way SOS
+    that pushes a high-priority notification so the carer is alerted at once.
+    """
+    sender_name = USER_NAMES.get(user_id, "Someone")
+
+    for linked_id in get_linked_users(session, user_id):
+        linked_user = session.get(User, linked_id)
+        if linked_user and linked_user.token:
+            send_notification(
+                linked_user.token,
+                f"🚨 {sender_name} needs help right now!",
+                message_type="EMERGENCY",
+            )
+
+    return {"ok": True}
+
+
 # ---------- VOICE ----------
 
 

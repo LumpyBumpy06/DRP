@@ -27,6 +27,9 @@ interface CheckInAPI {
 //    suspend fun postSendOkay(@Body request: OkayRequest)
     suspend fun postSendOkay(@Query("user_id") userId: Int)
 
+    @POST("emergency")
+    suspend fun postEmergency(@Query("user_id") userId: Int)
+
     @GET("okay")
     suspend fun getOkayStatus(
         @Query("user_id") userId: Int

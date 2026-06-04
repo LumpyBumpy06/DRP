@@ -1,8 +1,16 @@
 import app.main as main_module
 from app.main import app
+from app.models import User
 from fastapi.testclient import TestClient
 
 client = TestClient(app)
+
+
+class _FakeSession:
+    """Minimal stand-in for the request session — only `.get` is used here."""
+
+    def get(self, model, key):
+        return User(user_id=key, token=f"token-{key}")
 
 
 def test_root() -> None:
@@ -50,3 +58,30 @@ def test_voice_latest_404_when_expired_or_missing(monkeypatch) -> None:
     response = client.get("/voice/latest", params={"user_id": 99})
 
     assert response.status_code == 404
+
+
+def test_emergency_alerts_linked_users(monkeypatch) -> None:
+    sent: list[tuple[str, str, str | None]] = []
+
+    monkeypatch.setattr(main_module, "get_linked_users", lambda session, user_id: [2])
+    monkeypatch.setattr(
+        main_module,
+        "send_notification",
+        lambda token, message, message_type=None: sent.append((token, message, message_type)),
+    )
+
+    app.dependency_overrides[main_module.SessionDep] = lambda: _FakeSession()
+    try:
+        response = client.post("/emergency", params={"user_id": 1})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+
+    # Norman's (user 1) carer is alerted exactly once, with the EMERGENCY type.
+    assert len(sent) == 1
+    token, message, message_type = sent[0]
+    assert token == "token-2"
+    assert message_type == "EMERGENCY"
+    assert "Norman" in message

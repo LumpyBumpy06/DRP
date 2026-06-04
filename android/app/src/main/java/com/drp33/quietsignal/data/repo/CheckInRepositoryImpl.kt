@@ -23,6 +23,10 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
         api.postSendOkay(userId)
     }
 
+    override suspend fun sendEmergency(userId: Int): Result<Unit> = runCatching {
+        api.postEmergency(userId)
+    }
+
     override suspend fun getOkayStatus(userId: Int): Result<Boolean> = runCatching {
         val res = api.getOkayStatus(userId).okay
         Log.i("JAYCE", "Returned result is $res")
