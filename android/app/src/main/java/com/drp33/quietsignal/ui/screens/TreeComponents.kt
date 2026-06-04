@@ -2,7 +2,12 @@ package com.drp33.quietsignal.ui.screens
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +23,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,6 +34,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.airbnb.lottie.LottieProperty
+import com.airbnb.lottie.value.ScaleXY
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieDynamicProperty
@@ -48,32 +53,59 @@ fun deathStateOf(deathLevel: Float): DeathState = when {
     else -> DeathState.HEALTHY
 }
 
-private val HEALTHY_LEAF = Color(0xFF4CAF50)
-private val DEAD_LEAF = Color(0xFFBC8F8F) // dried-leaf brown, distinct from the trunk
-
-// The green leaf-cluster layers in tree.json (the trunk/branch layers are left brown).
-private val LEAF_LAYERS = listOf(
-    "Layer 5 Outlines", "Layer 4 Outlines", "Layer 4 Outlines 2", "Layer 3 Outlines",
-    "Layer 2 Outlines", "Layer 2 Outlines 2", "Layer 12 Outlines", "Layer 8 Outlines",
-    "Layer 16 Outlines", "Layer 11 Outlines", "Layer 10 Outlines", "Layer 9 Outlines",
-    "Layer 7 Outlines",
-)
-
 private val STAGE_ENDPOINTS = listOf(0.20f, 0.33f, 0.50f, 0.66f, 0.80f, 1.00f)
 
+private data class LeafBlob(val layer: String, val group: String, val originalColor: Color)
+
+private val LEAF_BLOBS = listOf(
+    LeafBlob("Layer 5 Outlines", "Group 1", Color(0.0745f, 0.3882f, 0.2471f)),
+    LeafBlob("Layer 5 Outlines", "Group 2", Color(0.0588f, 0.3176f, 0.1922f)),
+    LeafBlob("Layer 4 Outlines 2", "Group 1", Color(0.0745f, 0.3882f, 0.2471f)),
+    LeafBlob("Layer 4 Outlines 2", "Group 2", Color(0.0549f, 0.3176f, 0.1922f)),
+    LeafBlob("Layer 4 Outlines", "Group 1", Color(0.0745f, 0.3882f, 0.2471f)),
+    LeafBlob("Layer 4 Outlines", "Group 2", Color(0.0549f, 0.3176f, 0.1922f)),
+    LeafBlob("Layer 3 Outlines", "Group 1", Color(0.0745f, 0.3882f, 0.2471f)),
+    LeafBlob("Layer 3 Outlines", "Group 2", Color(0.0549f, 0.3176f, 0.1922f)),
+    LeafBlob("Layer 2 Outlines", "Group 1", Color(0.1216f, 0.5608f, 0.3843f)),
+    LeafBlob("Layer 2 Outlines", "Group 2", Color(0.0941f, 0.4784f, 0.3137f)),
+    LeafBlob("Layer 12 Outlines", "Group 1", Color(0.1294f, 0.4667f, 0.302f)),
+    LeafBlob("Layer 12 Outlines", "Group 2", Color(0.0588f, 0.3176f, 0.1922f)),
+    LeafBlob("Layer 2 Outlines 2", "Group 1", Color(0.1216f, 0.5608f, 0.3843f)),
+    LeafBlob("Layer 2 Outlines 2", "Group 2", Color(0.0941f, 0.4784f, 0.3137f)),
+    LeafBlob("Layer 11 Outlines", "Group 1", Color(0.0745f, 0.3882f, 0.2471f)),
+    LeafBlob("Layer 11 Outlines", "Group 2", Color(0.0549f, 0.3176f, 0.1922f)),
+    LeafBlob("Layer 10 Outlines", "Group 1", Color(0.1294f, 0.4667f, 0.302f)),
+    LeafBlob("Layer 10 Outlines", "Group 2", Color(0.0549f, 0.3176f, 0.1922f)),
+    LeafBlob("Layer 9 Outlines", "Group 1", Color(0.1216f, 0.5608f, 0.3843f)),
+    LeafBlob("Layer 9 Outlines", "Group 2", Color(0.0588f, 0.3176f, 0.1922f)),
+    LeafBlob("Layer 8 Outlines", "Group 1", Color(0.1216f, 0.5608f, 0.3843f)),
+    LeafBlob("Layer 8 Outlines", "Group 2", Color(0.0941f, 0.4784f, 0.3137f)),
+    LeafBlob("Layer 7 Outlines", "Group 1", Color(0.051f, 0.3176f, 0.1922f)),
+    LeafBlob("Layer 7 Outlines", "Group 2", Color(0.0431f, 0.2588f, 0.149f)),
+    LeafBlob("Layer 16 Outlines", "Group 1", Color(0.1294f, 0.4667f, 0.302f)),
+    LeafBlob("Layer 16 Outlines", "Group 2", Color(0.0588f, 0.3176f, 0.1922f)),
+)
+
 /**
- * The shared tree. [stage] (backend growth) sets the Lottie progress; [deathLevel]
- * wilts it: leaves dry to brown, the whole tree shrinks, and every 0.4 of death
- * regresses the growth stage by one (so neglect literally un-grows the tree).
+ * Calculates a dried-leaf brown version of a green color while preserving its
+ * relative brightness and contrast to maintain the illusion of depth.
  */
+private fun getDeadColor(original: Color): Color {
+    // Dried-leaf brown base: approximately Rosy Brown (0xFFBC8F8F)
+    val brightness = (original.red + original.green + original.blue) / 3f
+    return Color(
+        red = ((0.74f * brightness) + 0.1f).coerceIn(0f, 1f),
+        green = (0.56f * brightness).coerceIn(0f, 1f),
+        blue = (0.56f * brightness).coerceIn(0f, 1f),
+    )
+}
+
 @Composable
 fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.tree))
     val death = deathLevel.coerceIn(0f, 1f)
 
-    // Regress the growth stage: −1 stage for every 0.4 of death.
-    val regress = (death / 0.4f).toInt()
-    val idx = (stage - regress).coerceIn(0, STAGE_ENDPOINTS.lastIndex)
+    val idx = (stage).coerceIn(0, STAGE_ENDPOINTS.lastIndex)
 
     val progress by animateFloatAsState(
         targetValue = STAGE_ENDPOINTS[idx],
@@ -92,27 +124,81 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
         animationSpec = tween(1500, easing = FastOutSlowInEasing),
         label = "tree-zoom",
     )
-    // Shrink as it dies.
-    val wiltScale by animateFloatAsState(
-        targetValue = 1f - 0.3f * death,
-        animationSpec = tween(1500, easing = FastOutSlowInEasing),
-        label = "tree-wilt",
-    )
-    // Leaves dry from green to brown.
-    val leafColor by animateColorAsState(
-        targetValue = lerp(HEALTHY_LEAF, DEAD_LEAF, death),
-        animationSpec = tween(1500, easing = FastOutSlowInEasing),
-        label = "leaf-color",
+
+    // "Life" animation: subtle swaying and breathing
+    val infiniteTransition = rememberInfiniteTransition(label = "tree-life")
+
+    val baseSway by infiniteTransition.animateFloat(
+        initialValue = -3.5f,
+        targetValue = 3.5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "base-sway",
     )
 
-    val leafArgb = leafColor.toArgb()
-    val props = ArrayList<LottieDynamicProperty<Int>>(LEAF_LAYERS.size)
-    for (layer in LEAF_LAYERS) {
+    val basePulse by infiniteTransition.animateFloat(
+        initialValue = 0.99f,
+        targetValue = 1.01f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "base-pulse",
+    )
+
+    // Target every individual color blob in the leaf layers to preserve depth.
+    val props = ArrayList<LottieDynamicProperty<*>>(LEAF_BLOBS.size * 4)
+    LEAF_BLOBS.forEachIndexed { i, blob ->
+        val targetColor = lerp(blob.originalColor, getDeadColor(blob.originalColor), death)
+        val animatedColor by animateColorAsState(
+            targetValue = targetColor,
+            animationSpec = tween(1500, easing = FastOutSlowInEasing),
+            label = "blob-${blob.layer}-${blob.group}",
+        )
+
+        // Color property
         props.add(
             rememberLottieDynamicProperty(
                 property = LottieProperty.COLOR,
-                value = leafArgb,
-                keyPath = arrayOf(layer, "**"),
+                value = animatedColor.toArgb(),
+                keyPath = arrayOf("**", blob.layer, blob.group, "**"),
+            ),
+        )
+
+        // Sway (Rotation) with slight phase/magnitude variation
+        val individualSway = baseSway * (0.8f + ((i % 5) * 0.1f))
+        props.add(
+            rememberLottieDynamicProperty(
+                property = LottieProperty.TRANSFORM_ROTATION,
+                value = individualSway,
+                keyPath = arrayOf("**", blob.layer, blob.group, "**"),
+            ),
+        )
+
+        // Pulse (Scale) with slight variation
+        val individualPulse = basePulse * (0.995f + ((i % 3) * 0.005f))
+        props.add(
+            rememberLottieDynamicProperty(
+                property = LottieProperty.TRANSFORM_SCALE,
+                value = ScaleXY(individualPulse, individualPulse),
+                keyPath = arrayOf("**", blob.layer, blob.group, "**"),
+            ),
+        )
+
+        // Opacity: hide leaves in DEAD state (deathLevel >= 0.95)
+        val leafOpacity = if (death >= 0.95f) 0 else 100
+        val animatedOpacity by animateIntAsState(
+            targetValue = leafOpacity,
+            animationSpec = tween(1500, easing = FastOutSlowInEasing),
+            label = "opacity-${blob.layer}-${blob.group}",
+        )
+        props.add(
+            rememberLottieDynamicProperty(
+                property = LottieProperty.OPACITY,
+                value = animatedOpacity,
+                keyPath = arrayOf("**", blob.layer, blob.group, "**"),
             ),
         )
     }
@@ -132,7 +218,7 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                 .size(220.dp)
                 .offset(y = 24.dp)
                 .graphicsLayer {
-                    val f = zoom * 1.9f * wiltScale
+                    val f = zoom * 1.9f // * wiltScale
                     scaleX = f
                     scaleY = f
                     transformOrigin = TransformOrigin(0.5f, 0.89f)
