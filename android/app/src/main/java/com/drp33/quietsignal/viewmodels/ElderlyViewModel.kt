@@ -28,6 +28,15 @@ class ElderlyViewModel(
         }
     }
 
+    /** Fire an emergency alert to the linked carer. Fire-and-forget like the okay tap. */
+    fun sendEmergency(userId: Int) {
+        viewModelScope.launch {
+            repository.sendEmergency(userId)
+                .onSuccess { Log.i("Elderly", "Emergency alert sent for $userId") }
+                .onFailure { Log.e("Elderly", "Emergency alert failed", it) }
+        }
+    }
+
     fun loadCheckIn(userId: Int, showLoading: Boolean = true){
         viewModelScope.launch {
             if (showLoading) {

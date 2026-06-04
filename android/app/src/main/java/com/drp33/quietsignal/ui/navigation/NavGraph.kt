@@ -116,7 +116,8 @@ fun NavGraph() {
                     navController.navigate(Routes.THANK_YOU)
                 },
                 onSwitchRole = switchRole,
-                onCheckInRefresh = { elderlyViewModel.loadCheckIn(1, showLoading = false) }
+                onCheckInRefresh = { elderlyViewModel.loadCheckIn(1, showLoading = false) },
+                onEmergencyClick = { elderlyViewModel.sendEmergency(1) },
             )
         }
 
