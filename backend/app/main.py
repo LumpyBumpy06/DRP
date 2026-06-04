@@ -11,6 +11,7 @@ from app.crud import (
     create_okay_event,
     get_latest_okay_event,
     get_linked_users,
+    get_okay_timestamps,
     is_okay_within_6h,
     raise_emergency,
     upsert_user_token,
@@ -20,12 +21,17 @@ from app.models import User
 from app.services.firebase import init_firebase
 from app.services.notifications import send_notification
 from app.services.storage import download_audio, latest_recent_object_name, upload_audio
+from app.services.tree import compute_tree_state
 from app.settings import get_settings
 
 app = FastAPI()
 
 # Display names for push messages (demo: two fixed users).
 USER_NAMES = {1: "Norman", 2: "Sadie"}
+
+# How long a voice clip stays playable. Decoupled from the (tiny) tree day-window
+# so clips don't expire before the listener can open them.
+VOICE_TTL_SECONDS = 60
 
 
 # ---------- ENGINE (stateless per deployment) ----------
@@ -75,16 +81,42 @@ def get_okay(user_id: int, session: Session = SessionDependency) -> dict[str, bo
 
 @app.post("/okay")
 def tap_okay(user_id: int, session: Session = SessionDependency) -> dict:
+    """Water the shared tree. Notifies the partner with a teamwork nudge."""
     event = create_okay_event(session, user_id)
+    _notify_watering(session, user_id, "CHECKED_IN")
+    return {"ok": True, "timestamp": event.timestamp.isoformat()}
 
-    linked_users = get_linked_users(session, user_id)
 
-    for linked_id in linked_users:
+# ---------- TREE (shared "watering" state) ----------
+
+
+@app.get("/tree")
+def get_tree(session: Session = SessionDependency) -> dict:
+    """The shared tree state — same for Norman and Sadie (a pure function of history)."""
+    return compute_tree_state(
+        get_okay_timestamps(session, 1),
+        get_okay_timestamps(session, 2),
+        datetime.now(UTC),
+        CHECK_IN_WINDOW_SECONDS,
+    )
+
+
+def _notify_watering(session: Session, sender_id: int, message_type: str) -> None:
+    """Tell the partner that `sender_id` just watered, nudging them to join in."""
+    state = compute_tree_state(
+        get_okay_timestamps(session, 1),
+        get_okay_timestamps(session, 2),
+        datetime.now(UTC),
+        CHECK_IN_WINDOW_SECONDS,
+    )
+    sender_name = USER_NAMES.get(sender_id, "Someone")
+
+    for linked_id in get_linked_users(session, sender_id):
         linked_user = session.get(User, linked_id)
         if linked_user and linked_user.token:
-            send_notification(linked_user.token, f"User {user_id} checked in OK")
-
-    return {"ok": True, "timestamp": event.timestamp.isoformat()}
+            peer_name = USER_NAMES.get(linked_id, "your partner")
+            message = f"🌱 {sender_name} watered the tree (stage {state['stage']}) — {peer_name}, keep it growing together!"
+            send_notification(linked_user.token, message, message_type=message_type)
 
 
 # ---------- EMERGENCY ----------
@@ -155,14 +187,9 @@ async def receive_voice(file: UploadFile, session: Session = SessionDependency) 
 
     sender_id = _sender_id_from(object_name)
     if sender_id is not None:
-        # Recording a voice message counts as today's "I'm okay" check-in.
+        # A voice message also "waters" the shared tree.
         create_okay_event(session, sender_id)
-
-        sender_name = USER_NAMES.get(sender_id, "Someone")
-        for linked_id in get_linked_users(session, sender_id):
-            linked_user = session.get(User, linked_id)
-            if linked_user and linked_user.token:
-                send_notification(linked_user.token, f"{sender_name} sent a voice message", message_type="VOICE_MESSAGE")
+        _notify_watering(session, sender_id, "VOICE_MESSAGE")
 
     return {"object": object_name, "bytes": len(data)}
 
@@ -181,7 +208,7 @@ def get_latest_voice(user_id: int) -> Response:
     A voice message expires with the check-in window, so once a "day"
     (CHECK_IN_WINDOW_SECONDS) has passed the listener can no longer play it.
     """
-    object_name = latest_recent_object_name(settings, f"{user_id}/", CHECK_IN_WINDOW_SECONDS)
+    object_name = latest_recent_object_name(settings, f"{user_id}/", VOICE_TTL_SECONDS)
     if object_name is None:
         raise HTTPException(status_code=404, detail="No current voice message")
 

@@ -8,6 +8,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -88,6 +89,7 @@ fun VoiceRecorderButton(
     )
     val rippleColor = MaterialTheme.colorScheme.error
 
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
     Box(contentAlignment = Alignment.Center) {
         if (isRecording && level > 0f) {
             Box(
@@ -134,6 +136,7 @@ fun VoiceRecorderButton(
         text = if (isRecording) "Listening…" else idleLabel,
         style = MaterialTheme.typography.titleMedium,
     )
+    }
 }
 
 /**
