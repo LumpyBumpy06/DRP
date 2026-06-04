@@ -2,7 +2,12 @@ package com.drp33.quietsignal.ui.screens
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +23,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,6 +33,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.airbnb.lottie.LottieProperty
+import com.airbnb.lottie.value.ScaleXY
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieDynamicProperty
@@ -88,9 +93,9 @@ private fun getDeadColor(original: Color): Color {
     // Dried-leaf brown base: approximately Rosy Brown (0xFFBC8F8F)
     val brightness = (original.red + original.green + original.blue) / 3f
     return Color(
-        red = (0.74f * brightness + 0.1f).coerceIn(0f, 1f),
+        red = ((0.74f * brightness) + 0.1f).coerceIn(0f, 1f),
         green = (0.56f * brightness).coerceIn(0f, 1f),
-        blue = (0.56f * brightness).coerceIn(0f, 1f)
+        blue = (0.56f * brightness).coerceIn(0f, 1f),
     )
 }
 
@@ -119,20 +124,79 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
         label = "tree-zoom",
     )
 
+    // "Life" animation: subtle swaying and breathing
+    val infiniteTransition = rememberInfiniteTransition(label = "tree-life")
+
+    val baseSway by infiniteTransition.animateFloat(
+        initialValue = -3.5f,
+        targetValue = 3.5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "base-sway",
+    )
+
+    val basePulse by infiniteTransition.animateFloat(
+        initialValue = 0.99f,
+        targetValue = 1.01f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "base-pulse",
+    )
+
     // Target every individual color blob in the leaf layers to preserve depth.
-    val props = ArrayList<LottieDynamicProperty<Int>>(LEAF_BLOBS.size)
-    for (blob in LEAF_BLOBS) {
+    val props = ArrayList<LottieDynamicProperty<*>>(LEAF_BLOBS.size * 4)
+    LEAF_BLOBS.forEachIndexed { i, blob ->
         val targetColor = lerp(blob.originalColor, getDeadColor(blob.originalColor), death)
         val animatedColor by animateColorAsState(
             targetValue = targetColor,
             animationSpec = tween(1500, easing = FastOutSlowInEasing),
             label = "blob-${blob.layer}-${blob.group}",
         )
-        
+
+        // Color property
         props.add(
             rememberLottieDynamicProperty(
                 property = LottieProperty.COLOR,
                 value = animatedColor.toArgb(),
+                keyPath = arrayOf("**", blob.layer, blob.group, "**"),
+            ),
+        )
+
+        // Sway (Rotation) with slight phase/magnitude variation
+        val individualSway = baseSway * (0.8f + ((i % 5) * 0.1f))
+        props.add(
+            rememberLottieDynamicProperty(
+                property = LottieProperty.TRANSFORM_ROTATION,
+                value = individualSway,
+                keyPath = arrayOf("**", blob.layer, blob.group, "**"),
+            ),
+        )
+
+        // Pulse (Scale) with slight variation
+        val individualPulse = basePulse * (0.995f + ((i % 3) * 0.005f))
+        props.add(
+            rememberLottieDynamicProperty(
+                property = LottieProperty.TRANSFORM_SCALE,
+                value = ScaleXY(individualPulse, individualPulse),
+                keyPath = arrayOf("**", blob.layer, blob.group, "**"),
+            ),
+        )
+
+        // Opacity: hide leaves in DEAD state (deathLevel >= 0.95)
+        val leafOpacity = if (death >= 0.95f) 0 else 100
+        val animatedOpacity by animateIntAsState(
+            targetValue = leafOpacity,
+            animationSpec = tween(1500, easing = FastOutSlowInEasing),
+            label = "opacity-${blob.layer}-${blob.group}",
+        )
+        props.add(
+            rememberLottieDynamicProperty(
+                property = LottieProperty.OPACITY,
+                value = animatedOpacity,
                 keyPath = arrayOf("**", blob.layer, blob.group, "**"),
             ),
         )
