@@ -47,20 +47,52 @@ fun deathStateOf(deathLevel: Float): DeathState = when {
     else -> DeathState.HEALTHY
 }
 
-private val HEALTHY_LEAF = Color(0xFF4CAF50)
-private val HEALTHY_OUTLINE = Color(0xFF2E7D32) // Darker green for outline
-private val DEAD_LEAF = Color(0xFFBC8F8F) // dried-leaf brown, distinct from the trunk
-private val DEAD_OUTLINE = Color(0xFF6F4E4E) // Darker brown for outline
+private val STAGE_ENDPOINTS = listOf(0.20f, 0.33f, 0.50f, 0.66f, 0.80f, 1.00f)
 
-// The green leaf-cluster layers in tree.json (the trunk/branch layers are left brown).
-private val LEAF_LAYERS = listOf(
-    "Layer 5 Outlines", "Layer 4 Outlines", "Layer 4 Outlines 2", "Layer 3 Outlines",
-    "Layer 2 Outlines", "Layer 2 Outlines 2", "Layer 12 Outlines", "Layer 8 Outlines",
-    "Layer 16 Outlines", "Layer 11 Outlines", "Layer 10 Outlines", "Layer 9 Outlines",
-    "Layer 7 Outlines",
+private data class LeafBlob(val layer: String, val group: String, val originalColor: Color)
+
+private val LEAF_BLOBS = listOf(
+    LeafBlob("Layer 5 Outlines", "Group 1", Color(0.0745f, 0.3882f, 0.2471f)),
+    LeafBlob("Layer 5 Outlines", "Group 2", Color(0.0588f, 0.3176f, 0.1922f)),
+    LeafBlob("Layer 4 Outlines 2", "Group 1", Color(0.0745f, 0.3882f, 0.2471f)),
+    LeafBlob("Layer 4 Outlines 2", "Group 2", Color(0.0549f, 0.3176f, 0.1922f)),
+    LeafBlob("Layer 4 Outlines", "Group 1", Color(0.0745f, 0.3882f, 0.2471f)),
+    LeafBlob("Layer 4 Outlines", "Group 2", Color(0.0549f, 0.3176f, 0.1922f)),
+    LeafBlob("Layer 3 Outlines", "Group 1", Color(0.0745f, 0.3882f, 0.2471f)),
+    LeafBlob("Layer 3 Outlines", "Group 2", Color(0.0549f, 0.3176f, 0.1922f)),
+    LeafBlob("Layer 2 Outlines", "Group 1", Color(0.1216f, 0.5608f, 0.3843f)),
+    LeafBlob("Layer 2 Outlines", "Group 2", Color(0.0941f, 0.4784f, 0.3137f)),
+    LeafBlob("Layer 12 Outlines", "Group 1", Color(0.1294f, 0.4667f, 0.302f)),
+    LeafBlob("Layer 12 Outlines", "Group 2", Color(0.0588f, 0.3176f, 0.1922f)),
+    LeafBlob("Layer 2 Outlines 2", "Group 1", Color(0.1216f, 0.5608f, 0.3843f)),
+    LeafBlob("Layer 2 Outlines 2", "Group 2", Color(0.0941f, 0.4784f, 0.3137f)),
+    LeafBlob("Layer 11 Outlines", "Group 1", Color(0.0745f, 0.3882f, 0.2471f)),
+    LeafBlob("Layer 11 Outlines", "Group 2", Color(0.0549f, 0.3176f, 0.1922f)),
+    LeafBlob("Layer 10 Outlines", "Group 1", Color(0.1294f, 0.4667f, 0.302f)),
+    LeafBlob("Layer 10 Outlines", "Group 2", Color(0.0549f, 0.3176f, 0.1922f)),
+    LeafBlob("Layer 9 Outlines", "Group 1", Color(0.1216f, 0.5608f, 0.3843f)),
+    LeafBlob("Layer 9 Outlines", "Group 2", Color(0.0588f, 0.3176f, 0.1922f)),
+    LeafBlob("Layer 8 Outlines", "Group 1", Color(0.1216f, 0.5608f, 0.3843f)),
+    LeafBlob("Layer 8 Outlines", "Group 2", Color(0.0941f, 0.4784f, 0.3137f)),
+    LeafBlob("Layer 7 Outlines", "Group 1", Color(0.051f, 0.3176f, 0.1922f)),
+    LeafBlob("Layer 7 Outlines", "Group 2", Color(0.0431f, 0.2588f, 0.149f)),
+    LeafBlob("Layer 16 Outlines", "Group 1", Color(0.1294f, 0.4667f, 0.302f)),
+    LeafBlob("Layer 16 Outlines", "Group 2", Color(0.0588f, 0.3176f, 0.1922f)),
 )
 
-private val STAGE_ENDPOINTS = listOf(0.20f, 0.33f, 0.50f, 0.66f, 0.80f, 1.00f)
+/**
+ * Calculates a dried-leaf brown version of a green color while preserving its
+ * relative brightness and contrast to maintain the illusion of depth.
+ */
+private fun getDeadColor(original: Color): Color {
+    // Dried-leaf brown base: approximately Rosy Brown (0xFFBC8F8F)
+    val brightness = (original.red + original.green + original.blue) / 3f
+    return Color(
+        red = (0.74f * brightness + 0.1f).coerceIn(0f, 1f),
+        green = (0.56f * brightness).coerceIn(0f, 1f),
+        blue = (0.56f * brightness).coerceIn(0f, 1f)
+    )
+}
 
 /**
  * The shared tree. [stage] (backend growth) sets the Lottie progress; [deathLevel]
@@ -99,48 +131,25 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
         animationSpec = tween(1500, easing = FastOutSlowInEasing),
         label = "tree-wilt",
     )
-    // Leaves dry from green to brown.
-    val leafColor by animateColorAsState(
-        targetValue = lerp(HEALTHY_LEAF, DEAD_LEAF, death),
-        animationSpec = tween(1500, easing = FastOutSlowInEasing),
-        label = "leaf-color",
-    )
-    val leafOutlineColor by animateColorAsState(
-        targetValue = lerp(HEALTHY_OUTLINE, DEAD_OUTLINE, death),
-        animationSpec = tween(1500, easing = FastOutSlowInEasing),
-        label = "leaf-outline-color",
-    )
 
-    val leafArgb = leafColor.toArgb()
-    val outlineArgb = leafOutlineColor.toArgb()
-//    val props = ArrayList<LottieDynamicProperty<Int>>(LEAF_LAYERS.size * 2)
-//    for (layer in LEAF_LAYERS) {
-//        // Main leaf body (Group 1 in tree.json)
-//        props.add(
-//            rememberLottieDynamicProperty(
-//                property = LottieProperty.COLOR,
-//                value = leafArgb,
-//                keyPath = arrayOf("**", layer, "Group 1", "**"),
-//            ),
-//        )
-//        // Leaf outline (Group 2 in tree.json)
-//        props.add(
-//            rememberLottieDynamicProperty(
-//                property = LottieProperty.COLOR,
-//                value = outlineArgb,
-//                keyPath = arrayOf("**", layer, "Group 2", "**"),
-//            ),
-//        )
-//    }
-
-    val props = listOf(
-        rememberLottieDynamicProperty(
-            property = LottieProperty.COLOR,
-            value = Color.Red.toArgb(),
-            keyPath = arrayOf("**", "Layer 16 Outlines", "**", "Fill 1")
+    // Target every individual color blob in the leaf layers to preserve depth.
+    val props = ArrayList<LottieDynamicProperty<Int>>(LEAF_BLOBS.size)
+    for (blob in LEAF_BLOBS) {
+        val targetColor = lerp(blob.originalColor, getDeadColor(blob.originalColor), death)
+        val animatedColor by animateColorAsState(
+            targetValue = targetColor,
+            animationSpec = tween(1500, easing = FastOutSlowInEasing),
+            label = "blob-${blob.layer}-${blob.group}",
         )
-    )
-
+        
+        props.add(
+            rememberLottieDynamicProperty(
+                property = LottieProperty.COLOR,
+                value = animatedColor.toArgb(),
+                keyPath = arrayOf("**", blob.layer, blob.group, "**"),
+            ),
+        )
+    }
     val dynamicProperties = rememberLottieDynamicProperties(*props.toTypedArray())
 
     Box(
