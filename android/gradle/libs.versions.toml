@@ -13,6 +13,7 @@ composeBom = "2026.02.01"
 loggingInterceptor = "5.3.2"
 navigationCompose = "2.9.8"
 retrofit = "3.0.0"
+lottie = "6.7.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -35,6 +36,7 @@ androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-te
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 logging-interceptor = { module = "com.squareup.okhttp3:logging-interceptor", version.ref = "loggingInterceptor" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
+lottie-compose = { module = "com.airbnb.android:lottie-compose", version.ref = "lottie" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

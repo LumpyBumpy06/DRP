@@ -1,14 +1,19 @@
 package com.drp33.quietsignal.ui.screens
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,16 +27,26 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieClipSpec
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
+import com.drp33.quietsignal.R
 import com.drp33.quietsignal.model.ElderlyUIState
 import com.drp33.quietsignal.util.vibrateDoubleTap
 import com.drp33.quietsignal.viewmodels.VoiceMessagingViewModel
@@ -63,6 +78,10 @@ fun ElderlyScreen(
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            LottieTreeAnimation()
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -136,6 +155,155 @@ fun ElderlyScreen(
                 .statusBarsPadding()
                 .padding(8.dp),
         )
+    }
+}
+
+@Composable
+private fun LottieTreeAnimation() {
+    val composition by rememberLottieComposition(
+        LottieCompositionSpec.RawRes(R.raw.tree)
+    )
+
+    val stageEndPoints = remember {
+        listOf(
+            0.20f, // Sapling
+            0.33f, // Young
+            0.50f, // Medium
+            0.66f, // Large
+            0.80f, // Mature
+            1.00f  // Full Tree
+        )
+    }
+
+    var animationState by remember { mutableIntStateOf(0) }
+    var isPlaying by remember { mutableStateOf(false) }
+
+    val treeScale by animateFloatAsState(
+        targetValue = when (animationState) {
+            0 -> 2.2f
+            1 -> 1.9f
+            2 -> 1.6f
+            3 -> 1.3f
+            4 -> 1.1f
+            else -> 1f
+        },
+        label = ""
+    )
+
+    val treeOffsetY by animateDpAsState(
+        targetValue = when (animationState) {
+            0 -> 60.dp
+            1 -> 55.dp
+            2 -> 40.dp
+            3 -> 25.dp
+            4 -> 10.dp
+            else -> 0.dp
+        },
+        label = ""
+    )
+
+    val clipSpec =
+        if (animationState == 0) {
+            LottieClipSpec.Progress(
+                0f,
+                stageEndPoints[0]
+            )
+        } else {
+            LottieClipSpec.Progress(
+                stageEndPoints[animationState - 1],
+                stageEndPoints[animationState]
+            )
+        }
+
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        clipSpec = clipSpec,
+        isPlaying = isPlaying,
+        restartOnPlay = false
+    )
+
+    LaunchedEffect(progress, animationState) {
+        val target = stageEndPoints.getOrNull(animationState)
+
+        if (target != null && progress >= target) {
+            isPlaying = false
+        }
+    }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(300.dp),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            LottieAnimation(
+
+                composition = composition,
+                progress = { progress },
+                modifier = Modifier
+                    .scale(2.0f)
+                    .size(200.dp)
+                    .graphicsLayer {
+                        scaleX = treeScale
+                        scaleY = treeScale
+                        transformOrigin = TransformOrigin(0.5f, 0.75f)
+                    }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+
+            Button(
+                onClick = {
+                    if (!isPlaying) {
+
+                        val target =
+                            stageEndPoints.getOrNull(animationState)
+
+                        if (target != null && progress >= target) {
+                            animationState =
+                                if (animationState >= stageEndPoints.lastIndex) {
+                                    0
+                                } else {
+                                    animationState + 1
+                                }
+                        }
+
+                        isPlaying = true
+                    }
+                }
+            ) {
+                Text(
+                    if (isPlaying)
+                        "Playing..."
+                    else
+                        "Next Stage"
+                )
+            }
+
+            Text(
+                text = buildString {
+                    append("Stage ")
+                    append(animationState + 1)
+                    append("/")
+                    append(stageEndPoints.size)
+                    append(" | ")
+                    append((progress * 100).toInt())
+                    append("%")
+                },
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
