@@ -31,6 +31,7 @@ fun AdultScreen(
     viewModel: AdultViewModel,
     voiceVm: VoiceMessagingViewModel,
     onSwitchRole: () -> Unit = {},
+    onAllGood: () -> Unit = {},
 ) {
     val state = viewModel.state
 
@@ -92,7 +93,7 @@ fun AdultScreen(
             text = { Text(text = "Norman pressed the emergency button. Please check on him right away.") },
             confirmButton = {
                 Button(
-                    onClick = { viewModel.dismissEmergency() },
+                    onClick = onAllGood,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
                 ) {
                     Text(text = "All good")

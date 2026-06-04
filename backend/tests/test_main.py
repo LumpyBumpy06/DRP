@@ -62,7 +62,9 @@ def test_voice_latest_404_when_expired_or_missing(monkeypatch) -> None:
 
 def test_emergency_alerts_linked_users(monkeypatch) -> None:
     sent: list[tuple[str, str, str | None]] = []
+    raised: list[int] = []
 
+    monkeypatch.setattr(main_module, "raise_emergency", lambda session, sender_id: raised.append(sender_id))
     monkeypatch.setattr(main_module, "get_linked_users", lambda session, user_id: [2])
     monkeypatch.setattr(
         main_module,
@@ -79,9 +81,34 @@ def test_emergency_alerts_linked_users(monkeypatch) -> None:
     assert response.status_code == 200
     assert response.json() == {"ok": True}
 
-    # Norman's (user 1) carer is alerted exactly once, with the EMERGENCY type.
+    # The SOS is persisted for the poll fallback...
+    assert raised == [1]
+    # ...and Norman's (user 1) carer is alerted exactly once, with the EMERGENCY type.
     assert len(sent) == 1
     token, message, message_type = sent[0]
     assert token == "token-2"
     assert message_type == "EMERGENCY"
     assert "Norman" in message
+
+
+def test_emergency_active_status(monkeypatch) -> None:
+    monkeypatch.setattr(main_module, "active_emergency_sender_for", lambda session, user_id: 1)
+    response = client.get("/emergency/active", params={"user_id": 2})
+    assert response.status_code == 200
+    assert response.json() == {"active": True, "sender": "Norman"}
+
+    monkeypatch.setattr(main_module, "active_emergency_sender_for", lambda session, user_id: None)
+    response = client.get("/emergency/active", params={"user_id": 2})
+    assert response.status_code == 200
+    assert response.json() == {"active": False, "sender": None}
+
+
+def test_emergency_ack_clears(monkeypatch) -> None:
+    cleared: list[int] = []
+    monkeypatch.setattr(main_module, "clear_emergencies_for", lambda session, user_id: cleared.append(user_id))
+
+    response = client.post("/emergency/ack", params={"user_id": 2})
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    assert cleared == [2]
