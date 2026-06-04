@@ -23,7 +23,7 @@ class PushNotificationService: FirebaseMessagingService() {
 
         // TODO Based on message data received from backend do some stuff.
         val type = message.data["type"]
-        if (type == "CHECKED_IN" || type == "VOICE_MESSAGE" || type == "EMERGENCY"){
+        if (type == "CHECKED_IN" || type == "VOICE_MESSAGE" || type == "EMERGENCY" || type == "PHOTO_MESSAGE"){
             CoroutineScope(Dispatchers.IO).launch {
                 NotificationBus.send(type)
             }

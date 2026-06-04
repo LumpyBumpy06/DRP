@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.airbnb.lottie.LottieProperty
@@ -142,18 +143,18 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
 
 /** A round "water the tree" button mirroring the mic button. */
 @Composable
-fun WaterButton(onWater: () -> Unit, modifier: Modifier = Modifier) {
+fun WaterButton(onWater: () -> Unit, size: Dp = 120.dp, modifier: Modifier = Modifier) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Button(
             onClick = onWater,
             shape = CircleShape,
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF29B6F6)),
-            modifier = Modifier.size(120.dp),
+            modifier = Modifier.size(size),
         ) {
-            Text(text = "💧", fontSize = 44.sp)
+            Text(text = "💧", fontSize = 40.sp)
         }
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(text = "Water the tree", style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(text = "Water", style = MaterialTheme.typography.bodyMedium)
     }
 }
 

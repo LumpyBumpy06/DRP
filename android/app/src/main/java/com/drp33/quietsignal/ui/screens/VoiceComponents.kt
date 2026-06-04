@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -57,6 +58,7 @@ import kotlinx.coroutines.delay
 fun VoiceRecorderButton(
     onRecorded: (ByteArray) -> Unit,
     idleLabel: String = "Tap to speak",
+    buttonSize: Dp = 120.dp,
 ) {
     val context = LocalContext.current
     val recorder = remember { AudioRecorder(context) }
@@ -94,7 +96,7 @@ fun VoiceRecorderButton(
         if (isRecording && level > 0f) {
             Box(
                 modifier = Modifier
-                    .size(120.dp)
+                    .size(buttonSize)
                     .scale(1f + 0.9f * level)
                     .alpha(0.45f * level)
                     .background(rippleColor, CircleShape),
@@ -123,18 +125,18 @@ fun VoiceRecorderButton(
             shape = CircleShape,
             colors = ButtonDefaults.buttonColors(containerColor = containerColor),
             modifier = Modifier
-                .size(120.dp)
+                .size(buttonSize)
                 .scale(1f + 0.18f * level),
         ) {
-            Text(text = "🎤", fontSize = 44.sp)
+            Text(text = "🎤", fontSize = 40.sp)
         }
     }
 
-    Spacer(modifier = Modifier.height(12.dp))
+    Spacer(modifier = Modifier.height(8.dp))
 
     Text(
         text = if (isRecording) "Listening…" else idleLabel,
-        style = MaterialTheme.typography.titleMedium,
+        style = MaterialTheme.typography.bodyMedium,
     )
     }
 }

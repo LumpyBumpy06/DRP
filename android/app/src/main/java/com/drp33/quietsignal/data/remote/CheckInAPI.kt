@@ -25,6 +25,13 @@ interface CheckInAPI {
     @GET("voice/latest")
     suspend fun getLatestVoice(@Query("user_id") userId: Int): ResponseBody
 
+    @Multipart
+    @POST("photo")
+    suspend fun postPhoto(@Part file: MultipartBody.Part)
+
+    @GET("photo/latest")
+    suspend fun getLatestPhoto(@Query("user_id") userId: Int): ResponseBody
+
     @POST("okay")
 //    suspend fun postSendOkay(@Body request: OkayRequest)
     suspend fun postSendOkay(@Query("user_id") userId: Int)

@@ -20,6 +20,8 @@ import com.drp33.quietsignal.viewmodels.AdultViewModel
 import com.drp33.quietsignal.viewmodels.AdultViewModelFactory
 import com.drp33.quietsignal.viewmodels.ElderlyViewModel
 import com.drp33.quietsignal.viewmodels.ElderlyViewModelFactory
+import com.drp33.quietsignal.viewmodels.PhotoMessagingViewModel
+import com.drp33.quietsignal.viewmodels.PhotoMessagingViewModelFactory
 import com.drp33.quietsignal.viewmodels.TreeViewModel
 import com.drp33.quietsignal.viewmodels.TreeViewModelFactory
 import com.drp33.quietsignal.viewmodels.VoiceMessagingViewModel
@@ -84,12 +86,15 @@ fun NavGraph() {
             // Norman: records into mailbox 1, plays Sadie's (mailbox 2).
             val voiceVm: VoiceMessagingViewModel =
                 viewModel(factory = VoiceMessagingViewModelFactory(repository, selfId = 1, peerId = 2))
+            val photoVm: PhotoMessagingViewModel =
+                viewModel(factory = PhotoMessagingViewModelFactory(repository, selfId = 1, peerId = 2))
 
             LaunchedEffect(Unit) { elderlyViewModel.postFCMToken(1) }
 
             ElderlyScreen(
                 treeVm = treeViewModel,
                 voiceVm = voiceVm,
+                photoVm = photoVm,
                 onSwitchRole = switchRole,
                 onEmergencyClick = { elderlyViewModel.sendEmergency(1) },
             )
@@ -99,6 +104,8 @@ fun NavGraph() {
             // Sadie: records into mailbox 2, plays Norman's (mailbox 1).
             val voiceVm: VoiceMessagingViewModel =
                 viewModel(factory = VoiceMessagingViewModelFactory(repository, selfId = 2, peerId = 1))
+            val photoVm: PhotoMessagingViewModel =
+                viewModel(factory = PhotoMessagingViewModelFactory(repository, selfId = 2, peerId = 1))
 
             // Poll for an active emergency so the popup shows even if the push was missed.
             LaunchedEffect(Unit) {
@@ -113,6 +120,7 @@ fun NavGraph() {
                 viewModel = adultViewModel,
                 treeVm = treeViewModel,
                 voiceVm = voiceVm,
+                photoVm = photoVm,
                 onSwitchRole = switchRole,
                 onAllGood = { adultViewModel.acknowledgeEmergency(2) },
             )

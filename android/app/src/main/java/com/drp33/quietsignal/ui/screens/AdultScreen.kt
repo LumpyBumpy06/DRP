@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -24,6 +26,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.drp33.quietsignal.viewmodels.AdultViewModel
+import com.drp33.quietsignal.viewmodels.PhotoMessagingViewModel
 import com.drp33.quietsignal.viewmodels.TreeViewModel
 import com.drp33.quietsignal.viewmodels.VoiceMessagingViewModel
 
@@ -32,6 +35,7 @@ fun AdultScreen(
     viewModel: AdultViewModel,
     treeVm: TreeViewModel,
     voiceVm: VoiceMessagingViewModel,
+    photoVm: PhotoMessagingViewModel,
     onSwitchRole: () -> Unit = {},
     onAllGood: () -> Unit = {},
 ) {
@@ -42,6 +46,7 @@ fun AdultScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -59,21 +64,27 @@ fun AdultScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Mic (send a memo — also waters) on the left, water on the right.
+            // Three ways to nurture the shared tree — each also waters it.
             Row(
-                horizontalArrangement = Arrangement.spacedBy(28.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.Top,
             ) {
                 VoiceRecorderButton(
                     onRecorded = { voiceVm.onRecorded(it, onUploaded = { treeVm.refresh() }) },
-                    idleLabel = "Send a memo",
+                    idleLabel = "Voice",
+                    buttonSize = 96.dp,
                 )
-                WaterButton(onWater = { treeVm.water(2) })
+                WaterButton(onWater = { treeVm.water(2) }, size = 96.dp)
+                SnapButton(onCaptured = { photoVm.sendPhoto(it) { treeVm.refresh() } }, size = 96.dp)
             }
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            IncomingPhotoSection(peerName = "Norman", vm = photoVm)
+            Spacer(modifier = Modifier.height(12.dp))
             IncomingVoiceSection(peerName = "Norman", vm = voiceVm)
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
 
         TextButton(
