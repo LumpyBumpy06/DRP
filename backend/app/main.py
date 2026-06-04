@@ -9,6 +9,7 @@ from app.crud import (
     create_okay_event,
     get_latest_okay_event,
     get_linked_users,
+    get_okay_timestamps,
     is_okay_within_6h,
     upsert_user_token,
 )
@@ -17,6 +18,7 @@ from app.models import User
 from app.services.firebase import init_firebase
 from app.services.notifications import send_notification
 from app.services.storage import download_audio, latest_recent_object_name, upload_audio
+from app.services.tree import compute_tree_state
 from app.settings import get_settings
 
 app = FastAPI()
@@ -136,3 +138,14 @@ def get_latest_voice(user_id: int) -> Response:
 
     data = download_audio(settings, object_name)
     return Response(content=data, media_type="audio/mp4")
+
+
+# ---------- MOTIVATION TREE ----------
+
+
+@app.get("/tree")
+def get_tree(session: Session = SessionDependency) -> dict:
+    """Shared tree state: grows with activity, sheds leaves when Norman misses."""
+    norman_ts = get_okay_timestamps(session, 1)
+    activity_ts = norman_ts + get_okay_timestamps(session, 2)
+    return compute_tree_state(datetime.now(UTC), norman_ts, activity_ts, CHECK_IN_WINDOW_SECONDS)

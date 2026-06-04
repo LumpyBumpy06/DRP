@@ -23,11 +23,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.drp33.quietsignal.model.ElderlyUIState
+import com.drp33.quietsignal.viewmodels.TreeViewModel
 import com.drp33.quietsignal.viewmodels.VoiceMessagingViewModel
 
 @Composable
 fun ElderlyScreen(
     voiceVm: VoiceMessagingViewModel,
+    treeVm: TreeViewModel,
     state: ElderlyUIState,
     name: String = "Norman",
     onOkayClick: () -> Unit = {},
@@ -52,6 +54,10 @@ fun ElderlyScreen(
             )
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            TreeSection(state = treeVm.state, modifier = Modifier.fillMaxWidth())
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             if (state.isLoading) {
                 Text(text = "Loading...", style = MaterialTheme.typography.titleMedium)

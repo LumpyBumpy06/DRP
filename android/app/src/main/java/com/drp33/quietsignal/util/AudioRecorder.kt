@@ -15,19 +15,34 @@ class AudioRecorder(private val context: Context) {
     private var recorder: MediaRecorder? = null
     private var outputFile: File? = null
 
-    fun start() {
-        if (recorder != null) return
+    /**
+     * Starts recording. Returns true on success; false (without crashing) if the
+     * mic can't be accessed — e.g. permission denied, the OS mic toggle is off, or
+     * no mic is available.
+     */
+    fun start(): Boolean {
+        if (recorder != null) return true
 
-        val file = File(context.cacheDir, "voice_${System.currentTimeMillis()}.aac")
-        outputFile = file
+        val file = File(context.cacheDir, "voice_${System.currentTimeMillis()}.m4a")
 
-        recorder = createRecorder().apply {
-            setAudioSource(MediaRecorder.AudioSource.MIC)
-            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            setOutputFile(file.absolutePath)
-            prepare()
-            start()
+        return try {
+            val r = createRecorder().apply {
+                setAudioSource(MediaRecorder.AudioSource.MIC)
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setOutputFile(file.absolutePath)
+                prepare()
+                start()
+            }
+            recorder = r
+            outputFile = file
+            true
+        } catch (e: Exception) {
+            Log.e("AudioRecorder", "Failed to start recording", e)
+            runCatching { recorder?.release() }
+            recorder = null
+            outputFile = null
+            false
         }
     }
 

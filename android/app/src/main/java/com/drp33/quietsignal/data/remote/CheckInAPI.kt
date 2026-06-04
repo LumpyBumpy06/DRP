@@ -3,6 +3,7 @@ package com.drp33.quietsignal.data.remote
 import com.drp33.quietsignal.data.remote.models.OkayRequest
 import com.drp33.quietsignal.data.remote.models.OkayStatusResponse
 import com.drp33.quietsignal.data.remote.models.TokenRequest
+import com.drp33.quietsignal.data.remote.models.TreeResponse
 import okhttp3.MultipartBody
 import okhttp3.ResponseBody
 import retrofit2.http.Body
@@ -31,4 +32,7 @@ interface CheckInAPI {
     suspend fun getOkayStatus(
         @Query("user_id") userId: Int
     ): OkayStatusResponse
+
+    @GET("tree")
+    suspend fun getTree(): TreeResponse
 }

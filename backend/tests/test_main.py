@@ -1,8 +1,17 @@
+from datetime import UTC, datetime, timedelta
+
 import app.main as main_module
 from app.main import app
+from app.services.tree import DAYS_TO_MATURE, compute_tree_state
 from fastapi.testclient import TestClient
 
 client = TestClient(app)
+
+DAY = 30
+
+
+def _days_ago(now: datetime, n: float) -> datetime:
+    return now - timedelta(seconds=n * DAY)
 
 
 def test_root() -> None:
@@ -50,3 +59,49 @@ def test_voice_latest_404_when_expired_or_missing(monkeypatch) -> None:
     response = client.get("/voice/latest", params={"user_id": 99})
 
     assert response.status_code == 404
+
+
+# ---------- TREE ----------
+
+
+def test_tree_fresh_sapling() -> None:
+    now = datetime.now(UTC)
+    state = compute_tree_state(now, [], [], DAY)
+    assert state["growth"] == 0.0
+    assert state["leafiness"] == 1.0
+    assert state["treeType"] == 0
+
+
+def test_tree_grows_with_active_days() -> None:
+    now = datetime.now(UTC)
+    # Checked in on 3 distinct, recent days (incl. now) -> some growth, full leaves.
+    ts = [_days_ago(now, 0), _days_ago(now, 1), _days_ago(now, 2)]
+    state = compute_tree_state(now, ts, ts, DAY)
+    assert 0.0 < state["growth"] < 1.0
+    assert state["leafiness"] == 1.0
+
+
+def test_tree_sheds_leaves_when_norman_misses() -> None:
+    now = datetime.now(UTC)
+    # Last check-in was several days ago -> leaves drop, but tree has grown.
+    ts = [_days_ago(now, 5), _days_ago(now, 6), _days_ago(now, 7)]
+    state = compute_tree_state(now, ts, ts, DAY)
+    assert state["leafiness"] < 1.0
+
+
+def test_tree_resets_to_new_species_at_maturity() -> None:
+    now = datetime.now(UTC)
+    # One full maturity cycle of distinct active days -> species advances, growth resets low.
+    ts = [_days_ago(now, i) for i in range(DAYS_TO_MATURE)]
+    state = compute_tree_state(now, ts, ts, DAY)
+    assert state["treeType"] == 1
+    assert state["growth"] < 0.2
+
+
+def test_tree_endpoint(monkeypatch) -> None:
+    monkeypatch.setattr(main_module, "get_okay_timestamps", lambda session, user_id: [])
+    response = client.get("/tree")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["growth"] == 0.0
+    assert body["leafiness"] == 1.0

@@ -2,6 +2,9 @@ package com.drp33.quietsignal.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -63,6 +66,25 @@ fun VoiceRecorderButton(
 
     var rawLevel by remember { mutableFloatStateOf(0f) }
 
+    fun beginRecording() {
+        if (recorder.start()) {
+            isRecording = true
+            context.vibrateTick()
+        } else {
+            Toast.makeText(context, "Couldn't access the microphone", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            beginRecording()
+        } else {
+            Toast.makeText(context, "Microphone permission is needed to record", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     LaunchedEffect(isRecording) {
         if (!isRecording) {
             rawLevel = 0f
@@ -101,21 +123,21 @@ fun VoiceRecorderButton(
 
         Button(
             onClick = {
-                val granted = ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.RECORD_AUDIO,
-                ) == PackageManager.PERMISSION_GRANTED
-                if (!granted) return@Button
-
                 if (isRecording) {
                     val bytes = recorder.stop()
                     isRecording = false
                     context.vibrateDoubleTap()
                     if (bytes != null) onRecorded(bytes)
                 } else {
-                    recorder.start()
-                    isRecording = true
-                    context.vibrateTick()
+                    val granted = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.RECORD_AUDIO,
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (granted) {
+                        beginRecording()
+                    } else {
+                        micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
                 }
             },
             shape = CircleShape,

@@ -22,6 +22,8 @@ import com.drp33.quietsignal.viewmodels.AdultViewModel
 import com.drp33.quietsignal.viewmodels.AdultViewModelFactory
 import com.drp33.quietsignal.viewmodels.ElderlyViewModel
 import com.drp33.quietsignal.viewmodels.ElderlyViewModelFactory
+import com.drp33.quietsignal.viewmodels.TreeViewModel
+import com.drp33.quietsignal.viewmodels.TreeViewModelFactory
 import com.drp33.quietsignal.viewmodels.VoiceMessagingViewModel
 import com.drp33.quietsignal.viewmodels.VoiceMessagingViewModelFactory
 
@@ -84,6 +86,7 @@ fun NavGraph() {
             // Norman: records into mailbox 1, plays Sadie's (mailbox 2).
             val voiceVm: VoiceMessagingViewModel =
                 viewModel(factory = VoiceMessagingViewModelFactory(repository, selfId = 1, peerId = 2))
+            val treeVm: TreeViewModel = viewModel(factory = TreeViewModelFactory(repository))
 
             // Re-poll so Norman's screen also resets after the day window: once his
             // check-in expires he sees the check-in (and voice) UI again.
@@ -101,6 +104,7 @@ fun NavGraph() {
 
             ElderlyScreen(
                 voiceVm = voiceVm,
+                treeVm = treeVm,
                 state = state,
                 onOkayClick = {
                     elderlyViewModel.onOkayClick(1) {
@@ -125,6 +129,7 @@ fun NavGraph() {
             // Sadie: records into mailbox 2, plays Norman's (mailbox 1).
             val voiceVm: VoiceMessagingViewModel =
                 viewModel(factory = VoiceMessagingViewModelFactory(repository, selfId = 2, peerId = 1))
+            val treeVm: TreeViewModel = viewModel(factory = TreeViewModelFactory(repository))
 
             // Re-poll the check-in status so the screen reflects the day window
             // expiring (Norman drops back to "not checked in" after ~30s).
@@ -136,7 +141,7 @@ fun NavGraph() {
                 }
             }
 
-            AdultScreen(viewModel = adultViewModel, voiceVm = voiceVm, onSwitchRole = switchRole)
+            AdultScreen(viewModel = adultViewModel, voiceVm = voiceVm, treeVm = treeVm, onSwitchRole = switchRole)
         }
 
         composable(Routes.THANK_YOU) {

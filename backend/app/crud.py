@@ -49,6 +49,11 @@ def get_latest_okay_event(session: Session, user_id: int) -> OkayEvent | None:
     return session.exec(stmt).first()
 
 
+def get_okay_timestamps(session: Session, user_id: int) -> list[datetime]:
+    stmt = select(OkayEvent.timestamp).where(OkayEvent.user_id == user_id)
+    return list(session.exec(stmt).all())
+
+
 def is_okay_within_6h(event: OkayEvent | None) -> bool:
     if not event:
         return False

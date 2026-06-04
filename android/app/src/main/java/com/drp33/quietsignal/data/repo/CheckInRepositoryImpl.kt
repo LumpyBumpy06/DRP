@@ -4,6 +4,7 @@ import android.util.Log
 import com.drp33.quietsignal.data.remote.CheckInAPI
 import com.drp33.quietsignal.data.remote.models.OkayRequest
 import com.drp33.quietsignal.data.remote.models.TokenRequest
+import com.drp33.quietsignal.model.TreeState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -44,6 +45,11 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
         withContext(Dispatchers.IO) {
             api.getLatestVoice(userId).bytes()
         }
+    }
+
+    override suspend fun getTree(): Result<TreeState> = runCatching {
+        val r = api.getTree()
+        TreeState(growth = r.growth, leafiness = r.leafiness, treeType = r.treeType)
     }
 
 }
