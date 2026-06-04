@@ -48,7 +48,9 @@ fun deathStateOf(deathLevel: Float): DeathState = when {
 }
 
 private val HEALTHY_LEAF = Color(0xFF4CAF50)
+private val HEALTHY_OUTLINE = Color(0xFF2E7D32) // Darker green for outline
 private val DEAD_LEAF = Color(0xFFBC8F8F) // dried-leaf brown, distinct from the trunk
+private val DEAD_OUTLINE = Color(0xFF6F4E4E) // Darker brown for outline
 
 // The green leaf-cluster layers in tree.json (the trunk/branch layers are left brown).
 private val LEAF_LAYERS = listOf(
@@ -103,18 +105,42 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
         animationSpec = tween(1500, easing = FastOutSlowInEasing),
         label = "leaf-color",
     )
+    val leafOutlineColor by animateColorAsState(
+        targetValue = lerp(HEALTHY_OUTLINE, DEAD_OUTLINE, death),
+        animationSpec = tween(1500, easing = FastOutSlowInEasing),
+        label = "leaf-outline-color",
+    )
 
     val leafArgb = leafColor.toArgb()
-    val props = ArrayList<LottieDynamicProperty<Int>>(LEAF_LAYERS.size)
-    for (layer in LEAF_LAYERS) {
-        props.add(
-            rememberLottieDynamicProperty(
-                property = LottieProperty.COLOR,
-                value = leafArgb,
-                keyPath = arrayOf(layer, "**"),
-            ),
+    val outlineArgb = leafOutlineColor.toArgb()
+//    val props = ArrayList<LottieDynamicProperty<Int>>(LEAF_LAYERS.size * 2)
+//    for (layer in LEAF_LAYERS) {
+//        // Main leaf body (Group 1 in tree.json)
+//        props.add(
+//            rememberLottieDynamicProperty(
+//                property = LottieProperty.COLOR,
+//                value = leafArgb,
+//                keyPath = arrayOf("**", layer, "Group 1", "**"),
+//            ),
+//        )
+//        // Leaf outline (Group 2 in tree.json)
+//        props.add(
+//            rememberLottieDynamicProperty(
+//                property = LottieProperty.COLOR,
+//                value = outlineArgb,
+//                keyPath = arrayOf("**", layer, "Group 2", "**"),
+//            ),
+//        )
+//    }
+
+    val props = listOf(
+        rememberLottieDynamicProperty(
+            property = LottieProperty.COLOR,
+            value = Color.Red.toArgb(),
+            keyPath = arrayOf("**", "Layer 16 Outlines", "**", "Fill 1")
         )
-    }
+    )
+
     val dynamicProperties = rememberLottieDynamicProperties(*props.toTypedArray())
 
     Box(
