@@ -6,10 +6,13 @@ from sqlmodel import Session
 
 from app.crud import (
     CHECK_IN_WINDOW_SECONDS,
+    active_emergency_sender_for,
+    clear_emergencies_for,
     create_okay_event,
     get_latest_okay_event,
     get_linked_users,
     is_okay_within_6h,
+    raise_emergency,
     upsert_user_token,
 )
 from app.db import create_engine_from_settings, get_session, init_db
@@ -93,7 +96,11 @@ def trigger_emergency(user_id: int, session: Session = SessionDependency) -> dic
 
     Unlike a check-in this carries no "I'm okay" meaning — it's a one-way SOS
     that pushes a high-priority notification so the carer is alerted at once.
+    The alert is also persisted so a carer who missed the push (app backgrounded)
+    still sees it on their next poll.
     """
+    raise_emergency(session, user_id)
+
     sender_name = USER_NAMES.get(user_id, "Someone")
 
     for linked_id in get_linked_users(session, user_id):
@@ -105,6 +112,26 @@ def trigger_emergency(user_id: int, session: Session = SessionDependency) -> dic
                 message_type="EMERGENCY",
             )
 
+    return {"ok": True}
+
+
+@app.get("/emergency/active")
+def get_active_emergency(user_id: int, session: Session = SessionDependency) -> dict:
+    """Whether `user_id` (the carer) has an unacknowledged emergency to respond to.
+
+    Drives the popup even when the push was missed (e.g. the app was backgrounded
+    and the carer arrived by tapping the notification).
+    """
+    sender_id = active_emergency_sender_for(session, user_id)
+    if sender_id is None:
+        return {"active": False, "sender": None}
+    return {"active": True, "sender": USER_NAMES.get(sender_id, "Someone")}
+
+
+@app.post("/emergency/ack")
+def acknowledge_emergency(user_id: int, session: Session = SessionDependency) -> dict:
+    """`user_id` (the carer) marks the emergency handled, so it stops re-appearing."""
+    clear_emergencies_for(session, user_id)
     return {"ok": True}
 
 

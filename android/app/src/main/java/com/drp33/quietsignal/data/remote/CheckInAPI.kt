@@ -1,5 +1,6 @@
 package com.drp33.quietsignal.data.remote
 
+import com.drp33.quietsignal.data.remote.models.EmergencyStatusResponse
 import com.drp33.quietsignal.data.remote.models.OkayRequest
 import com.drp33.quietsignal.data.remote.models.OkayStatusResponse
 import com.drp33.quietsignal.data.remote.models.TokenRequest
@@ -29,6 +30,12 @@ interface CheckInAPI {
 
     @POST("emergency")
     suspend fun postEmergency(@Query("user_id") userId: Int)
+
+    @GET("emergency/active")
+    suspend fun getActiveEmergency(@Query("user_id") userId: Int): EmergencyStatusResponse
+
+    @POST("emergency/ack")
+    suspend fun postAckEmergency(@Query("user_id") userId: Int)
 
     @GET("okay")
     suspend fun getOkayStatus(

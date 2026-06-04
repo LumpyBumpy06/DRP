@@ -128,16 +128,24 @@ fun NavGraph() {
                 viewModel(factory = VoiceMessagingViewModelFactory(repository, selfId = 2, peerId = 1))
 
             // Re-poll the check-in status so the screen reflects the day window
-            // expiring (Norman drops back to "not checked in" after ~30s).
+            // expiring (Norman drops back to "not checked in" after ~30s). The same
+            // loop checks for an active emergency, so the popup shows even if the
+            // push was missed (app backgrounded / arrived via the notification).
             LaunchedEffect(Unit) {
                 adultViewModel.postFCMToken(2)
                 while (true) {
                     adultViewModel.loadInitialState(1)
+                    adultViewModel.loadEmergencyStatus(2)
                     delay(5000)
                 }
             }
 
-            AdultScreen(viewModel = adultViewModel, voiceVm = voiceVm, onSwitchRole = switchRole)
+            AdultScreen(
+                viewModel = adultViewModel,
+                voiceVm = voiceVm,
+                onSwitchRole = switchRole,
+                onAllGood = { adultViewModel.acknowledgeEmergency(2) },
+            )
         }
 
         composable(Routes.THANK_YOU) {

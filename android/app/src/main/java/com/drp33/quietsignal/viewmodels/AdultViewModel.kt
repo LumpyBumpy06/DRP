@@ -1,5 +1,6 @@
 package com.drp33.quietsignal.viewmodels
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -40,9 +41,25 @@ class AdultViewModel(
         }
     }
 
-    /** Sadie acknowledged the emergency ("All good") — clear the popup. */
-    fun dismissEmergency() {
+    /**
+     * Poll-side fallback: surface an emergency that the push may have missed
+     * (app backgrounded, arrived via the notification, app was killed, etc.).
+     * Only ever raises the popup — clearing is the carer's explicit job.
+     */
+    fun loadEmergencyStatus(userId: Int) {
+        viewModelScope.launch {
+            repository.getEmergencyStatus(userId)
+                .onSuccess { active -> if (active) state = state.copy(emergency = true) }
+        }
+    }
+
+    /** Sadie tapped "All good" — close the popup and clear it on the server so it stops re-polling. */
+    fun acknowledgeEmergency(userId: Int) {
         state = state.copy(emergency = false)
+        viewModelScope.launch {
+            repository.ackEmergency(userId)
+                .onFailure { Log.e("Adult", "Failed to acknowledge emergency", it) }
+        }
     }
 
     fun loadInitialState(userId: Int) {
