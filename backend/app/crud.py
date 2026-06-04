@@ -6,7 +6,7 @@ from app.models import OkayEvent, User, UserLink
 
 # One "day" in the current simulation. A check-in (or voice message) is only
 # considered current for this long.
-CHECK_IN_WINDOW_SECONDS = 30
+CHECK_IN_WINDOW_SECONDS = 5
 
 # ---------- USERS ----------
 

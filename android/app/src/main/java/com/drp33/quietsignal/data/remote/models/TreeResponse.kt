@@ -4,4 +4,5 @@ data class TreeResponse(
     val growth: Float,
     val leafiness: Float,
     val treeType: Int,
+    val memoryCount: Int = 0,
 )

@@ -105,3 +105,12 @@ def test_tree_endpoint(monkeypatch) -> None:
     body = response.json()
     assert body["growth"] == 0.0
     assert body["leafiness"] == 1.0
+    assert body["memoryCount"] == 0
+
+
+def test_tree_memory_count_counts_interactions() -> None:
+    now = datetime.now(UTC)
+    assert compute_tree_state(now, [], [], DAY)["memoryCount"] == 0
+    # memoryCount reflects every interaction event passed as activity (the canopy).
+    ts = [_days_ago(now, 0), _days_ago(now, 1), _days_ago(now, 2)]
+    assert compute_tree_state(now, ts, ts, DAY)["memoryCount"] == 3

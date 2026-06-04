@@ -49,7 +49,7 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
 
     override suspend fun getTree(): Result<TreeState> = runCatching {
         val r = api.getTree()
-        TreeState(growth = r.growth, leafiness = r.leafiness, treeType = r.treeType)
+        TreeState(growth = r.growth, leafiness = r.leafiness, treeType = r.treeType, memoryCount = r.memoryCount)
     }
 
 }
