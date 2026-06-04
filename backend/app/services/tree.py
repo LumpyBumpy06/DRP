@@ -39,7 +39,7 @@ def compute_tree_state(
             "treeType": 0,
             "activeDays": 0,
             "daysSinceCheckIn": 0,
-            "memoryCount": len(activity_timestamps),
+            "memoryCount": active_days,
         }
 
     epoch = active_days // DAYS_TO_MATURE
@@ -62,6 +62,6 @@ def compute_tree_state(
         "treeType": tree_type,
         "activeDays": active_days,
         "daysSinceCheckIn": days_since,
-        # Each interaction event is a "moment" — the canopy is built from these.
-        "memoryCount": len(activity_timestamps),
+        # One memory/bead per active day (a day on which a check-in happened).
+        "memoryCount": active_days,
     }
