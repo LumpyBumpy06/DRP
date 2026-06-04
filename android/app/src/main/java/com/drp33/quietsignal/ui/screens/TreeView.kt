@@ -2,13 +2,11 @@ package com.drp33.quietsignal.ui.screens
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,7 +17,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,11 +29,11 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.drp33.quietsignal.model.TreeState
@@ -48,61 +49,61 @@ private const val BEAD_CAP = 80
 
 // Each memory-bead is a little jewel; varied colours so the canopy feels alive.
 private val BEAD_PALETTE = listOf(
-    Color(0xFF81C784), // green
-    Color(0xFF4FC3F7), // sky
-    Color(0xFFFFB74D), // amber
-    Color(0xFFBA68C8), // amethyst
-    Color(0xFFF06292), // rose
-    Color(0xFFFFD54F), // gold
-    Color(0xFF4DB6AC), // teal
+    Color(0xFF81C784), Color(0xFF4FC3F7), Color(0xFFFFB74D), Color(0xFFBA68C8),
+    Color(0xFFF06292), Color(0xFFFFD54F), Color(0xFF4DB6AC),
 )
 
-// ---- Species styling (only bark + branch shape; bead colours are separate) -
+private val BARK_DARK = Color(0xFF3E2723)
+private val BARK_LIGHT = Color(0xFF6D4C41)
 
-private data class Species(
-    val barkTop: Color,
-    val barkBottom: Color,
-    val branchSpread: Float,
-    val angleJitter: Float,
-)
+// ---- 3D maths --------------------------------------------------------------
 
-private fun speciesFor(type: Int): Species = when (((type % 3) + 3) % 3) {
-    0 -> Species(Color(0xFF6D4C41), Color(0xFF3E2723), branchSpread = 0.60f, angleJitter = 0.35f)
-    1 -> Species(Color(0xFF795548), Color(0xFF4E342E), branchSpread = 0.72f, angleJitter = 0.45f)
-    else -> Species(Color(0xFF6D4C41), Color(0xFF3E2723), branchSpread = 0.52f, angleJitter = 0.30f)
-}
+private class V3(val x: Float, val y: Float, val z: Float)
 
-// ---- Skeleton (built once; the whole tree just scales up over time) --------
+private operator fun V3.plus(o: V3) = V3(x + o.x, y + o.y, z + o.z)
+private operator fun V3.times(s: Float) = V3(x * s, y * s, z * s)
+private fun mix(a: V3, b: V3, t: Float) = V3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t)
 
-private class Twig(
-    val lengthFrac: Float,   // fraction of canvas height
-    val angle: Float,        // radians; -TAU/4 points straight up
-    val widthFrac: Float,    // stroke width as a fraction of canvas height
-    val depth: Int,
-    val children: List<Twig>,
-    val isTip: Boolean,      // outer twig that can host beads
-)
+private class Seg(val a: V3, val b: V3, val w: Float)
 
-private fun buildTwig(angle: Float, lengthFrac: Float, widthFrac: Float, depth: Int, s: Species, rng: Random): Twig {
-    if (depth >= MAX_DEPTH) {
-        return Twig(lengthFrac, angle, widthFrac, depth, emptyList(), isTip = true)
-    }
-    val childCount = when (depth) {
-        0 -> 1                    // single trunk
-        1 -> 2 + rng.nextInt(2)   // 2..3 primary limbs
-        else -> 2
-    }
-    val children = ArrayList<Twig>(childCount)
-    for (i in 0 until childCount) {
-        val a = if (depth == 0) {
-            angle + (rng.nextFloat() - 0.5f) * 0.2f
-        } else {
-            angle + (i - (childCount - 1) / 2f) * s.branchSpread + (rng.nextFloat() - 0.5f) * s.angleJitter
+/**
+ * Builds a tree in 3D (Y up). Branches start at *random points along* their
+ * parent and fan out in random azimuths, so it's organic rather than a
+ * symmetric binary tree. Returns the segments plus canopy anchor points.
+ */
+private fun generateTree(seed: Int): Pair<List<Seg>, List<V3>> {
+    val rng = Random(seed)
+    val segs = ArrayList<Seg>()
+    val anchors = ArrayList<V3>()
+
+    fun grow(start: V3, theta: Float, phi: Float, length: Float, width: Float, depth: Int) {
+        val dir = V3(sin(theta) * cos(phi), cos(theta), sin(theta) * sin(phi))
+        val end = start + dir * length
+        segs.add(Seg(start, end, width))
+        if (depth >= 3) anchors.add(end)
+        if (depth >= MAX_DEPTH || length < 0.06f) return
+
+        val n = when (depth) {
+            0 -> 3 + rng.nextInt(2)    // 3..4 main limbs off the trunk
+            1, 2 -> 2 + rng.nextInt(2) // 2..3
+            else -> 1 + rng.nextInt(2) // 1..2
         }
-        val len = lengthFrac * (0.70f + rng.nextFloat() * 0.12f)
-        children.add(buildTwig(a, len, widthFrac * 0.7f, depth + 1, s, rng))
+        for (k in 0 until n) {
+            val t = 0.5f + rng.nextFloat() * 0.5f        // start fraction ALONG the parent (randomised)
+            val cStart = mix(start, end, t)
+            val spread = (if (depth == 0) 0.55f else 0.42f) + rng.nextFloat() * 0.2f
+            val cTheta = (theta + spread).coerceAtMost(1.45f)
+            val cPhi = if (depth == 0) {
+                k * (TAU / n) + (rng.nextFloat() - 0.5f) * 0.5f          // limbs fan around the full circle
+            } else {
+                phi + (k - (n - 1) / 2f) * 0.7f + (rng.nextFloat() - 0.5f) * 0.4f
+            }
+            grow(cStart, cTheta, cPhi, length * (0.60f + rng.nextFloat() * 0.18f), width * 0.68f, depth + 1)
+        }
     }
-    return Twig(lengthFrac, angle, widthFrac, depth, children, isTip = depth >= MAX_DEPTH - 1)
+
+    grow(V3(0f, 0f, 0f), 0f, 0f, 1.0f, 0.05f, 0)
+    return segs to anchors
 }
 
 // ---- Public composable -----------------------------------------------------
@@ -113,12 +114,9 @@ fun TreeSection(state: TreeState, modifier: Modifier = Modifier) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         TreeView(
             memoryCount = state.memoryCount,
-            // Species variety is parked for now — a stable tree while we nail
-            // the day-by-day growth + bead behaviour.
-            treeType = 0,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(260.dp)
+                .height(280.dp)
                 .clip(RoundedCornerShape(20.dp)),
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -132,27 +130,26 @@ fun TreeSection(state: TreeState, modifier: Modifier = Modifier) {
 
 private fun treeCaption(memoryCount: Int): String = when {
     memoryCount == 0 -> "🌱 A fresh sapling — check in to plant your first memory"
-    memoryCount == 1 -> "🌿 1 memory growing"
-    memoryCount < 6 -> "🌿 $memoryCount memories growing"
-    else -> "🌳 $memoryCount memories and counting"
+    memoryCount == 1 -> "🌿 1 memory · drag to spin the tree"
+    memoryCount < 6 -> "🌿 $memoryCount memories · drag to spin the tree"
+    else -> "🌳 $memoryCount memories · drag to spin the tree"
 }
 
+private class BeadHit(val c: Offset, val r: Float, val index: Int)
+private class PSeg(val a: Offset, val b: Offset, val w: Float, val z: Float)
+private class PBead(val c: Offset, val r: Float, val z: Float, val colour: Color, val index: Int)
+
 @Composable
-private fun TreeView(memoryCount: Int, treeType: Int, modifier: Modifier) {
-    // Size grows gradually with the number of memory-days and saturates, so it
-    // starts as a small (but visible) sapling and never outgrows the canvas —
-    // and it never resets.
+private fun TreeView(memoryCount: Int, modifier: Modifier) {
+    // Size grows gradually with days and saturates, so it starts small but
+    // visible and never outgrows the frame or resets.
     val sizeTarget = (1.0 - exp(-memoryCount / 8.0)).toFloat()
     val animSize by animateFloatAsState(sizeTarget, tween(1200, easing = FastOutSlowInEasing), label = "size")
 
-    val sway by rememberInfiniteTransition(label = "sway").animateFloat(
-        initialValue = -1f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(3800, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "sway-value",
-    )
+    var rotation by remember { mutableFloatStateOf(0.6f) } // slight turn so depth reads immediately
+    var selected by remember { mutableIntStateOf(-1) }
 
-    // Pop the newest bead in whenever a new day adds a memory.
+    // Pop the newest bead in when a new day adds a memory.
     val pop = remember { Animatable(1f) }
     LaunchedEffect(memoryCount) {
         if (memoryCount > 0) {
@@ -161,124 +158,123 @@ private fun TreeView(memoryCount: Int, treeType: Int, modifier: Modifier) {
         }
     }
 
-    val species = speciesFor(treeType)
-    val skeleton = remember(treeType) {
-        buildTwig(
-            angle = -TAU / 4f,
-            lengthFrac = 0.18f, // max size of a fully grown tree
-            widthFrac = 0.05f,
-            depth = 0,
-            s = species,
-            rng = Random(treeType * 7919 + 17),
-        )
-    }
+    val (segs, anchors) = remember { generateTree(seed = 20260604) }
+    // Shuffled fill order so the first N beads spread around the whole canopy.
+    val beadOrder = remember { anchors.indices.shuffled(Random(99)) }
+    // Bead hit-boxes from the latest frame, read by the tap handler.
+    val hits = remember { ArrayList<BeadHit>() }
 
-    Canvas(modifier = modifier) {
+    Canvas(
+        modifier = modifier
+            .pointerInput(Unit) {
+                detectDragGestures { change, drag ->
+                    rotation += drag.x * 0.01f
+                    change.consume()
+                }
+            }
+            .pointerInput(Unit) {
+                detectTapGestures { tap ->
+                    selected = hits
+                        .filter { (it.c - tap).getDistance() <= it.r * 1.8f }
+                        .minByOrNull { (it.c - tap).getDistanceSquared() }
+                        ?.index ?: -1
+                }
+            },
+    ) {
         val w = size.width
         val h = size.height
-
-        // Calm twilight scene so the glowing beads read well.
         drawRect(Brush.verticalGradient(listOf(Color(0xFF15282C), Color(0xFF1E3A36))), size = size)
-        drawOval(
-            color = Color(0xFF24433B),
-            topLeft = Offset(-w * 0.25f, h * 0.86f),
-            size = Size(w * 1.5f, h * 0.32f),
-        )
+        drawOval(Color(0xFF24433B), Offset(-w * 0.25f, h * 0.86f), Size(w * 1.5f, h * 0.32f))
 
-        // 0.34 floor = small-but-visible sapling; grows to full (1.0) over time.
-        val scale = 0.34f + 0.66f * animSize
-        val base = Offset(w / 2f, h * 0.9f)
-        val tips = ArrayList<Offset>()
-        drawTwig(skeleton, base, scale, sway, h, species, tips)
-        drawBeads(tips, memoryCount, scale, pop.value, treeType, h)
+        val sizeScale = 0.34f + 0.66f * animSize
+        val s = h * 0.30f * sizeScale // unit -> px
+        val focal = 4.2f
+        val cx = w / 2f
+        val cy = h * 0.9f
+        val rot = rotation
+
+        // Branches: project, depth-sort, draw far -> near.
+        segs.map { seg ->
+            val (a, za) = project(seg.a, rot, cx, cy, s, focal)
+            val (b, zb) = project(seg.b, rot, cx, cy, s, focal)
+            PSeg(a, b, seg.w * s * persp((za + zb) / 2f, focal), (za + zb) / 2f)
+        }.sortedBy { it.z }.forEach { ps ->
+            val wpx = ps.w.coerceAtLeast(1.5f)
+            drawLine(BARK_DARK, ps.a, ps.b, strokeWidth = wpx, cap = StrokeCap.Round)
+            drawLine(lerp(BARK_LIGHT, Color.White, 0.18f), ps.a, ps.b, strokeWidth = (wpx * 0.42f).coerceAtLeast(1f), cap = StrokeCap.Round)
+        }
+
+        // Foliage: soft canopy puffs that fill in as the tree grows.
+        val foliageAlpha = 0.30f * animSize
+        if (foliageAlpha > 0.03f) {
+            anchors.indices.filter { it % 2 == 0 }
+                .map { project(anchors[it], rot, cx, cy, s, focal) }
+                .sortedBy { it.second }
+                .forEach { (pos, z) ->
+                    val rr = (0.05f * s * persp(z, focal)).coerceIn(6f, 42f)
+                    drawCircle(
+                        brush = Brush.radialGradient(listOf(Color(0xFF5E7E55).copy(alpha = foliageAlpha), Color.Transparent), center = pos, radius = rr),
+                        radius = rr,
+                        center = pos,
+                    )
+                }
+        }
+
+        // Beads: one per day on shuffled anchors, projected, depth-sorted.
+        hits.clear()
+        val shown = min(memoryCount, BEAD_CAP)
+        val rng = Random(7)
+        val beadBaseR = (0.02f * h).coerceIn(5f, 12f)
+        val beads = ArrayList<PBead>(shown)
+        for (i in 0 until shown) {
+            val anchor = anchors[beadOrder[i % beadOrder.size]]
+            val ring = i / beadOrder.size
+            val ox = (rng.nextFloat() - 0.5f) * 0.06f
+            val oy = (rng.nextFloat() - 0.5f) * 0.06f
+            val oz = (rng.nextFloat() - 0.5f) * 0.06f
+            val sizeJ = rng.nextFloat()
+            val colour = BEAD_PALETTE[rng.nextInt(BEAD_PALETTE.size)]
+            val p = anchor + V3(ox, oy + ring * 0.05f, oz)
+            val (pos, z) = project(p, rot, cx, cy, s, focal)
+            var r = (beadBaseR * persp(z, focal) * sizeScale * (0.8f + sizeJ * 0.5f)).coerceAtLeast(4.5f)
+            if (i == shown - 1) r *= pop.value // newest bead pops in
+            beads.add(PBead(pos, r, z, colour, i))
+        }
+        beads.sortBy { it.z }
+        beads.forEach { b ->
+            drawBead(b.c, b.r, b.colour)
+            if (b.index == selected) {
+                drawCircle(Color.White.copy(alpha = 0.9f), b.r * 1.6f, b.c, style = Stroke(width = 3f))
+            }
+            hits.add(BeadHit(b.c, b.r, b.index))
+        }
     }
 }
 
-// ---- Drawing ---------------------------------------------------------------
+// ---- Drawing helpers -------------------------------------------------------
 
-private fun DrawScope.drawTwig(
-    twig: Twig,
-    start: Offset,
-    scale: Float,
-    sway: Float,
-    h: Float,
-    s: Species,
-    tips: MutableList<Offset>,
-) {
-    val swayed = twig.angle + sway * 0.04f * (twig.depth + 1) // upper twigs sway more
-    val len = twig.lengthFrac * h * scale
-    val end = Offset(start.x + cos(swayed) * len, start.y + sin(swayed) * len)
-
-    // A gentle curve makes the bark organic rather than a straight stick.
-    val ctrl = Offset((start.x + end.x) / 2f - sin(swayed) * len * 0.10f, (start.y + end.y) / 2f)
-    val path = Path().apply {
-        moveTo(start.x, start.y)
-        quadraticTo(ctrl.x, ctrl.y, end.x, end.y)
-    }
-    val width = (twig.widthFrac * h * scale).coerceAtLeast(2f)
-    // Pseudo-3D cylinder: dark base stroke + a brighter, thinner core ridge.
-    drawPath(
-        path = path,
-        brush = Brush.linearGradient(listOf(s.barkBottom, s.barkTop), start, end),
-        style = Stroke(width = width, cap = StrokeCap.Round),
-    )
-    drawPath(
-        path = path,
-        color = lerp(s.barkTop, Color.White, 0.22f),
-        style = Stroke(width = (width * 0.42f).coerceAtLeast(1f), cap = StrokeCap.Round),
-    )
-
-    if (twig.isTip) tips.add(end)
-    twig.children.forEach { drawTwig(it, end, scale, sway, h, s, tips) }
+/** Rotate around the vertical (Y) axis and project with mild perspective. */
+private fun project(p: V3, rot: Float, cx: Float, cy: Float, s: Float, focal: Float): Pair<Offset, Float> {
+    val c = cos(rot)
+    val sn = sin(rot)
+    val rx = p.x * c + p.z * sn
+    val rz = -p.x * sn + p.z * c
+    val pp = focal / (focal - rz)
+    return Offset(cx + rx * s * pp, cy - p.y * s * pp) to rz
 }
 
-private fun DrawScope.drawBeads(
-    tips: List<Offset>,
-    memoryCount: Int,
-    scale: Float,
-    pop: Float,
-    treeType: Int,
-    h: Float,
-) {
-    if (tips.isEmpty() || memoryCount <= 0) return
-
-    val shown = min(memoryCount, BEAD_CAP)
-    val rng = Random(treeType * 9173 + 7)
-    val baseR = (0.022f * h).coerceIn(5f, 13f)
-
-    for (i in 0 until shown) {
-        // Round-robin across *all* tips so beads spread evenly and one new bead
-        // lands per day; later wraps sit a touch further out (a fuller canopy).
-        val tip = tips[i % tips.size]
-        val ring = i / tips.size
-        // Consume rng in a fixed order so each bead's slot stays put frame-to-frame.
-        val ang = rng.nextFloat() * TAU
-        val radBase = rng.nextFloat()
-        val sizeJ = rng.nextFloat()
-        val colour = BEAD_PALETTE[rng.nextInt(BEAD_PALETTE.size)]
-
-        val rad = (0.012f + 0.022f * radBase + ring * 0.016f) * h * scale
-        val pos = Offset(tip.x + cos(ang) * rad, tip.y + sin(ang) * rad)
-        var r = (baseR * scale * (0.75f + sizeJ * 0.5f)).coerceAtLeast(4.5f)
-        if (i == shown - 1) r *= pop // newest bead pops in
-
-        drawBead(pos, r, colour)
-    }
-}
+private fun persp(z: Float, focal: Float): Float = focal / (focal - z)
 
 /** A glossy, lit-from-top-left 3D orb. */
 private fun DrawScope.drawBead(center: Offset, r: Float, colour: Color) {
     if (r <= 0.5f) return
-    // soft contact shadow
     drawCircle(Color.Black.copy(alpha = 0.22f), r * 0.95f, Offset(center.x + r * 0.18f, center.y + r * 0.25f))
-    // ambient glow
     drawCircle(
         brush = Brush.radialGradient(listOf(colour.copy(alpha = 0.5f), Color.Transparent), center = center, radius = r * 2.4f),
         radius = r * 2.4f,
         center = center,
         blendMode = BlendMode.Screen,
     )
-    // spherical body
     drawCircle(
         brush = Brush.radialGradient(
             colors = listOf(lerp(colour, Color.White, 0.65f), colour, lerp(colour, Color.Black, 0.45f)),
@@ -288,6 +284,5 @@ private fun DrawScope.drawBead(center: Offset, r: Float, colour: Color) {
         radius = r,
         center = center,
     )
-    // specular highlight
     drawCircle(Color.White.copy(alpha = 0.85f), r * 0.22f, Offset(center.x - r * 0.36f, center.y - r * 0.36f))
 }
