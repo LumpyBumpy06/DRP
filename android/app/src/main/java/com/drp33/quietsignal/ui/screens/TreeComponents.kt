@@ -74,6 +74,22 @@ fun deathStateOf(deathLevel: Float): DeathState = when {
 
 private val STAGE_ENDPOINTS = listOf(0.20f, 0.33f, 0.50f, 0.66f, 0.80f, 1.00f)
 
+// ---- Falling-leaf tuning (tweak these freely) ------------------------------
+
+// Spawn rate in leaves/second. Base = when healthy; it grows as the tree wilts
+// (× deathLevel) and a little with size (× stage).
+private const val LEAF_RATE_HEALTHY = 0.3f
+private const val LEAF_RATE_DEATH = 2.5f
+private const val LEAF_RATE_STAGE = 0.08f
+private const val LEAF_RATE_MAX = 4.0f
+
+// The region leaves spawn FROM (across the bush). Y values are fractions of the
+// 300dp tree box (smaller = higher up); X half-width is how far either side of
+// centre a leaf can appear.
+private const val LEAF_SPAWN_Y_TOP = 0.15f
+private const val LEAF_SPAWN_Y_BOTTOM = 0.48f
+private val LEAF_SPAWN_HALF_WIDTH = 110.dp
+
 private data class LeafBlob(val layer: String, val group: String, val originalColor: Color)
 
 private val LEAF_BLOBS = listOf(
@@ -187,6 +203,9 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
     val density = LocalDensity.current
     val canvasHeightPx = with(density) { 300.dp.toPx() }
     val floorY = canvasHeightPx * 0.95f
+    val spawnHalfWidthPx = with(density) { LEAF_SPAWN_HALF_WIDTH.toPx() }
+    val spawnYTop = canvasHeightPx * LEAF_SPAWN_Y_TOP
+    val spawnYBottom = canvasHeightPx * LEAF_SPAWN_Y_BOTTOM
 
     val leaves = remember { mutableStateListOf<FallingLeaf>() }
     var currentFrameMs by remember { mutableLongStateOf(0L) }
@@ -224,8 +243,10 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                     return@withFrameNanos
                 }
 
-                // Always a gentle fall; more as it wilts / the bigger it is.
-                val spawnRatePerSec = (1.0f + death * 2.2f + idx * 0.12f).coerceAtMost(5.0f)
+                // Slow drift when healthy; speeds up as the tree wilts.
+                val spawnRatePerSec =
+                    (LEAF_RATE_HEALTHY + death * LEAF_RATE_DEATH + idx * LEAF_RATE_STAGE)
+                        .coerceAtMost(LEAF_RATE_MAX)
                 spawnAccumulator += dt * spawnRatePerSec
 
                 val maxLeaves = 70
@@ -233,14 +254,15 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                 while (spawnAccumulator >= 1f && leaves.size < maxLeaves) {
                     spawnAccumulator -= 1f
 
-                    val spawnXRange = 100f + (idx * 20f)
-                    val baseX = (Random.nextFloat() - 0.5f) * spawnXRange
+                    // Spawn from anywhere across the bush (random x and y in the canopy band).
+                    val baseX = (Random.nextFloat() - 0.5f) * 2f * spawnHalfWidthPx
+                    val spawnY = spawnYTop + Random.nextFloat() * (spawnYBottom - spawnYTop)
 
                     leaves.add(
                         FallingLeaf(
                             baseX = baseX,
                             x = baseX,
-                            y = canvasHeightPx * 0.40f,
+                            y = spawnY,
                             angle = 0f,
                             fallSpeed = listOf(50f, 70f, 90f, 110f, 130f).random(), // gentle px/sec
                             swayAmp = Random.nextFloat() * 25f + 15f, // 15..40 px
