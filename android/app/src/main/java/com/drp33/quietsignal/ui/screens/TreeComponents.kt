@@ -29,11 +29,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.TransformOrigin
@@ -119,34 +121,20 @@ private fun getDeadColor(original: Color): Color {
 
 private data class FallingLeaf(
     val id: Long = Random.nextLong(),
-    val x: Float,
+    val baseX: Float,      // horizontal centre the leaf sways around
+    val x: Float,          // current x = baseX + sine sway
     val y: Float,
-    val angle: Float,
-    val angleDtMs: Long,
-    val lastAngleUpdateMs: Long,
-    val gravity: Float,
-    val sideSpeed: Float,
-    val gustFactor: Float,
+    val angle: Float,      // sprite rotation (degrees), follows the sway
+    val fallSpeed: Float,  // px per second (gentle)
+    val swayAmp: Float,    // px
+    val swayFreq: Float,   // radians per second
+    val swayPhase: Float,
     val spawnTimeMs: Long,
     val ttlMs: Long,
     val fadeOutMs: Long,
     val sizePx: Float,
     val onFloor: Boolean = false,
 )
-
-private fun clampAngleToDownwardCone(angle: Float): Float {
-    var a = angle % 360f
-    if (a < 0f) a += 360f
-
-    // Keep the leaf moving generally downward.
-    // 90deg = down, so limit it to a cone around that.
-    return a.coerceIn(55f, 125f)
-}
-
-private fun randomLeafAngle(): Float {
-    // Around 90 degrees means downward in screen coordinates.
-    return (85f + (Random.nextFloat() * 10f)) // 85..95
-}
 
 @Composable
 fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
@@ -198,19 +186,20 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
 
     val density = LocalDensity.current
     val canvasHeightPx = with(density) { 300.dp.toPx() }
-    val floorY = canvasHeightPx * 0.90f
+    val floorY = canvasHeightPx * 0.95f
 
     val leaves = remember { mutableStateListOf<FallingLeaf>() }
     var currentFrameMs by remember { mutableLongStateOf(0L) }
 
     val leafBitmap = ImageBitmap.imageResource(id = R.drawable.leaf)
 
-    LaunchedEffect(death, stage) {
-        if (death >= 1.0f) {
-            leaves.clear()
-            return@LaunchedEffect
-        }
+    // deathLevel changes on every /tree poll, so keying the spawn loop on it
+    // would restart the loop (resetting the accumulator) every few seconds and
+    // the leaves would never accumulate. Key on Unit and read the live values.
+    val currentDeath by rememberUpdatedState(death)
+    val currentIdx by rememberUpdatedState(idx)
 
+    LaunchedEffect(Unit) {
         var lastFrameNanos = 0L
         var spawnAccumulator = 0f
 
@@ -226,8 +215,17 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                 val nowMs = frameNanos / 1_000_000L
                 currentFrameMs = nowMs
 
-                // Lower death => fewer leaves. Higher death => more leaves.
-                val spawnRatePerSec = (0.25f + death * 2.2f + idx * 0.12f).coerceAtMost(4.0f)
+                val death = currentDeath
+                val idx = currentIdx
+
+                if (death >= 1.0f) {
+                    leaves.clear()
+                    spawnAccumulator = 0f
+                    return@withFrameNanos
+                }
+
+                // Always a gentle fall; more as it wilts / the bigger it is.
+                val spawnRatePerSec = (1.0f + death * 2.2f + idx * 0.12f).coerceAtMost(5.0f)
                 spawnAccumulator += dt * spawnRatePerSec
 
                 val maxLeaves = 70
@@ -236,18 +234,18 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                     spawnAccumulator -= 1f
 
                     val spawnXRange = 100f + (idx * 20f)
-                    val x = (Random.nextFloat() - 0.5f) * spawnXRange
+                    val baseX = (Random.nextFloat() - 0.5f) * spawnXRange
 
                     leaves.add(
                         FallingLeaf(
-                            x = x,
+                            baseX = baseX,
+                            x = baseX,
                             y = canvasHeightPx * 0.40f,
-                            angle = randomLeafAngle(),
-                            angleDtMs = Random.nextLong(250L, 451L),
-                            lastAngleUpdateMs = nowMs,
-                            gravity = listOf(35f, 40f, 45f, 50f, 60f, 65f, 70f, 80f).random(),
-                            sideSpeed = Random.nextFloat() * 18f + 4f,
-                            gustFactor = Random.nextFloat() * 1.2f + 0.6f,
+                            angle = 0f,
+                            fallSpeed = listOf(50f, 70f, 90f, 110f, 130f).random(), // gentle px/sec
+                            swayAmp = Random.nextFloat() * 25f + 15f, // 15..40 px
+                            swayFreq = Random.nextFloat() * 1.5f + 1.5f, // 1.5..3.0 rad/s
+                            swayPhase = Random.nextFloat() * 6.2832f,
                             spawnTimeMs = nowMs,
                             ttlMs = Random.nextLong(10_000L, 18_000L),
                             fadeOutMs = Random.nextLong(1500L, 3000L),
@@ -269,47 +267,18 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                         continue
                     }
 
-                    // Occasionally perturb angle, but keep it in a downward cone.
-                    val updatedAngle = if (nowMs - leaf.lastAngleUpdateMs > leaf.angleDtMs) {
-                        val delta = Random.nextInt(-18, 19).toFloat()
-                        clampAngleToDownwardCone(leaf.angle + delta)
-                    } else {
-                        leaf.angle
-                    }
-
-                    val angleRad = Math.toRadians(updatedAngle.toDouble()).toFloat()
-
-                    // Screen coords: x right, y down.
-                    // Use a downward-biased movement like your pygame version.
-                    val gust = baseSway * 0.12f
-                    val vx = kotlin.math.cos(angleRad) * leaf.sideSpeed + gust * -0.35f
-    val vy = sin(angleRad) * leaf.gravity
-
-    val newX = leaf.x + (vx * dt * 60f)
-    var newY = leaf.y + (vy * dt * 60f)
-
-                    // Never go upward.
-                    if (newY < leaf.y) {
-                        newY = leaf.y + (leaf.gravity * dt * 0.9f)
-                    }
+                    // Gentle downward drift with a left/right sine sway.
+                    val ageSec = ageMs / 1000f
+                    val sway = sin(ageSec * leaf.swayFreq + leaf.swayPhase)
+                    val newX = leaf.baseX + sway * leaf.swayAmp
+                    var newY = leaf.y + leaf.fallSpeed * dt
+                    val drawAngle = sway * 28f // flutter: the leaf tilts with the sway
 
                     if (newY >= floorY) {
                         newY = floorY
-                        leaves[i] = leaf.copy(
-                            x = newX,
-                            y = newY,
-                            angle = updatedAngle,
-                            lastAngleUpdateMs = nowMs,
-                            onFloor = true,
-                        )
+                        leaves[i] = leaf.copy(x = newX, y = newY, angle = drawAngle, onFloor = true)
                     } else {
-                        // Add a small random wobble sometimes, but never enough to go upward.
-                        leaves[i] = leaf.copy(
-                            x = newX,
-                            y = newY,
-                            angle = updatedAngle,
-                            lastAngleUpdateMs = nowMs,
-                        )
+                        leaves[i] = leaf.copy(x = newX, y = newY, angle = drawAngle)
                     }
 
                     // Safety cleanup for very old leaves that never settled.
@@ -417,7 +386,9 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                         left = centerX + leaf.x,
                         top = leaf.y
                     )
-                    rotate(degrees = leaf.angle)
+                    // Rotate around the leaf itself — the default pivot is the
+                    // canvas centre, which was flinging leaves off-screen.
+                    rotate(degrees = leaf.angle, pivot = Offset(12f, 12f))
                 }) {
                     drawImage(
                         image = leafBitmap,
