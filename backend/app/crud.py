@@ -6,7 +6,7 @@ from app.models import EmergencyAlert, OkayEvent, User, UserLink
 
 # One "day" in the current simulation. A check-in (or voice message) is only
 # considered current for this long.
-CHECK_IN_WINDOW_SECONDS = 30
+CHECK_IN_WINDOW_SECONDS = 10
 
 # ---------- USERS ----------
 
@@ -85,6 +85,12 @@ def create_okay_event(session: Session, user_id: int) -> OkayEvent:
 def get_latest_okay_event(session: Session, user_id: int) -> OkayEvent | None:
     stmt = select(OkayEvent).where(OkayEvent.user_id == user_id).order_by(desc(OkayEvent.timestamp)).limit(1)
     return session.exec(stmt).first()
+
+
+def get_okay_timestamps(session: Session, user_id: int) -> list[datetime]:
+    """Every watering time for `user_id` — drives the shared tree's stage."""
+    stmt = select(OkayEvent.timestamp).where(OkayEvent.user_id == user_id)
+    return list(session.exec(stmt).all())
 
 
 def is_okay_within_6h(event: OkayEvent | None) -> bool:

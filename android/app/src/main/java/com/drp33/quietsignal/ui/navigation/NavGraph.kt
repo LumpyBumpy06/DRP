@@ -2,7 +2,6 @@ package com.drp33.quietsignal.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -17,11 +16,12 @@ import com.drp33.quietsignal.model.UserRole
 import com.drp33.quietsignal.ui.screens.AdultScreen
 import com.drp33.quietsignal.ui.screens.ElderlyScreen
 import com.drp33.quietsignal.ui.screens.RoleSelectScreen
-import com.drp33.quietsignal.ui.screens.ThankYouScreen
 import com.drp33.quietsignal.viewmodels.AdultViewModel
 import com.drp33.quietsignal.viewmodels.AdultViewModelFactory
 import com.drp33.quietsignal.viewmodels.ElderlyViewModel
 import com.drp33.quietsignal.viewmodels.ElderlyViewModelFactory
+import com.drp33.quietsignal.viewmodels.TreeViewModel
+import com.drp33.quietsignal.viewmodels.TreeViewModelFactory
 import com.drp33.quietsignal.viewmodels.VoiceMessagingViewModel
 import com.drp33.quietsignal.viewmodels.VoiceMessagingViewModelFactory
 
@@ -36,6 +36,8 @@ fun NavGraph() {
 
     val elderlyViewModel: ElderlyViewModel = viewModel(factory = ElderlyViewModelFactory(repository))
     val adultViewModel: AdultViewModel = viewModel(factory = AdultViewModelFactory(repository))
+    // One shared tree for both roles — same instance, polled continuously.
+    val treeViewModel: TreeViewModel = viewModel(factory = TreeViewModelFactory(repository))
 
     // Reopen on the previously chosen role's screen, if any.
     val startDestination = remember {
@@ -56,23 +58,22 @@ fun NavGraph() {
 
     NavHost(
         navController = navController,
-        startDestination = startDestination
-    ){
+        startDestination = startDestination,
+    ) {
 
         composable(Routes.ROLE_SELECT) {
             RoleSelectScreen { role ->
-
                 when (role) {
                     UserRole.SADIE -> {
                         RolePreferences.save(context, UserRole.SADIE)
                         navController.navigate(Routes.ADULT) {
-                            popUpTo(Routes.ROLE_SELECT) {inclusive = true}
+                            popUpTo(Routes.ROLE_SELECT) { inclusive = true }
                         }
                     }
                     UserRole.NORMAN -> {
                         RolePreferences.save(context, UserRole.NORMAN)
                         navController.navigate(Routes.ELDERLY) {
-                            popUpTo(Routes.ROLE_SELECT) {inclusive = true}
+                            popUpTo(Routes.ROLE_SELECT) { inclusive = true }
                         }
                     }
                 }
@@ -80,61 +81,29 @@ fun NavGraph() {
         }
 
         composable(Routes.ELDERLY) {
-
             // Norman: records into mailbox 1, plays Sadie's (mailbox 2).
             val voiceVm: VoiceMessagingViewModel =
                 viewModel(factory = VoiceMessagingViewModelFactory(repository, selfId = 1, peerId = 2))
 
-            // Re-poll so Norman's screen also resets after the day window: once his
-            // check-in expires he sees the check-in (and voice) UI again.
-            LaunchedEffect(Unit) {
-                elderlyViewModel.postFCMToken(1)
-                var first = true
-                while (true) {
-                    elderlyViewModel.loadCheckIn(1, showLoading = first)
-                    first = false
-                    delay(5000)
-                }
-            }
-
-            val state = elderlyViewModel.uiState.collectAsState().value
+            LaunchedEffect(Unit) { elderlyViewModel.postFCMToken(1) }
 
             ElderlyScreen(
+                treeVm = treeViewModel,
                 voiceVm = voiceVm,
-                state = state,
-                onOkayClick = {
-                    elderlyViewModel.onOkayClick(1) {
-                        navController.navigate(Routes.THANK_YOU) {
-                            popUpTo(Routes.ELDERLY) { inclusive = true}
-                        }
-                    }
-                },
-                onNotTodayClick = {
-                    navController.navigate(Routes.THANK_YOU)
-                },
-                onReplyLaterClick = {
-                    navController.navigate(Routes.THANK_YOU)
-                },
                 onSwitchRole = switchRole,
-                onCheckInRefresh = { elderlyViewModel.loadCheckIn(1, showLoading = false) },
                 onEmergencyClick = { elderlyViewModel.sendEmergency(1) },
             )
         }
 
         composable(Routes.ADULT) {
-
             // Sadie: records into mailbox 2, plays Norman's (mailbox 1).
             val voiceVm: VoiceMessagingViewModel =
                 viewModel(factory = VoiceMessagingViewModelFactory(repository, selfId = 2, peerId = 1))
 
-            // Re-poll the check-in status so the screen reflects the day window
-            // expiring (Norman drops back to "not checked in" after ~30s). The same
-            // loop checks for an active emergency, so the popup shows even if the
-            // push was missed (app backgrounded / arrived via the notification).
+            // Poll for an active emergency so the popup shows even if the push was missed.
             LaunchedEffect(Unit) {
                 adultViewModel.postFCMToken(2)
                 while (true) {
-                    adultViewModel.loadInitialState(1)
                     adultViewModel.loadEmergencyStatus(2)
                     delay(5000)
                 }
@@ -142,15 +111,11 @@ fun NavGraph() {
 
             AdultScreen(
                 viewModel = adultViewModel,
+                treeVm = treeViewModel,
                 voiceVm = voiceVm,
                 onSwitchRole = switchRole,
                 onAllGood = { adultViewModel.acknowledgeEmergency(2) },
             )
         }
-
-        composable(Routes.THANK_YOU) {
-            ThankYouScreen()
-        }
-
     }
 }

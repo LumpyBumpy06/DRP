@@ -1,6 +1,9 @@
+from datetime import UTC, datetime, timedelta
+
 import app.main as main_module
 from app.main import app
 from app.models import User
+from app.services.tree import compute_tree_state
 from fastapi.testclient import TestClient
 
 client = TestClient(app)
@@ -112,3 +115,26 @@ def test_emergency_ack_clears(monkeypatch) -> None:
     assert response.status_code == 200
     assert response.json() == {"ok": True}
     assert cleared == [2]
+
+
+def test_tree_grows_with_total_waterings_and_wilts() -> None:
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    day = 10
+
+    def ago(n: int) -> datetime:
+        return now - timedelta(seconds=n)
+
+    # No waterings: a fresh, alive sapling.
+    fresh = compute_tree_state([], [], now, day)
+    assert fresh["stage"] == 0
+    assert fresh["deathLevel"] == 0.0
+
+    # 3 total recent waterings -> stage 2 (thresholds 0,1,3,6,10,15), just watered.
+    grown = compute_tree_state([ago(1), ago(1)], [ago(1)], now, day)
+    assert grown["stage"] == 2
+    assert grown["totalWaterings"] == 3
+    assert grown["deathLevel"] < 0.1
+
+    # Neglected for 6 day-windows (60s) -> fully wilted.
+    wilted = compute_tree_state([ago(60)], [], now, day)
+    assert wilted["deathLevel"] == 1.0

@@ -58,4 +58,9 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
         }
     }
 
+    override suspend fun getTree(): Result<com.drp33.quietsignal.model.TreeState> = runCatching {
+        val r = api.getTree()
+        com.drp33.quietsignal.model.TreeState(stage = r.stage, deathLevel = r.deathLevel)
+    }
+
 }

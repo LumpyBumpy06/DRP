@@ -70,6 +70,9 @@ dependencies {
     // RetroFit debugging
     implementation(libs.logging.interceptor)
 
+    // Lottie
+    implementation(libs.lottie.compose)
+
 
 
 }

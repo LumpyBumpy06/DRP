@@ -3,13 +3,12 @@ package com.drp33.quietsignal.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -21,50 +20,60 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.drp33.quietsignal.viewmodels.AdultViewModel
+import com.drp33.quietsignal.viewmodels.TreeViewModel
 import com.drp33.quietsignal.viewmodels.VoiceMessagingViewModel
 
 @Composable
 fun AdultScreen(
     viewModel: AdultViewModel,
+    treeVm: TreeViewModel,
     voiceVm: VoiceMessagingViewModel,
     onSwitchRole: () -> Unit = {},
     onAllGood: () -> Unit = {},
 ) {
-    val state = viewModel.state
+    val tree = treeVm.state
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(24.dp),
-            verticalArrangement = Arrangement.Center,
+                .statusBarsPadding()
+                .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            Spacer(modifier = Modifier.height(48.dp))
+
+            Text(text = "Your shared tree 🌳", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+
+            WateringTree(stage = tree.stage, deathLevel = tree.deathLevel)
+
             Text(
-                text = if (state.checkedIn) "✅ Norman has checked in" else "Waiting for Norman…",
+                text = treeHint(deathStateOf(tree.deathLevel)),
                 style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Listen to Norman's latest message.
-            Text(text = "Message from Norman", style = MaterialTheme.typography.titleSmall)
-            Spacer(modifier = Modifier.height(8.dp))
+            // Mic (send a memo — also waters) on the left, water on the right.
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(28.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                VoiceRecorderButton(
+                    onRecorded = { voiceVm.onRecorded(it, onUploaded = { treeVm.refresh() }) },
+                    idleLabel = "Send a memo",
+                )
+                WaterButton(onWater = { treeVm.water(2) })
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
             IncomingVoiceSection(peerName = "Norman", vm = voiceVm)
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Record a message back to Norman.
-            Text(text = "Send a message to Norman", style = MaterialTheme.typography.titleSmall)
-            Spacer(modifier = Modifier.height(8.dp))
-            VoiceRecorderButton(
-                onRecorded = { voiceVm.onRecorded(it) },
-                idleLabel = "Tap to record for Norman",
-            )
         }
 
         TextButton(
@@ -79,7 +88,7 @@ fun AdultScreen(
     }
 
     // Emergency popup — only dismissible via "All good" so it must be acknowledged.
-    if (state.emergency) {
+    if (viewModel.state.emergency) {
         AlertDialog(
             onDismissRequest = { /* require an explicit acknowledgement */ },
             icon = { Text(text = "🚨", fontSize = 40.sp) },
