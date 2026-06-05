@@ -79,4 +79,21 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
         com.drp33.quietsignal.model.TreeState(stage = r.stage, deathLevel = r.deathLevel)
     }
 
+    override suspend fun getMemories(): Result<List<com.drp33.quietsignal.model.MemoryItem>> = runCatching {
+        api.getMemories().memories.map {
+            com.drp33.quietsignal.model.MemoryItem(
+                objectName = it.objectName,
+                type = it.type,
+                sender = it.sender,
+                epoch = it.epoch,
+            )
+        }
+    }
+
+    override suspend fun getMedia(objectName: String): Result<ByteArray> = runCatching {
+        withContext(Dispatchers.IO) {
+            api.getMedia(objectName).bytes()
+        }
+    }
+
 }

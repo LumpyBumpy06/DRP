@@ -20,7 +20,7 @@ from app.db import create_engine_from_settings, get_session, init_db
 from app.models import User
 from app.services.firebase import init_firebase
 from app.services.notifications import send_notification
-from app.services.storage import download_audio, latest_recent_object_name, upload_audio
+from app.services.storage import download_audio, latest_recent_object_name, list_objects, upload_audio
 from app.services.tree import compute_tree_state
 from app.settings import get_settings
 
@@ -265,3 +265,39 @@ def get_latest_photo(user_id: int) -> Response:
 
     data = download_audio(settings, object_name)
     return Response(content=data, media_type="image/jpeg")
+
+
+# ---------- MEMORIES (everything ever sent) ----------
+
+
+@app.get("/memories")
+def get_memories() -> dict:
+    """Every voice memo + snap ever sent, newest first — the shared memory board."""
+    objects = sorted(list_objects(settings), key=lambda o: o[1], reverse=True)
+
+    items: list[dict] = []
+    for object_name, last_modified in objects:
+        if object_name.startswith("photos/"):
+            kind = "photo"
+            sender_id = _photo_sender_from(object_name)
+        else:
+            kind = "voice"
+            sender_id = _sender_id_from(object_name)
+        items.append(
+            {
+                "objectName": object_name,
+                "type": kind,
+                "sender": USER_NAMES.get(sender_id, "Someone") if sender_id is not None else "Someone",
+                "epoch": int(last_modified.timestamp()),
+            }
+        )
+
+    return {"memories": items}
+
+
+@app.get("/media")
+def get_media(object_name: str) -> Response:
+    """Stream any stored object by name (a voice memo or snap) for the memory board."""
+    data = download_audio(settings, object_name)
+    media_type = "image/jpeg" if object_name.endswith(".jpg") else "audio/mp4"
+    return Response(content=data, media_type=media_type)

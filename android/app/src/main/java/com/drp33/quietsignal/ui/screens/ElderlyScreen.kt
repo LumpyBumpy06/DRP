@@ -1,5 +1,6 @@
 package com.drp33.quietsignal.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +34,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.drp33.quietsignal.util.vibrateDoubleTap
+import com.drp33.quietsignal.viewmodels.MemoriesViewModel
 import com.drp33.quietsignal.viewmodels.PhotoMessagingViewModel
 import com.drp33.quietsignal.viewmodels.TreeViewModel
 import com.drp33.quietsignal.viewmodels.VoiceMessagingViewModel
@@ -43,11 +45,13 @@ fun ElderlyScreen(
     treeVm: TreeViewModel,
     voiceVm: VoiceMessagingViewModel,
     photoVm: PhotoMessagingViewModel,
+    memoriesVm: MemoriesViewModel,
     name: String = "Norman",
     onSwitchRole: () -> Unit = {},
     onEmergencyClick: () -> Unit = {},
 ) {
     val tree = treeVm.state
+    var showMemories by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -62,7 +66,16 @@ fun ElderlyScreen(
 
             Text(text = "$name's tree 🌳", fontSize = 22.sp, fontWeight = FontWeight.Bold)
 
-            WateringTree(stage = tree.stage, deathLevel = tree.deathLevel)
+            // Tap the tree to open the shared memory board.
+            Box(modifier = Modifier.clickable { showMemories = true }) {
+                WateringTree(stage = tree.stage, deathLevel = tree.deathLevel)
+            }
+
+            Text(
+                text = "🌿 tap the tree to revisit your memories",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             Text(
                 text = treeHint(deathStateOf(tree.deathLevel)),
@@ -113,6 +126,10 @@ fun ElderlyScreen(
                 .statusBarsPadding()
                 .padding(8.dp),
         )
+    }
+
+    if (showMemories) {
+        MemoriesDialog(vm = memoriesVm, onClose = { showMemories = false })
     }
 }
 

@@ -1,0 +1,12 @@
+package com.drp33.quietsignal.viewmodels
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.drp33.quietsignal.data.repo.CheckInRepository
+
+class MemoriesViewModelFactory(private val repository: CheckInRepository) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        return MemoriesViewModel(repository) as T
+    }
+}
