@@ -33,6 +33,9 @@ USER_NAMES = {1: "Norman", 2: "Sadie"}
 # so clips don't expire before the listener can open them.
 VOICE_TTL_SECONDS = 60
 
+# How long a snap stays viewable.
+PHOTO_TTL_SECONDS = 120
+
 
 # ---------- ENGINE (stateless per deployment) ----------
 
@@ -214,3 +217,51 @@ def get_latest_voice(user_id: int) -> Response:
 
     data = download_audio(settings, object_name)
     return Response(content=data, media_type="audio/mp4")
+
+
+# ---------- PHOTO (snaps) ----------
+
+
+@app.post("/photo")
+async def receive_photo(file: UploadFile, session: Session = SessionDependency) -> dict:
+    data = await file.read()
+
+    # Stored under "photos/<sender_id>/..." — a separate namespace from voice
+    # clips so the two never collide in a "latest" lookup.
+    object_name = file.filename or f"photos/0/{datetime.now(UTC):%Y%m%dT%H%M%S}-{uuid.uuid4().hex}.jpg"
+
+    upload_audio(settings, data, object_name, content_type=file.content_type or "image/jpeg")
+
+    sender_id = _photo_sender_from(object_name)
+    if sender_id is not None:
+        # Sending a snap also "waters" the shared tree.
+        create_okay_event(session, sender_id)
+
+        sender_name = USER_NAMES.get(sender_id, "Someone")
+        for linked_id in get_linked_users(session, sender_id):
+            linked_user = session.get(User, linked_id)
+            if linked_user and linked_user.token:
+                send_notification(linked_user.token, f"📸 {sender_name} sent you a snap!", message_type="PHOTO_MESSAGE")
+
+    return {"object": object_name, "bytes": len(data)}
+
+
+def _photo_sender_from(object_name: str) -> int | None:
+    parts = object_name.split("/")  # "photos/<sender_id>/<file>"
+    if len(parts) >= 2:
+        try:
+            return int(parts[1])
+        except ValueError:
+            return None
+    return None
+
+
+@app.get("/photo/latest")
+def get_latest_photo(user_id: int) -> Response:
+    """Stream the latest snap from `user_id`, within the snap viewing window."""
+    object_name = latest_recent_object_name(settings, f"photos/{user_id}/", PHOTO_TTL_SECONDS)
+    if object_name is None:
+        raise HTTPException(status_code=404, detail="No current snap")
+
+    data = download_audio(settings, object_name)
+    return Response(content=data, media_type="image/jpeg")

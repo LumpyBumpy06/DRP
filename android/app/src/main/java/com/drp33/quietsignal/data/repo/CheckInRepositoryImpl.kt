@@ -58,6 +58,22 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
         }
     }
 
+    override suspend fun postPhoto(clientId: Int, jpeg: ByteArray): Result<Unit> = runCatching {
+        val body = jpeg.toRequestBody("image/jpeg".toMediaType())
+        val part = MultipartBody.Part.createFormData(
+            name = "file",
+            filename = "photos/$clientId/${System.currentTimeMillis()}.jpg",
+            body = body,
+        )
+        api.postPhoto(part)
+    }
+
+    override suspend fun getLatestPhoto(userId: Int): Result<ByteArray> = runCatching {
+        withContext(Dispatchers.IO) {
+            api.getLatestPhoto(userId).bytes()
+        }
+    }
+
     override suspend fun getTree(): Result<com.drp33.quietsignal.model.TreeState> = runCatching {
         val r = api.getTree()
         com.drp33.quietsignal.model.TreeState(stage = r.stage, deathLevel = r.deathLevel)
