@@ -274,6 +274,18 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                     val baseX = (Random.nextFloat() - 0.5f) * 2f * spawnHalfWidthPx
                     val spawnY = spawnYTop + Random.nextFloat() * (spawnYBottom - spawnYTop)
 
+                    val isHealthy = death < 0.4f
+                    val ttl = if (isHealthy) {
+                        Random.nextLong(2000L, 4000L) // Fast disappear for healthy
+                    } else {
+                        Random.nextLong(10_000L, 18_000L) // Longer for wilting/dead
+                    }
+                    val fadeOut = if (isHealthy) {
+                        Random.nextLong(800L, 1500L)
+                    } else {
+                        Random.nextLong(1500L, 3000L)
+                    }
+
                     leaves.add(
                         FallingLeaf(
                             baseX = baseX,
@@ -285,8 +297,8 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                             swayFreq = Random.nextFloat() * 1.5f + 1.5f, // 1.5..3.0 rad/s
                             swayPhase = Random.nextFloat() * 6.2832f,
                             spawnTimeMs = nowMs,
-                            ttlMs = Random.nextLong(10_000L, 18_000L),
-                            fadeOutMs = Random.nextLong(1500L, 3000L),
+                            ttlMs = ttl,
+                            fadeOutMs = fadeOut,
                             sizePx = Random.nextFloat() * 8f + 18f,
                         )
                     )
@@ -409,30 +421,32 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
 
             leaves.forEach { leaf ->
                 val ageMs = (currentFrameMs - leaf.spawnTimeMs).coerceAtLeast(0L)
-                val alpha = when {
-                    leaf.onFloor -> 1f
-                    ageMs < leaf.ttlMs - leaf.fadeOutMs -> 1f
-                    else -> {
-                        val t = ((ageMs - (leaf.ttlMs - leaf.fadeOutMs)).toFloat() / leaf.fadeOutMs.toFloat())
-                            .coerceIn(0f, 1f)
-                        1f - t
-                    }
+                val fadeStart = (leaf.ttlMs - leaf.fadeOutMs).coerceAtLeast(0L)
+                
+                val fadeT = if (ageMs < fadeStart) {
+                    0f
+                } else {
+                    ((ageMs - fadeStart).toFloat() / leaf.fadeOutMs.toFloat()).coerceIn(0f, 1f)
                 }
 
-                withTransform({
-                    translate(
-                        left = centerX + leaf.x,
-                        top = leaf.y
-                    )
-                    // Rotate around the leaf itself — the default pivot is the
-                    // canvas centre, which was flinging leaves off-screen.
-                    rotate(degrees = leaf.angle, pivot = Offset(12f, 12f))
-                }) {
-                    drawImage(
-                        image = leafBitmap,
-                        dstSize = IntSize(24, 24),
-                        alpha = alpha
-                    )
+                val alpha = 1f - fadeT
+                // Shrink from original size down to 0 during fade
+                val currentSize = (leaf.sizePx * (1f - fadeT)).toInt().coerceAtLeast(0)
+
+                if (currentSize > 0) {
+                    withTransform({
+                        translate(
+                            left = centerX + leaf.x,
+                            top = leaf.y
+                        )
+                        rotate(degrees = leaf.angle, pivot = Offset(currentSize / 2f, currentSize / 2f))
+                    }) {
+                        drawImage(
+                            image = leafBitmap,
+                            dstSize = IntSize(currentSize, currentSize),
+                            alpha = alpha
+                        )
+                    }
                 }
             }
         }
