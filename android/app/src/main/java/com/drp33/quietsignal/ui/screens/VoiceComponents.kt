@@ -195,33 +195,36 @@ fun IncomingVoiceSection(
             },
         )
     } else {
-        if (state.hasNewMessage) {
-            Text(
-                text = "🎙️ New voice message from $peerName",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-        }
+        // Only offer playback when the peer actually has a current clip.
+        if (state.available) {
+            if (state.hasNewMessage) {
+                Text(
+                    text = "🎙️ New voice message from $peerName",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
-        Button(
-            onClick = {
-                vm.playLatest { bytes ->
-                    durationMs = player.play(bytes) {
-                        // On finish, drop back to the button so replaying re-fetches
-                        // and the server re-enforces the expiry window.
-                        isPlaying = false
-                        hasClip = false
+            Button(
+                onClick = {
+                    vm.playLatest { bytes ->
+                        durationMs = player.play(bytes) {
+                            // On finish, drop back to the button so replaying re-fetches
+                            // and the server re-enforces the expiry window.
+                            isPlaying = false
+                            hasClip = false
+                            positionMs = 0
+                        }
                         positionMs = 0
+                        isPlaying = true
+                        hasClip = true
                     }
-                    positionMs = 0
-                    isPlaying = true
-                    hasClip = true
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(text = "▶️ Play $peerName's message", fontSize = 20.sp)
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(text = "▶️ Play $peerName's message", fontSize = 20.sp)
+            }
         }
 
         if (state.status.isNotEmpty()) {

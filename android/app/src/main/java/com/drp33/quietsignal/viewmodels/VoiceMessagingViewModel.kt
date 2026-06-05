@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.drp33.quietsignal.data.repo.CheckInRepository
 import com.drp33.quietsignal.model.NotificationBus
 import com.drp33.quietsignal.model.VoiceMessagingState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -25,15 +26,42 @@ class VoiceMessagingViewModel(
     var state by mutableStateOf(VoiceMessagingState())
         private set
 
+    // The peer's latest clip, fetched by the availability check so playback is instant.
+    private var latestBytes: ByteArray? = null
+
     init {
-        // A push only reaches a device when the *peer* records, so any
-        // VOICE_MESSAGE here means "the peer sent something".
+        // React instantly when a push says the peer just sent a clip...
         viewModelScope.launch {
             NotificationBus.events.collect { event ->
                 if (event == "VOICE_MESSAGE") {
                     state = state.copy(hasNewMessage = true)
+                    checkLatest()
                 }
             }
+        }
+        // ...and poll so the Play button reflects what's actually on the server:
+        // it only shows while the peer has a current (unexpired) message.
+        viewModelScope.launch {
+            while (true) {
+                checkLatest()
+                delay(5000)
+            }
+        }
+    }
+
+    /** Is there a current clip from the peer? Caches it for instant playback. */
+    private fun checkLatest() {
+        viewModelScope.launch {
+            repository.getLatestVoice(peerId)
+                .onSuccess { bytes ->
+                    latestBytes = bytes
+                    state = state.copy(available = true)
+                }
+                .onFailure {
+                    // 404 = nothing there, or the message expired.
+                    latestBytes = null
+                    state = state.copy(available = false, hasNewMessage = false)
+                }
         }
     }
 
@@ -49,20 +77,14 @@ class VoiceMessagingViewModel(
         }
     }
 
-    /** Fetch the peer's latest clip (server enforces the day-window expiry) and play it. */
+    /** Play the peer's latest clip (already fetched by the availability check). */
     fun playLatest(play: (ByteArray) -> Unit) {
-        viewModelScope.launch {
-            state = state.copy(status = "Loading…")
-            repository.getLatestVoice(peerId)
-                .onSuccess { bytes ->
-                    state = state.copy(status = "", hasNewMessage = false)
-                    play(bytes)
-                }
-                .onFailure {
-                    Log.e("Voice", "Failed to fetch voice message", it)
-                    // 404 also means the message has expired past the day window.
-                    state = state.copy(status = "No message right now", hasNewMessage = false)
-                }
+        val bytes = latestBytes
+        if (bytes != null) {
+            state = state.copy(status = "", hasNewMessage = false)
+            play(bytes)
+        } else {
+            state = state.copy(status = "No message right now", available = false)
         }
     }
 }
