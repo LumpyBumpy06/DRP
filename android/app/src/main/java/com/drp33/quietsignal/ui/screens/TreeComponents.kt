@@ -250,7 +250,7 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                 val params = STAGE_SPAWN_PARAMS[idx]
 
                 val canvasHeightPx = with(density) { 300.dp.toPx() }
-                val floorY = canvasHeightPx * 0.95f
+                val floorY = canvasHeightPx * 0.98f
                 val spawnHalfWidthPx = with(density) { params.halfWidth.toPx() }
                 val spawnYTop = canvasHeightPx * params.yTop
                 val spawnYBottom = canvasHeightPx * params.yBottom
