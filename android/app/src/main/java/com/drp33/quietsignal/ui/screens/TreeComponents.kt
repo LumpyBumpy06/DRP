@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.withTransform
@@ -162,6 +163,7 @@ private data class FallingLeaf(
     val ttlMs: Long,
     val fadeOutMs: Long,
     val sizePx: Float,
+    val color: Color,
     val onFloor: Boolean = false,
 )
 
@@ -286,6 +288,9 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                         Random.nextLong(1500L, 3000L)
                     }
 
+                    val baseGreen = LEAF_BLOBS.random().originalColor
+                    val leafColor = lerp(baseGreen, getDeadColor(baseGreen), death)
+
                     leaves.add(
                         FallingLeaf(
                             baseX = baseX,
@@ -300,6 +305,7 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                             ttlMs = ttl,
                             fadeOutMs = fadeOut,
                             sizePx = Random.nextFloat() * 8f + 18f,
+                            color = leafColor,
                         )
                     )
                 }
@@ -444,7 +450,8 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                         drawImage(
                             image = leafBitmap,
                             dstSize = IntSize(currentSize, currentSize),
-                            alpha = alpha
+                            alpha = alpha,
+                            colorFilter = ColorFilter.tint(leaf.color)
                         )
                     }
                 }
