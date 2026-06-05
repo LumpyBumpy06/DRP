@@ -20,6 +20,8 @@ import com.drp33.quietsignal.viewmodels.AdultViewModel
 import com.drp33.quietsignal.viewmodels.AdultViewModelFactory
 import com.drp33.quietsignal.viewmodels.ElderlyViewModel
 import com.drp33.quietsignal.viewmodels.ElderlyViewModelFactory
+import com.drp33.quietsignal.viewmodels.MemoriesViewModel
+import com.drp33.quietsignal.viewmodels.MemoriesViewModelFactory
 import com.drp33.quietsignal.viewmodels.PhotoMessagingViewModel
 import com.drp33.quietsignal.viewmodels.PhotoMessagingViewModelFactory
 import com.drp33.quietsignal.viewmodels.TreeViewModel
@@ -40,6 +42,8 @@ fun NavGraph() {
     val adultViewModel: AdultViewModel = viewModel(factory = AdultViewModelFactory(repository))
     // One shared tree for both roles — same instance, polled continuously.
     val treeViewModel: TreeViewModel = viewModel(factory = TreeViewModelFactory(repository))
+    // Shared memory board (all voice memos + snaps ever sent).
+    val memoriesViewModel: MemoriesViewModel = viewModel(factory = MemoriesViewModelFactory(repository))
 
     // Reopen on the previously chosen role's screen, if any.
     val startDestination = remember {
@@ -95,6 +99,7 @@ fun NavGraph() {
                 treeVm = treeViewModel,
                 voiceVm = voiceVm,
                 photoVm = photoVm,
+                memoriesVm = memoriesViewModel,
                 onSwitchRole = switchRole,
                 onEmergencyClick = { elderlyViewModel.sendEmergency(1) },
             )
@@ -121,6 +126,7 @@ fun NavGraph() {
                 treeVm = treeViewModel,
                 voiceVm = voiceVm,
                 photoVm = photoVm,
+                memoriesVm = memoriesViewModel,
                 onSwitchRole = switchRole,
                 onAllGood = { adultViewModel.acknowledgeEmergency(2) },
             )
