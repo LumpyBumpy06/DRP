@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -86,9 +87,21 @@ private const val LEAF_RATE_MAX = 4.0f
 // The region leaves spawn FROM (across the bush). Y values are fractions of the
 // 300dp tree box (smaller = higher up); X half-width is how far either side of
 // centre a leaf can appear.
-private const val LEAF_SPAWN_Y_TOP = 0.15f
-private const val LEAF_SPAWN_Y_BOTTOM = 0.48f
-private val LEAF_SPAWN_HALF_WIDTH = 110.dp
+
+private data class LeafSpawnParams(
+    val yTop: Float,
+    val yBottom: Float,
+    val halfWidth: Dp
+)
+
+private val STAGE_SPAWN_PARAMS = listOf(
+    LeafSpawnParams(0.85f, 0.98f, 20.dp), // Stage 0
+    LeafSpawnParams(0.75f, 0.98f, 30.dp), // Stage 1
+    LeafSpawnParams(0.65f, 0.98f, 40.dp), // Stage 2
+    LeafSpawnParams(0.55f, 0.75f, 50.dp), // Stage 3
+    LeafSpawnParams(0.55f, 0.75f, 60.dp), // Stage 4
+    LeafSpawnParams(0.55f, 0.75f, 70.dp), // Stage 5
+)
 
 private data class LeafBlob(val layer: String, val group: String, val originalColor: Color)
 
@@ -201,12 +214,6 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
     )
 
     val density = LocalDensity.current
-    val canvasHeightPx = with(density) { 300.dp.toPx() }
-    val floorY = canvasHeightPx * 0.95f
-    val spawnHalfWidthPx = with(density) { LEAF_SPAWN_HALF_WIDTH.toPx() }
-    val spawnYTop = canvasHeightPx * LEAF_SPAWN_Y_TOP
-    val spawnYBottom = canvasHeightPx * LEAF_SPAWN_Y_BOTTOM
-
     val leaves = remember { mutableStateListOf<FallingLeaf>() }
     var currentFrameMs by remember { mutableLongStateOf(0L) }
 
@@ -217,6 +224,7 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
     // the leaves would never accumulate. Key on Unit and read the live values.
     val currentDeath by rememberUpdatedState(death)
     val currentIdx by rememberUpdatedState(idx)
+    val currentDensity by rememberUpdatedState(density)
 
     LaunchedEffect(Unit) {
         var lastFrameNanos = 0L
@@ -236,6 +244,14 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
 
                 val death = currentDeath
                 val idx = currentIdx
+                val density = currentDensity
+                val params = STAGE_SPAWN_PARAMS[idx]
+
+                val canvasHeightPx = with(density) { 300.dp.toPx() }
+                val floorY = canvasHeightPx * 0.95f
+                val spawnHalfWidthPx = with(density) { params.halfWidth.toPx() }
+                val spawnYTop = canvasHeightPx * params.yTop
+                val spawnYBottom = canvasHeightPx * params.yBottom
 
                 if (death >= 1.0f) {
                     leaves.clear()
