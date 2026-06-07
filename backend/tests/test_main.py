@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 import app.main as main_module
+from app.crud import get_linking_users
 from app.main import app
 from app.models import User, UserLink
 from app.services.tree import compute_tree_state
@@ -117,8 +118,8 @@ def test_link_lookup_is_bidirectional() -> None:
 
         assert main_module.get_linked_users(session, 1) == [2]
         assert main_module.get_linked_users(session, 2) == [1]
-        assert main_module.get_linking_users(session, 1) == [2]
-        assert main_module.get_linking_users(session, 2) == [1]
+        assert get_linking_users(session, 1) == [2]
+        assert get_linking_users(session, 2) == [1]
 
 
 def test_emergency_ack_clears(monkeypatch) -> None:
