@@ -16,6 +16,9 @@ from app.crud import (
     raise_emergency,
     upsert_user_token,
 )
+from app.crud import (
+    reset_tree as reset_tree_data,
+)
 from app.db import create_engine_from_settings, get_session, init_db
 from app.models import User
 from app.services.firebase import init_firebase
@@ -88,6 +91,14 @@ def tap_okay(user_id: int, session: Session = SessionDependency) -> dict:
     event = create_okay_event(session, user_id)
     _notify_watering(session, user_id, "CHECKED_IN")
     return {"ok": True, "timestamp": event.timestamp.isoformat()}
+
+
+@app.get("/resetTree")
+@app.post("/resetTree")
+def reset_tree(session: Session = SessionDependency) -> dict:
+    """Delete every check-in from the database and reset the shared tree state."""
+    deleted = reset_tree_data(session)
+    return {"ok": True, "deleted": deleted}
 
 
 # ---------- TREE (shared "watering" state) ----------
