@@ -14,8 +14,10 @@ from app.crud import (
     get_okay_timestamps,
     is_okay_within_6h,
     raise_emergency,
-    reset_tree as reset_tree_data,
     upsert_user_token,
+)
+from app.crud import (
+    reset_tree as reset_tree_data,
 )
 from app.db import create_engine_from_settings, get_session, init_db
 from app.models import User
