@@ -3,32 +3,54 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>QuietSignal - APK Download</title>
+  <meta name="quietsignal-api-base" content="" />
+  <title>QuietSignal - Demo Hub</title>
   <link rel="stylesheet" href="style.css">
+  <script defer src="demo.js"></script>
 </head>
 
 <body>
   <div class="background"></div>
 
   <main class="card">
-    <div class="logo">🔕</div>
+    <div class="logo">🌱</div>
 
     <h1>QuietSignal</h1>
-    <p class="subtitle">Minimal, silent communication. Download the latest Android build below.</p>
+    <p class="subtitle">Download the Android build or trigger the demo buttons below to simulate Sadie sending Norman media.</p>
 
     <div class="meta">
       <div class="pill">Android APK</div>
-      <div class="pill">Debug Build</div>
-      <div class="pill">Latest Version</div>
+      <div class="pill">Demo Media</div>
+      <div class="pill">POST actions</div>
     </div>
 
     <a class="download-btn" href="app-debug.apk" download>
       Download APK
     </a>
 
+    <section class="demo-panel" aria-label="Media demo controls">
+      <div>
+        <h2>Demo Actions</h2>
+        <p>Each button sends a POST to the backend and waters the tree using the normal upload flow.</p>
+      </div>
+
+      <div class="demo-buttons">
+        <button class="action-btn action-photo" type="button" id="send-photo-btn">
+          Send Sadie picture
+        </button>
+        <button class="action-btn action-voice" type="button" id="send-voice-btn">
+          Send Sadie voice note
+        </button>
+      </div>
+
+      <p class="status" id="demo-status" data-state="idle">Ready to send a demo item.</p>
+    </section>
+
     <p class="footer">
-      Built for testing • Hosted via GitHub Pages
+      Built for testing • The demo uses generated placeholder media
     </p>
   </main>
+
+  <iframe id="quietsignal-submit-frame" name="quietsignal-submit-frame" title="QuietSignal submission target" hidden></iframe>
 </body>
 </html>
