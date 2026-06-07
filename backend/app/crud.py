@@ -82,6 +82,15 @@ def create_okay_event(session: Session, user_id: int) -> OkayEvent:
     return event
 
 
+def reset_tree(session: Session) -> int:
+    """Delete every check-in so the shared tree returns to its initial state."""
+    events = list(session.exec(select(OkayEvent)).all())
+    for event in events:
+        session.delete(event)
+    session.commit()
+    return len(events)
+
+
 def get_latest_okay_event(session: Session, user_id: int) -> OkayEvent | None:
     stmt = select(OkayEvent).where(OkayEvent.user_id == user_id).order_by(desc(OkayEvent.timestamp)).limit(1)
     return session.exec(stmt).first()

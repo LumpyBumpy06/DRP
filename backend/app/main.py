@@ -14,6 +14,7 @@ from app.crud import (
     get_okay_timestamps,
     is_okay_within_6h,
     raise_emergency,
+    reset_tree as reset_tree_data,
     upsert_user_token,
 )
 from app.db import create_engine_from_settings, get_session, init_db
@@ -88,6 +89,14 @@ def tap_okay(user_id: int, session: Session = SessionDependency) -> dict:
     event = create_okay_event(session, user_id)
     _notify_watering(session, user_id, "CHECKED_IN")
     return {"ok": True, "timestamp": event.timestamp.isoformat()}
+
+
+@app.get("/resetTree")
+@app.post("/resetTree")
+def reset_tree(session: Session = SessionDependency) -> dict:
+    """Delete every check-in from the database and reset the shared tree state."""
+    deleted = reset_tree_data(session)
+    return {"ok": True, "deleted": deleted}
 
 
 # ---------- TREE (shared "watering" state) ----------

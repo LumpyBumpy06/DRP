@@ -117,6 +117,18 @@ def test_emergency_ack_clears(monkeypatch) -> None:
     assert cleared == [2]
 
 
+def test_reset_tree_clears_okay_events(monkeypatch) -> None:
+    deleted: list[bool] = []
+
+    monkeypatch.setattr(main_module, "reset_tree_data", lambda session: deleted.append(True) or 3)
+
+    response = client.get("/resetTree")
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True, "deleted": 3}
+    assert deleted == [True]
+
+
 def test_tree_grows_with_total_waterings_and_wilts() -> None:
     now = datetime(2026, 1, 1, tzinfo=UTC)
     day = 10
