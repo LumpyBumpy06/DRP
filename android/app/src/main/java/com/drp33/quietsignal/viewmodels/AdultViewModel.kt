@@ -11,8 +11,10 @@ import com.drp33.quietsignal.data.repo.CheckInRepository
 import com.drp33.quietsignal.model.NotificationBus
 import com.google.firebase.Firebase
 import com.google.firebase.messaging.messaging
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 class AdultViewModel(
     private val repository: CheckInRepository
@@ -76,7 +78,14 @@ class AdultViewModel(
 
     fun postFCMToken(userId: Int) {
         viewModelScope.launch {
-            repository.postRegisterToken(userId, Firebase.messaging.token.await())
+            try {
+                val token = withContext(Dispatchers.IO) {
+                    Firebase.messaging.token.await()
+                }
+                repository.postRegisterToken(userId, token)
+            } catch (e: Exception) {
+                Log.e("Adult", "Failed to get FCM token", e)
+            }
         }
     }
 

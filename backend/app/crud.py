@@ -28,15 +28,26 @@ def upsert_user_token(session: Session, user_id: int, token: str) -> User:
 # ---------- LINKS ----------
 
 
+def _get_related_users(session: Session, user_id: int) -> list[int]:
+    """Return every partner linked to `user_id`, regardless of which side stored it."""
+    outgoing = session.exec(select(UserLink.linked_user_id).where(UserLink.user_id == user_id)).all()
+    incoming = session.exec(select(UserLink.user_id).where(UserLink.linked_user_id == user_id)).all()
+
+    related: list[int] = []
+    for linked_id in [*outgoing, *incoming]:
+        if linked_id != user_id and linked_id not in related:
+            related.append(linked_id)
+
+    return related
+
+
 def get_linked_users(session: Session, user_id: int) -> list[int]:
-    stmt = select(UserLink.linked_user_id).where(UserLink.user_id == user_id)
-    return list(session.exec(stmt).all())
+    return _get_related_users(session, user_id)
 
 
 def get_linking_users(session: Session, target_id: int) -> list[int]:
     """Inverse of [get_linked_users]: users whose alerts `target_id` should see."""
-    stmt = select(UserLink.user_id).where(UserLink.linked_user_id == target_id)
-    return list(session.exec(stmt).all())
+    return _get_related_users(session, target_id)
 
 
 # ---------- EMERGENCY ----------

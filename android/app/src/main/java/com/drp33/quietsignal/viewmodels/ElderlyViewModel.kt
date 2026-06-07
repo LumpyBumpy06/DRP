@@ -8,10 +8,12 @@ import com.drp33.quietsignal.data.repo.CheckInRepository
 import com.drp33.quietsignal.model.ElderlyUIState
 import com.google.firebase.Firebase
 import com.google.firebase.messaging.messaging
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 class ElderlyViewModel(
     private val repository: CheckInRepository
@@ -60,7 +62,14 @@ class ElderlyViewModel(
 
     fun postFCMToken(userId: Int) {
         viewModelScope.launch {
-            repository.postRegisterToken(userId, Firebase.messaging.token.await())
+            try {
+                val token = withContext(Dispatchers.IO) {
+                    Firebase.messaging.token.await()
+                }
+                repository.postRegisterToken(userId, token)
+            } catch (e: Exception) {
+                Log.e("Elderly", "Failed to get FCM token", e)
+            }
         }
     }
 

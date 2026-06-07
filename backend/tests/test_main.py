@@ -1,10 +1,12 @@
 from datetime import UTC, datetime, timedelta
 
 import app.main as main_module
+from app.crud import get_linking_users
 from app.main import app
-from app.models import User
+from app.models import User, UserLink
 from app.services.tree import compute_tree_state
 from fastapi.testclient import TestClient
+from sqlmodel import Session, SQLModel, create_engine
 
 client = TestClient(app)
 
@@ -104,6 +106,20 @@ def test_emergency_active_status(monkeypatch) -> None:
     response = client.get("/emergency/active", params={"user_id": 2})
     assert response.status_code == 200
     assert response.json() == {"active": False, "sender": None}
+
+
+def test_link_lookup_is_bidirectional() -> None:
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        session.add(UserLink(user_id=1, linked_user_id=2))
+        session.commit()
+
+        assert main_module.get_linked_users(session, 1) == [2]
+        assert main_module.get_linked_users(session, 2) == [1]
+        assert get_linking_users(session, 1) == [2]
+        assert get_linking_users(session, 2) == [1]
 
 
 def test_emergency_ack_clears(monkeypatch) -> None:
