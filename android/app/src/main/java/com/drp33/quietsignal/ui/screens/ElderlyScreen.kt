@@ -97,6 +97,7 @@ fun ElderlyScreen(
                 )
                 WaterButton(onWater = { treeVm.water(1) }, size = 96.dp)
                 SnapButton(onCaptured = { photoVm.sendPhoto(it) { treeVm.refresh() } }, size = 96.dp)
+                UploadButton(onSelected = { photoVm.sendPhoto(it) { treeVm.refresh() } }, size = 96.dp)
             }
 
             Spacer(modifier = Modifier.height(20.dp))

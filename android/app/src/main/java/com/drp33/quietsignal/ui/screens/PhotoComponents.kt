@@ -3,6 +3,9 @@ package com.drp33.quietsignal.ui.screens
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
@@ -83,6 +86,62 @@ fun SnapButton(onCaptured: (ByteArray) -> Unit, size: Dp = 96.dp) {
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = "Snap", style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/** The read-media permission to request before opening the gallery. Photo Picker is
+ *  technically permissionless, but we gate on it to mirror [SnapButton]'s camera flow. */
+private val mediaReadPermission: String
+    get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_IMAGES
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    }
+
+/**
+ * Tap to upload an existing image from the device. Requests the read-media permission
+ * *at tap time*, opens the gallery, then hands back the picked photo re-encoded as JPEG
+ * bytes so it flows through the same pipeline as a [SnapButton] snap (shared with the
+ * peer and added to the memory board).
+ */
+@Composable
+fun UploadButton(onSelected: (ByteArray) -> Unit, size: Dp = 96.dp) {
+    val context = LocalContext.current
+
+    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) {
+            val jpeg = runCatching {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    val bitmap = BitmapFactory.decodeStream(input) ?: return@use null
+                    val stream = ByteArrayOutputStream()
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 85, stream)
+                    stream.toByteArray()
+                }
+            }.getOrNull()
+            if (jpeg != null) onSelected(jpeg)
+        }
+    }
+    val requestRead = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) pickImage.launch("image/*")
+    }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Button(
+            onClick = {
+                val granted = ContextCompat.checkSelfPermission(
+                    context,
+                    mediaReadPermission,
+                ) == PackageManager.PERMISSION_GRANTED
+                if (granted) pickImage.launch("image/*") else requestRead.launch(mediaReadPermission)
+            },
+            shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4DB6AC)),
+            modifier = Modifier.size(size),
+        ) {
+            Text(text = "🖼️", fontSize = 40.sp)
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(text = "Upload", style = MaterialTheme.typography.bodyMedium)
     }
 }
 
