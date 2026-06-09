@@ -8,14 +8,23 @@ import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -25,6 +34,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,32 +52,30 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import com.drp33.quietsignal.viewmodels.PhotoMessagingViewModel
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.Executor
 
 /**
- * Tap to take a "snap". Requests the camera permission *at tap time*, then opens
- * the camera and hands back the captured photo as JPEG bytes.
+ * Tap to take a "snap". Opens a custom camera dialog with an integrated
+ * gallery shortcut in the bottom left, mimicking a native camera app.
  */
 @Composable
 fun SnapButton(onCaptured: (ByteArray) -> Unit, size: Dp = 96.dp) {
     val context = LocalContext.current
+    var showCamera by remember { mutableStateOf(false) }
 
-    val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
-        if (bitmap != null) {
-            val stream = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 85, stream)
-            onCaptured(stream.toByteArray())
-        }
-    }
     val requestCamera = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) takePicture.launch(null)
+        if (granted) showCamera = true
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -76,7 +85,7 @@ fun SnapButton(onCaptured: (ByteArray) -> Unit, size: Dp = 96.dp) {
                     context,
                     Manifest.permission.CAMERA,
                 ) == PackageManager.PERMISSION_GRANTED
-                if (granted) takePicture.launch(null) else requestCamera.launch(Manifest.permission.CAMERA)
+                if (granted) showCamera = true else requestCamera.launch(Manifest.permission.CAMERA)
             },
             shape = CircleShape,
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8A65)),
@@ -87,27 +96,32 @@ fun SnapButton(onCaptured: (ByteArray) -> Unit, size: Dp = 96.dp) {
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = "Snap", style = MaterialTheme.typography.bodyMedium)
     }
+
+    if (showCamera) {
+        CameraCaptureDialog(
+            onCaptured = {
+                onCaptured(it)
+                showCamera = false
+            },
+            onClose = { showCamera = false }
+        )
+    }
 }
 
-/** The read-media permission to request before opening the gallery. Photo Picker is
- *  technically permissionless, but we gate on it to mirror [SnapButton]'s camera flow. */
-private val mediaReadPermission: String
-    get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        Manifest.permission.READ_MEDIA_IMAGES
-    } else {
-        Manifest.permission.READ_EXTERNAL_STORAGE
-    }
-
 /**
- * Tap to upload an existing image from the device. Requests the read-media permission
- * *at tap time*, opens the gallery, then hands back the picked photo re-encoded as JPEG
- * bytes so it flows through the same pipeline as a [SnapButton] snap (shared with the
- * peer and added to the memory board).
+ * A full-screen camera interface with a live preview, a shutter button,
+ * and a gallery shortcut in the bottom left.
  */
 @Composable
-fun UploadButton(onSelected: (ByteArray) -> Unit, size: Dp = 96.dp) {
+fun CameraCaptureDialog(onCaptured: (ByteArray) -> Unit, onClose: () -> Unit) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
+    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+    val previewView = remember { PreviewView(context) }
+    val imageCapture = remember { ImageCapture.Builder().build() }
+
+    // Launcher for the gallery shortcut
     val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
             val jpeg = runCatching {
@@ -118,32 +132,111 @@ fun UploadButton(onSelected: (ByteArray) -> Unit, size: Dp = 96.dp) {
                     stream.toByteArray()
                 }
             }.getOrNull()
-            if (jpeg != null) onSelected(jpeg)
+            if (jpeg != null) onCaptured(jpeg)
         }
-    }
-    val requestRead = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) pickImage.launch("image/*")
     }
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Button(
-            onClick = {
-                val granted = ContextCompat.checkSelfPermission(
-                    context,
-                    mediaReadPermission,
-                ) == PackageManager.PERMISSION_GRANTED
-                if (granted) pickImage.launch("image/*") else requestRead.launch(mediaReadPermission)
-            },
-            shape = CircleShape,
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4DB6AC)),
-            modifier = Modifier.size(size),
-        ) {
-            Text(text = "🖼️", fontSize = 40.sp)
+    LaunchedEffect(Unit) {
+        val cameraProvider = cameraProviderFuture.get()
+        val preview = Preview.Builder().build().also {
+            it.setSurfaceProvider(previewView.surfaceProvider)
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(text = "Upload", style = MaterialTheme.typography.bodyMedium)
+
+        try {
+            cameraProvider.unbindAll()
+            cameraProvider.bindToLifecycle(
+                lifecycleOwner,
+                CameraSelector.DEFAULT_BACK_CAMERA,
+                preview,
+                imageCapture
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+            AndroidView(
+                factory = { previewView },
+                modifier = Modifier.fillMaxSize()
+            )
+
+            // Close button
+            TextButton(
+                onClick = onClose,
+                modifier = Modifier.align(Alignment.TopStart).padding(16.dp)
+            ) {
+                Text("✕", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            }
+
+            // Bottom controls
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(bottom = 48.dp)
+            ) {
+                // Gallery Shortcut (Bottom Left)
+                IconButton(
+                    onClick = { pickImage.launch("image/*") },
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = 32.dp)
+                        .size(64.dp)
+                        .background(Color.DarkGray.copy(alpha = 0.5f), CircleShape)
+                ) {
+                    Text("🖼️", fontSize = 28.sp)
+                }
+
+                // Shutter Button (Center)
+                IconButton(
+                    onClick = {
+                        val executor = ContextCompat.getMainExecutor(context)
+                        imageCapture.takePicture(
+                            executor,
+                            object : ImageCapture.OnImageCapturedCallback() {
+                                override fun onCaptureSuccess(image: androidx.camera.core.ImageProxy) {
+                                    val buffer = image.planes[0].buffer
+                                    val bytes = ByteArray(buffer.remaining())
+                                    buffer.get(bytes)
+                                    image.close()
+
+                                    // Rotate/process if needed, or just send raw
+                                    onCaptured(bytes)
+                                }
+
+                                override fun onError(exception: ImageCaptureException) {
+                                    exception.printStackTrace()
+                                }
+                            }
+                        )
+                    },
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(80.dp)
+                        .background(Color.White, CircleShape)
+                        .padding(4.dp)
+                        .background(Color.White, CircleShape)
+                ) {
+                    // Inner ring for the shutter look
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(4.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.1f))
+                    )
+                }
+            }
+        }
     }
 }
+
+// UploadButton was integrated into SnapButton's CameraCaptureDialog.
 
 /** The peer's latest snap, in a rounded card that springs in; tap to view full. */
 @Composable

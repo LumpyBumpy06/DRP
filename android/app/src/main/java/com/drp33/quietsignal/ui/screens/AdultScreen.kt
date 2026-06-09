@@ -95,11 +95,6 @@ fun AdultScreen(
                 SnapButton(onCaptured = { photoVm.sendPhoto(it) { treeVm.refresh() } }, size = 96.dp)
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Upload an existing photo from the device — shares it and adds it to the board.
-            UploadButton(onSelected = { photoVm.sendPhoto(it) { treeVm.refresh() } }, size = 96.dp)
-
             Spacer(modifier = Modifier.height(20.dp))
 
             IncomingPhotoSection(peerName = "Norman", vm = photoVm)
@@ -121,7 +116,7 @@ fun AdultScreen(
     }
 
     if (showMemories) {
-        MemoriesDialog(vm = memoriesVm, onClose = { showMemories = false })
+        MemoriesDialog(vm = memoriesVm, currentUserId = 2, onClose = { showMemories = false })
     }
 
     // Emergency popup — only dismissible via "All good" so it must be acknowledged.

@@ -54,4 +54,18 @@ class MemoriesViewModel(
             repository.getMedia(objectName).onSuccess(onBytes)
         }
     }
+
+    /** Reshare a memory by re-posting it as the current user. */
+    fun reshare(item: MemoryItem, currentUserId: Int, onComplete: () -> Unit) {
+        viewModelScope.launch {
+            repository.getMedia(item.objectName).onSuccess { bytes ->
+                val result = if (item.type == "photo") {
+                    repository.postPhoto(currentUserId, bytes)
+                } else {
+                    repository.postVoice(currentUserId, bytes)
+                }
+                result.onSuccess { onComplete() }
+            }
+        }
+    }
 }
