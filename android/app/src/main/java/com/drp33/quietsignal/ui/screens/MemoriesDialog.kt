@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,6 +33,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -78,6 +80,8 @@ private val CAPTION_SCRIM = listOf(Color.Transparent, Color(0xCC1B5E20))
 @Composable
 fun MemoriesDialog(vm: MemoriesViewModel, currentUserId: Int, onClose: () -> Unit) {
     var expandedItem by remember { mutableStateOf<MemoryItem?>(null) }
+    // Gallery filter — defaults to photos; tap "Voice" to see the voice messages.
+    var filter by remember { mutableStateOf("photo") }
 
     LaunchedEffect(Unit) { vm.load() }
 
@@ -110,19 +114,40 @@ fun MemoriesDialog(vm: MemoriesViewModel, currentUserId: Int, onClose: () -> Uni
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Filter toggle: Photos (default) / Voice.
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterPill(
+                            label = "📸 Photos",
+                            selected = filter == "photo",
+                            onClick = { filter = "photo" },
+                        )
+                        FilterPill(
+                            label = "🎤 Voice",
+                            selected = filter == "voice",
+                            onClick = { filter = "voice" },
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     val memories = vm.memories
+                    val filtered = remember(memories, filter) { memories.filter { it.type == filter } }
                     when {
                         vm.loading && memories.isEmpty() ->
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 CircularProgressIndicator(color = Color(0xFF4CAF50))
                             }
 
-                        memories.isEmpty() ->
+                        filtered.isEmpty() ->
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text(
-                                    text = "🌱 No memories yet.\nShare a snap or a voice memo to start your story.",
+                                    text = if (filter == "photo") {
+                                        "🌱 No photos yet.\nShare a snap to start your story."
+                                    } else {
+                                        "🌱 No voice messages yet.\nRecord a voice memo to start your story."
+                                    },
                                     color = SUBTITLE_GREEN,
                                     textAlign = TextAlign.Center,
                                 )
@@ -134,7 +159,7 @@ fun MemoriesDialog(vm: MemoriesViewModel, currentUserId: Int, onClose: () -> Uni
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.fillMaxSize(),
                         ) {
-                            items(memories, key = { it.objectName }) { item ->
+                            items(filtered, key = { it.objectName }) { item ->
                                 MemoryTile(
                                     item = item,
                                     onClick = { expandedItem = item },
@@ -153,6 +178,27 @@ fun MemoriesDialog(vm: MemoriesViewModel, currentUserId: Int, onClose: () -> Uni
             vm = vm,
             currentUserId = currentUserId,
             onClose = { expandedItem = null }
+        )
+    }
+}
+
+/** A small pill button used for the Photos / Voice gallery filter. */
+@Composable
+private fun FilterPill(label: String, selected: Boolean, onClick: () -> Unit) {
+    val container = if (selected) TITLE_GREEN else Color.White
+    val content = if (selected) Color.White else ACCENT_GREEN
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        color = container,
+        border = if (selected) null else BorderStroke(1.dp, SUBTITLE_GREEN.copy(alpha = 0.5f)),
+    ) {
+        Text(
+            text = label,
+            color = content,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
     }
 }
