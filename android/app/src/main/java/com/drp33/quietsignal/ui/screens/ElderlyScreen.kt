@@ -1,6 +1,5 @@
 package com.drp33.quietsignal.ui.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,9 +48,14 @@ fun ElderlyScreen(
     name: String = "Norman",
     onSwitchRole: () -> Unit = {},
     onEmergencyClick: () -> Unit = {},
+    onOpenRoots: () -> Unit = {},
+    onOpenForest: () -> Unit = {},
 ) {
     val tree = treeVm.state
     var showMemories by remember { mutableStateOf(false) }
+    var selectedMemory by remember { mutableStateOf<com.drp33.quietsignal.model.MemoryItem?>(null) }
+
+    LaunchedEffect(Unit) { memoriesVm.load() }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -66,9 +70,17 @@ fun ElderlyScreen(
 
             Text(text = "$name's tree 🌳", fontSize = 22.sp, fontWeight = FontWeight.Bold)
 
-            // Tap the tree to open the shared memory board.
-            Box(modifier = Modifier.clickable { showMemories = true }) {
-                WateringTree(stage = tree.stage, deathLevel = tree.deathLevel)
+            // Tap a bloom to open that memory; tap elsewhere on the tree for the board.
+            run {
+                GroveTree(
+                    stage = tree.stage,
+                    deathLevel = tree.deathLevel,
+                    blossomCount = memoriesVm.memories.size.coerceAtMost(20),
+                    onBlossomTap = { idx ->
+                        val mem = memoriesVm.memories.getOrNull(idx)
+                        if (mem != null) selectedMemory = mem else showMemories = true
+                    },
+                )
             }
 
             Text(
@@ -76,6 +88,11 @@ fun ElderlyScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onOpenRoots) { Text(text = "follow the roots ↓") }
+                TextButton(onClick = onOpenForest) { Text(text = "your forest →") }
+            }
 
             Text(
                 text = treeHint(deathStateOf(tree.deathLevel)),
@@ -135,6 +152,10 @@ fun ElderlyScreen(
 
     if (showMemories) {
         MemoriesDialog(vm = memoriesVm, onClose = { showMemories = false })
+    }
+
+    selectedMemory?.let { mem ->
+        MemoryDetailSheet(item = mem, vm = memoriesVm, onDismiss = { selectedMemory = null })
     }
 }
 

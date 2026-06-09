@@ -1,6 +1,5 @@
 package com.drp33.quietsignal.ui.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,9 +45,15 @@ fun AdultScreen(
     memoriesVm: MemoriesViewModel,
     onSwitchRole: () -> Unit = {},
     onAllGood: () -> Unit = {},
+    onOpenRoots: () -> Unit = {},
+    onOpenForest: () -> Unit = {},
 ) {
     val tree = treeVm.state
     var showMemories by remember { mutableStateOf(false) }
+    var selectedMemory by remember { mutableStateOf<com.drp33.quietsignal.model.MemoryItem?>(null) }
+
+    // Keep memories loaded so blooms reflect them and tapping a bloom has detail.
+    LaunchedEffect(Unit) { memoriesVm.load() }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -62,16 +68,27 @@ fun AdultScreen(
 
             Text(text = "Your shared tree 🌳", fontSize = 22.sp, fontWeight = FontWeight.Bold)
 
-            // Tap the tree to open the shared memory board.
-            Box(modifier = Modifier.clickable { showMemories = true }) {
-                WateringTree(stage = tree.stage, deathLevel = tree.deathLevel)
-            }
+            // Tap a bloom to open that memory; tap elsewhere on the tree for the board.
+            GroveTree(
+                stage = tree.stage,
+                deathLevel = tree.deathLevel,
+                blossomCount = memoriesVm.memories.size.coerceAtMost(20),
+                onBlossomTap = { idx ->
+                    val mem = memoriesVm.memories.getOrNull(idx)
+                    if (mem != null) selectedMemory = mem else showMemories = true
+                },
+            )
 
             Text(
                 text = "🌿 tap the tree to revisit your memories",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onOpenRoots) { Text(text = "follow the roots ↓") }
+                TextButton(onClick = onOpenForest) { Text(text = "your forest →") }
+            }
 
             Text(
                 text = treeHint(deathStateOf(tree.deathLevel)),
@@ -122,6 +139,10 @@ fun AdultScreen(
 
     if (showMemories) {
         MemoriesDialog(vm = memoriesVm, onClose = { showMemories = false })
+    }
+
+    selectedMemory?.let { mem ->
+        MemoryDetailSheet(item = mem, vm = memoriesVm, onDismiss = { selectedMemory = null })
     }
 
     // Emergency popup — only dismissible via "All good" so it must be acknowledged.

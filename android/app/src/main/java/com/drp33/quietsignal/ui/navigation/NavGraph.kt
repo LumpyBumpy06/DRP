@@ -15,7 +15,9 @@ import com.drp33.quietsignal.data.repo.CheckInRepositoryImpl
 import com.drp33.quietsignal.model.UserRole
 import com.drp33.quietsignal.ui.screens.AdultScreen
 import com.drp33.quietsignal.ui.screens.ElderlyScreen
+import com.drp33.quietsignal.ui.screens.ForestScreen
 import com.drp33.quietsignal.ui.screens.RoleSelectScreen
+import com.drp33.quietsignal.ui.screens.RootsScreen
 import com.drp33.quietsignal.viewmodels.AdultViewModel
 import com.drp33.quietsignal.viewmodels.AdultViewModelFactory
 import com.drp33.quietsignal.viewmodels.ElderlyViewModel
@@ -102,6 +104,8 @@ fun NavGraph() {
                 memoriesVm = memoriesViewModel,
                 onSwitchRole = switchRole,
                 onEmergencyClick = { elderlyViewModel.sendEmergency(1) },
+                onOpenRoots = { navController.navigate(Routes.ROOTS) },
+                onOpenForest = { navController.navigate(Routes.FOREST) },
             )
         }
 
@@ -129,6 +133,22 @@ fun NavGraph() {
                 memoriesVm = memoriesViewModel,
                 onSwitchRole = switchRole,
                 onAllGood = { adultViewModel.acknowledgeEmergency(2) },
+                onOpenRoots = { navController.navigate(Routes.ROOTS) },
+                onOpenForest = { navController.navigate(Routes.FOREST) },
+            )
+        }
+
+        composable(Routes.ROOTS) {
+            RootsScreen(
+                vm = memoriesViewModel,
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(Routes.FOREST) {
+            ForestScreen(
+                vm = memoriesViewModel,
+                onBack = { navController.popBackStack() },
             )
         }
     }
