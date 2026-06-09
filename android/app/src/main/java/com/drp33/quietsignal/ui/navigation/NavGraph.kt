@@ -8,7 +8,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import kotlinx.coroutines.delay
 import com.drp33.quietsignal.data.RolePreferences
 import com.drp33.quietsignal.data.remote.RetroFitProvider
 import com.drp33.quietsignal.data.repo.CheckInRepositoryImpl
@@ -112,13 +111,11 @@ fun NavGraph() {
             val photoVm: PhotoMessagingViewModel =
                 viewModel(factory = PhotoMessagingViewModelFactory(repository, selfId = 2, peerId = 1))
 
-            // Poll for an active emergency so the popup shows even if the push was missed.
+            // Fetch initial state once, then rely on pushes.
             LaunchedEffect(Unit) {
                 adultViewModel.postFCMToken(2)
-                while (true) {
-                    adultViewModel.loadEmergencyStatus(2)
-                    delay(5000)
-                }
+                adultViewModel.loadInitialState(2)
+                adultViewModel.loadEmergencyStatus(2)
             }
 
             AdultScreen(
