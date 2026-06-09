@@ -121,7 +121,7 @@ fun AdultScreen(
     }
 
     if (showMemories) {
-        MemoriesDialog(vm = memoriesVm, onClose = { showMemories = false })
+        MemoriesDialog(vm = memoriesVm, currentUserId = 2, onClose = { showMemories = false })
     }
 
     // Emergency popup — only dismissible via "All good" so it must be acknowledged.

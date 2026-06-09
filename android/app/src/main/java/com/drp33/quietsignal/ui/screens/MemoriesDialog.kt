@@ -1,5 +1,10 @@
 package com.drp33.quietsignal.ui.screens
 
+import android.content.ContentValues
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,19 +19,26 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,6 +59,8 @@ import androidx.compose.ui.window.DialogProperties
 import com.drp33.quietsignal.model.MemoryItem
 import com.drp33.quietsignal.util.AudioPlayer
 import com.drp33.quietsignal.viewmodels.MemoriesViewModel
+import kotlinx.coroutines.delay
+import java.io.OutputStream
 
 // Warm, sunny, nature-y palette to match the tree and feel positive.
 private val BOARD_TOP = Color(0xFFFFFDF6) // warm white
@@ -62,13 +76,8 @@ private val CAPTION_SCRIM = listOf(Color.Transparent, Color(0xCC1B5E20))
  * it full, tap a voice memo to play it. ✕ to close.
  */
 @Composable
-fun MemoriesDialog(vm: MemoriesViewModel, onClose: () -> Unit) {
-    val context = LocalContext.current
-    val player = remember { AudioPlayer(context) }
-    DisposableEffect(Unit) { onDispose { player.release() } }
-
-    var playing by remember { mutableStateOf<String?>(null) }
-    var fullPhoto by remember { mutableStateOf<ImageBitmap?>(null) }
+fun MemoriesDialog(vm: MemoriesViewModel, currentUserId: Int, onClose: () -> Unit) {
+    var expandedItem by remember { mutableStateOf<MemoryItem?>(null) }
 
     LaunchedEffect(Unit) { vm.load() }
 
@@ -128,20 +137,7 @@ fun MemoriesDialog(vm: MemoriesViewModel, onClose: () -> Unit) {
                             items(memories, key = { it.objectName }) { item ->
                                 MemoryTile(
                                     item = item,
-                                    isPlaying = playing == item.objectName,
-                                    onClick = {
-                                        if (item.type == "photo") {
-                                            item.image?.let { fullPhoto = it }
-                                        } else if (playing == item.objectName) {
-                                            player.pause()
-                                            playing = null
-                                        } else {
-                                            vm.loadMediaBytes(item.objectName) { bytes ->
-                                                player.play(bytes) { playing = null }
-                                                playing = item.objectName
-                                            }
-                                        }
-                                    },
+                                    onClick = { expandedItem = item },
                                 )
                             }
                         }
@@ -151,33 +147,183 @@ fun MemoriesDialog(vm: MemoriesViewModel, onClose: () -> Unit) {
         }
     }
 
-    fullPhoto?.let { img ->
-        Dialog(
-            onDismissRequest = { fullPhoto = null },
-            properties = DialogProperties(usePlatformDefaultWidth = false),
+    expandedItem?.let { item ->
+        ExpandedMemoryDialog(
+            item = item,
+            vm = vm,
+            currentUserId = currentUserId,
+            onClose = { expandedItem = null }
+        )
+    }
+}
+
+@Composable
+private fun ExpandedMemoryDialog(
+    item: MemoryItem,
+    vm: MemoriesViewModel,
+    currentUserId: Int,
+    onClose: () -> Unit
+) {
+    val context = LocalContext.current
+    val player = remember { AudioPlayer(context) }
+    var isPlaying by remember { mutableStateOf(false) }
+    var durationMs by remember { mutableIntStateOf(0) }
+    var positionMs by remember { mutableIntStateOf(0) }
+
+    DisposableEffect(Unit) {
+        onDispose { player.release() }
+    }
+
+    LaunchedEffect(isPlaying) {
+        while (isPlaying) {
+            positionMs = player.position()
+            delay(50)
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = BOARD_TOP),
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .padding(20.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable { fullPhoto = null }
-                    .padding(20.dp),
-                contentAlignment = Alignment.Center,
+            Column(
+                modifier = Modifier.padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Image(
-                    bitmap = img,
-                    contentDescription = "Memory",
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(16.dp)),
-                )
+                if (item.type == "photo") {
+                    item.image?.let { img ->
+                        Image(
+                            bitmap = img,
+                            contentDescription = "Memory",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                .clip(RoundedCornerShape(16.dp)),
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Brush.verticalGradient(VOICE_TILE)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            IconButton(
+                                onClick = {
+                                    if (isPlaying) {
+                                        player.pause()
+                                        isPlaying = false
+                                    } else {
+                                        vm.loadMediaBytes(item.objectName) { bytes ->
+                                            durationMs = player.play(bytes) {
+                                                isPlaying = false
+                                                positionMs = 0
+                                            }
+                                            isPlaying = true
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.size(80.dp)
+                            ) {
+                                Text(text = if (isPlaying) "⏸" else "▶", fontSize = 50.sp)
+                            }
+                            if (durationMs > 0) {
+                                Text(
+                                    text = "${formatTime(positionMs)} / ${formatTime(durationMs)}",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    // Reshare button
+                    Button(
+                        onClick = {
+                            vm.reshare(item, currentUserId) {
+                                Toast.makeText(context, "Memory reshared!", Toast.LENGTH_SHORT).show()
+                                onClose()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = TITLE_GREEN)
+                    ) {
+                        Text("🔄 Reshare")
+                    }
+
+                    // Download button
+                    Button(
+                        onClick = {
+                            vm.loadMediaBytes(item.objectName) { bytes ->
+                                saveToDisk(context, bytes, item.type, item.objectName)
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = ACCENT_GREEN)
+                    ) {
+                        Text("📥 Download")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                TextButton(onClick = onClose) {
+                    Text("Close", color = ACCENT_GREEN, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
 }
 
+private fun saveToDisk(context: android.content.Context, bytes: ByteArray, type: String, objectName: String) {
+    val resolver = context.contentResolver
+    val contentValues = ContentValues().apply {
+        put(MediaStore.MediaColumns.DISPLAY_NAME, objectName.substringAfterLast("/"))
+        put(MediaStore.MediaColumns.MIME_TYPE, if (type == "photo") "image/jpeg" else "audio/mp4")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val folder = if (type == "photo") Environment.DIRECTORY_PICTURES else Environment.DIRECTORY_MUSIC
+            put(MediaStore.MediaColumns.RELATIVE_PATH, "$folder/QuietSignal")
+        }
+    }
+
+    val uri = if (type == "photo") {
+        resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+    } else {
+        resolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, contentValues)
+    }
+
+    uri?.let {
+        resolver.openOutputStream(it)?.use { outputStream ->
+            outputStream.write(bytes)
+            Toast.makeText(context, "Saved to ${if (type == "photo") "Gallery" else "Music"}", Toast.LENGTH_SHORT).show()
+        }
+    } ?: run {
+        Toast.makeText(context, "Failed to save file", Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun formatTime(ms: Int): String {
+    val totalSeconds = (ms / 1000).coerceAtLeast(0)
+    return "%d:%02d".format(totalSeconds / 60, totalSeconds % 60)
+}
+
 @Composable
-private fun MemoryTile(item: MemoryItem, isPlaying: Boolean, onClick: () -> Unit) {
+private fun MemoryTile(item: MemoryItem, onClick: () -> Unit) {
     Card(
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
@@ -209,7 +355,7 @@ private fun MemoryTile(item: MemoryItem, isPlaying: Boolean, onClick: () -> Unit
                     modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(VOICE_TILE)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(text = if (isPlaying) "⏸" else "🎤", fontSize = 40.sp)
+                    Text(text = "🎤", fontSize = 40.sp)
                 }
             }
 

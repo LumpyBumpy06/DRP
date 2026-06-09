@@ -134,7 +134,7 @@ fun ElderlyScreen(
     }
 
     if (showMemories) {
-        MemoriesDialog(vm = memoriesVm, onClose = { showMemories = false })
+        MemoriesDialog(vm = memoriesVm, currentUserId = 1, onClose = { showMemories = false })
     }
 }
 
