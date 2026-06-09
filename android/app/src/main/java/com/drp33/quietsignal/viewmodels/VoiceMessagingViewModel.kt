@@ -9,7 +9,6 @@ import androidx.lifecycle.viewModelScope
 import com.drp33.quietsignal.data.repo.CheckInRepository
 import com.drp33.quietsignal.model.NotificationBus
 import com.drp33.quietsignal.model.VoiceMessagingState
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -30,6 +29,9 @@ class VoiceMessagingViewModel(
     private var latestBytes: ByteArray? = null
 
     init {
+        // Fetch any existing message right away.
+        checkLatest()
+
         // React instantly when a push says the peer just sent a clip...
         viewModelScope.launch {
             NotificationBus.events.collect { event ->
@@ -37,14 +39,6 @@ class VoiceMessagingViewModel(
                     state = state.copy(hasNewMessage = true)
                     checkLatest()
                 }
-            }
-        }
-        // ...and poll so the Play button reflects what's actually on the server:
-        // it only shows while the peer has a current (unexpired) message.
-        viewModelScope.launch {
-            while (true) {
-                checkLatest()
-                delay(5000)
             }
         }
     }

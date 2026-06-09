@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.drp33.quietsignal.data.repo.CheckInRepository
+import com.drp33.quietsignal.model.NotificationBus
 import com.drp33.quietsignal.model.TreeState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -23,6 +24,7 @@ class TreeViewModel(
         private set
 
     init {
+        refresh()
         viewModelScope.launch {
             while (true) {
                 refresh()

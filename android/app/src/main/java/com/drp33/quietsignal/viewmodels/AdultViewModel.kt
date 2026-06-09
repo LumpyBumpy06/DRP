@@ -30,8 +30,8 @@ class AdultViewModel(
         viewModelScope.launch {
             NotificationBus.events.collect { event ->
                 when (event){
-                    // Norman tapping okay or leaving a voice note both mean "checked in".
-                    "CHECKED_IN", "VOICE_MESSAGE" -> {
+                    // Norman tapping okay, leaving a voice note, or sending a photo all mean "checked in".
+                    "CHECKED_IN", "VOICE_MESSAGE", "PHOTO_MESSAGE" -> {
                         state = state.copy(checkedIn = true)
                     }
                     // Norman pressed the SOS button — surface the emergency popup.
