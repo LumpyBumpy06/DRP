@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <array name="com_google_android_gms_fonts_certs">
+        <item>@array/com_google_android_gms_fonts_certs_dev</item>
+        <item>@array/com_google_android_gms_fonts_certs_prod</item>
+    </array>
+    <!-- Replaced by Android Studio with the real base64 cert. -->
+    <string-array name="com_google_android_gms_fonts_certs_dev" />
+    <string-array name="com_google_android_gms_fonts_certs_prod" />
+</resources>
