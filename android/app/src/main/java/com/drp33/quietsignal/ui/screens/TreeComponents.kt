@@ -104,7 +104,7 @@ private const val BIRD_EVENT_GAP_MS = 700L // min spacing so birds come/go one b
 
 // DEBUG: force this many birds at any stage so the animation can be eyeballed
 // without watering 21+ times. Set back to 0 (or remove) for real behaviour.
-private const val DEBUG_FORCE_BIRDS = 3
+private const val DEBUG_FORCE_BIRDS = 0
 
 /** Birds shown for a given growth stage, before neglect thins them out. */
 private fun birdsForStage(stage: Int): Int =
@@ -143,8 +143,8 @@ private const val ORANGE_SPAWN_Y_TOP_FRAC = 0.30f
 private const val ORANGE_SPAWN_Y_BOTTOM_FRAC = 0.44f
 
 // DEBUG: force the squirrel / oranges on at any stage for previewing.
-private const val DEBUG_FORCE_SQUIRREL = true
-private const val DEBUG_FORCE_ORANGES = true
+private const val DEBUG_FORCE_SQUIRREL = false
+private const val DEBUG_FORCE_ORANGES = false
 
 private enum class OrangeState { GROWING, RIPE, CARRIED }
 

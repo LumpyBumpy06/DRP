@@ -5,4 +5,5 @@ object Routes {
     const val ADULT = "adult"
     const val ELDERLY = "elderly"
     const val THANK_YOU = "thank_you"
+    const val FOREST = "forest"
 }

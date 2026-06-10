@@ -90,6 +90,16 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
         }
     }
 
+    override suspend fun getForest(): Result<List<com.drp33.quietsignal.model.ForestWeek>> = runCatching {
+        api.getForest().weeks.map {
+            com.drp33.quietsignal.model.ForestWeek(
+                weekStart = it.weekStart,
+                stage = it.stage,
+                deathLevel = it.deathLevel,
+            )
+        }
+    }
+
     override suspend fun getMedia(objectName: String): Result<ByteArray> = runCatching {
         withContext(Dispatchers.IO) {
             api.getMedia(objectName).bytes()

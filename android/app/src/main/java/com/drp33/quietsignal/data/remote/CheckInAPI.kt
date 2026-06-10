@@ -1,6 +1,7 @@
 package com.drp33.quietsignal.data.remote
 
 import com.drp33.quietsignal.data.remote.models.EmergencyStatusResponse
+import com.drp33.quietsignal.data.remote.models.ForestResponse
 import com.drp33.quietsignal.data.remote.models.MemoriesResponse
 import com.drp33.quietsignal.data.remote.models.OkayRequest
 import com.drp33.quietsignal.data.remote.models.OkayStatusResponse
@@ -56,6 +57,9 @@ interface CheckInAPI {
 
     @GET("memories")
     suspend fun getMemories(): MemoriesResponse
+
+    @GET("forest")
+    suspend fun getForest(): ForestResponse
 
     @GET("media")
     suspend fun getMedia(@Query("object_name") objectName: String): ResponseBody

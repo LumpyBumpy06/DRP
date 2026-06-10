@@ -13,5 +13,6 @@ interface CheckInRepository {
     suspend fun getLatestPhoto(userId: Int): Result<ByteArray>
     suspend fun getTree(): Result<com.drp33.quietsignal.model.TreeState>
     suspend fun getMemories(): Result<List<com.drp33.quietsignal.model.MemoryItem>>
+    suspend fun getForest(): Result<List<com.drp33.quietsignal.model.ForestWeek>>
     suspend fun getMedia(objectName: String): Result<ByteArray>
 }

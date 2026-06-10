@@ -47,9 +47,9 @@ fun AdultScreen(
     memoriesVm: MemoriesViewModel,
     onSwitchRole: () -> Unit = {},
     onAllGood: () -> Unit = {},
+    onOpenForest: () -> Unit = {},
 ) {
     val tree = treeVm.state
-    var showMemories by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -76,30 +76,25 @@ fun AdultScreen(
 
             Text(text = "Your shared tree 🌳", fontSize = 22.sp, fontWeight = FontWeight.Bold)
 
-            // Tap the tree to open the shared memory board.
-            Box(
-                modifier = Modifier
-                    .clickable { showMemories = true }
-                    .offset(y = (-12).dp) // Pull tree up closer to title
-            ) {
+            Box(modifier = Modifier.offset(y = (-12).dp)) { // Pull tree up closer to title
                 WateringTree(stage = tree.stage, deathLevel = tree.deathLevel)
             }
-
-            Text(
-                text = "🌿 Tap the tree to revisit your memories",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary,
-                textAlign = TextAlign.Center,
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 text = treeHint(treeMoodOf(tree.deathLevel)),
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
             )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Each week's tree is kept in the shared forest — tap to revisit them.
+            Button(
+                onClick = onOpenForest,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+            ) {
+                Text(text = "🌲 Visit your forest", color = Color.White, fontWeight = FontWeight.SemiBold)
+            }
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -127,10 +122,6 @@ fun AdultScreen(
             voiceVm = voiceVm,
             modifier = Modifier.matchParentSize(),
         )
-    }
-
-    if (showMemories) {
-        MemoriesDialog(vm = memoriesVm, currentUserId = 2, onClose = { showMemories = false })
     }
 
     // Emergency popup — only dismissible via "All good" so it must be acknowledged.
