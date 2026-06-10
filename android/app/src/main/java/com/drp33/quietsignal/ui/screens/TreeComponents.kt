@@ -84,7 +84,15 @@ private val TREE_CONTENT_HEIGHT = 340.dp
 /** Extra empty space reserved ABOVE the content region so the scaled-up canopy
  * isn't clipped at the top. Added to the Box height but excluded from all the
  * leaf math, which stays anchored to the bottom content region. */
-private val TREE_TOP_HEADROOM = 50.dp
+private val TREE_TOP_HEADROOM = 64.dp
+
+/** How much the tree is zoomed in (on top of the per-stage `zoom`). Bigger = the
+ * whole tree looks larger. Bump headroom if the canopy starts clipping the top. */
+private const val TREE_ZOOM_MULTIPLIER = 2.15f
+
+/** Where falling leaves come to rest, as a fraction of the content region
+ * (1.0 = very bottom). Tuned to sit at the base of the trunk, not below it. */
+private const val TREE_FLOOR_FRACTION = 0.88f
 
 // ---- Falling-leaf tuning (tweak these freely) ------------------------------
 
@@ -260,7 +268,7 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                 val params = STAGE_SPAWN_PARAMS[idx]
 
                 val canvasHeightPx = with(density) { TREE_CONTENT_HEIGHT.toPx() }
-                val floorY = canvasHeightPx * 0.98f
+                val floorY = canvasHeightPx * TREE_FLOOR_FRACTION
                 val spawnHalfWidthPx = with(density) { params.halfWidth.toPx() }
                 val spawnYTop = canvasHeightPx * params.yTop
                 val spawnYBottom = canvasHeightPx * params.yBottom
@@ -424,7 +432,7 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                 .size(220.dp)
                 .offset(y = (-8).dp)
                 .graphicsLayer {
-                    val f = zoom * 1.9f
+                    val f = zoom * TREE_ZOOM_MULTIPLIER
                     scaleX = f
                     scaleY = f
                     transformOrigin = TransformOrigin(0.5f, 0.89f)

@@ -120,15 +120,12 @@ fun AdultScreen(
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        // Heads-up notifications from Norman slide in over the top of everything.
+        // Incoming messages from Norman pop up in the centre of the screen.
         IncomingMessageBanner(
             peerName = "Norman",
             photoVm = photoVm,
             voiceVm = voiceVm,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .statusBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.matchParentSize(),
         )
     }
 

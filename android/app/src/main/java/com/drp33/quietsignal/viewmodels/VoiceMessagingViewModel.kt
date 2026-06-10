@@ -36,7 +36,9 @@ class VoiceMessagingViewModel(
         viewModelScope.launch {
             NotificationBus.events.collect { event ->
                 if (event == "VOICE_MESSAGE") {
-                    state = state.copy(hasNewMessage = true)
+                    // Count back-to-back arrivals so the listener can see how many
+                    // came in before they got a chance to open them.
+                    state = state.copy(hasNewMessage = true, unreadCount = state.unreadCount + 1)
                     checkLatest()
                 }
             }
@@ -54,7 +56,7 @@ class VoiceMessagingViewModel(
                 .onFailure {
                     // 404 = nothing there, or the message expired.
                     latestBytes = null
-                    state = state.copy(available = false, hasNewMessage = false)
+                    state = state.copy(available = false, hasNewMessage = false, unreadCount = 0)
                 }
         }
     }
@@ -75,7 +77,7 @@ class VoiceMessagingViewModel(
     fun playLatest(play: (ByteArray) -> Unit) {
         val bytes = latestBytes
         if (bytes != null) {
-            state = state.copy(status = "", hasNewMessage = false)
+            state = state.copy(status = "", hasNewMessage = false, unreadCount = 0)
             play(bytes)
         } else {
             state = state.copy(status = "No message right now", available = false)

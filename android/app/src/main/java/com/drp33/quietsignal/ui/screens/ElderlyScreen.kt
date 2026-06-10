@@ -123,15 +123,12 @@ fun ElderlyScreen(
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        // Heads-up notifications from Sadie slide in over the top of everything.
+        // Incoming messages from Sadie pop up in the centre of the screen.
         IncomingMessageBanner(
             peerName = "Sadie",
             photoVm = photoVm,
             voiceVm = voiceVm,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .statusBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.matchParentSize(),
         )
     }
 

@@ -66,7 +66,12 @@ class PhotoMessagingViewModel(
                     val bitmap = withContext(Dispatchers.Default) {
                         BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
                     }
-                    if (bitmap != null) state = state.copy(image = bitmap, isNew = markNew)
+                    if (bitmap != null) {
+                        // Count back-to-back snaps so the viewer sees how many
+                        // arrived before they opened them.
+                        val nextUnread = if (markNew) state.unreadCount + 1 else state.unreadCount
+                        state = state.copy(image = bitmap, isNew = markNew, unreadCount = nextUnread)
+                    }
                 }
                 .onFailure {
                     // 404 = nothing recent; just leave the current state as-is.
@@ -75,9 +80,9 @@ class PhotoMessagingViewModel(
         }
     }
 
-    /** Mark the current snap as seen so its notification banner dismisses. */
+    /** Mark the current snap as seen so its notification dismisses. */
     fun markSeen() {
-        state = state.copy(isNew = false)
+        state = state.copy(isNew = false, unreadCount = 0)
     }
 
     /** Dismiss the displayed snap. */
