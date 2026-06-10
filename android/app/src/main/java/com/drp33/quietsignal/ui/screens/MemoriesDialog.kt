@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
@@ -63,6 +64,10 @@ import com.drp33.quietsignal.util.AudioPlayer
 import com.drp33.quietsignal.viewmodels.MemoriesViewModel
 import kotlinx.coroutines.delay
 import java.io.OutputStream
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 // Warm, sunny, nature-y palette to match the tree and feel positive.
 private val BOARD_TOP = Color(0xFFFFFDF6) // warm white
@@ -133,7 +138,15 @@ fun MemoriesDialog(vm: MemoriesViewModel, currentUserId: Int, onClose: () -> Uni
                     Spacer(modifier = Modifier.height(12.dp))
 
                     val memories = vm.memories
-                    val filtered = remember(memories, filter) { memories.filter { it.type == filter } }
+                    val filtered = remember(memories, filter) {
+                        memories.filter { it.type == filter }
+                            .sortedByDescending { it.epoch }
+                    }
+
+                    val grouped = remember(filtered) {
+                        filtered.groupBy { getGroupTitle(it.epoch) }
+                    }
+
                     when {
                         vm.loading && memories.isEmpty() ->
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -159,11 +172,16 @@ fun MemoriesDialog(vm: MemoriesViewModel, currentUserId: Int, onClose: () -> Uni
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.fillMaxSize(),
                         ) {
-                            items(filtered, key = { it.objectName }) { item ->
-                                MemoryTile(
-                                    item = item,
-                                    onClick = { expandedItem = item },
-                                )
+                            grouped.forEach { (header, items) ->
+                                item(span = { GridItemSpan(maxLineSpan) }) {
+                                    MemoryHeader(header)
+                                }
+                                items(items, key = { it.objectName }) { item ->
+                                    MemoryTile(
+                                        item = item,
+                                        onClick = { expandedItem = item },
+                                    )
+                                }
                             }
                         }
                     }
@@ -366,6 +384,47 @@ private fun saveToDisk(context: android.content.Context, bytes: ByteArray, type:
 private fun formatTime(ms: Int): String {
     val totalSeconds = (ms / 1000).coerceAtLeast(0)
     return "%d:%02d".format(totalSeconds / 60, totalSeconds % 60)
+}
+
+@Composable
+private fun MemoryHeader(title: String) {
+    Text(
+        text = title,
+        color = TITLE_GREEN,
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp, bottom = 4.dp)
+    )
+}
+
+private fun getGroupTitle(epochSec: Long): String {
+    val cal = Calendar.getInstance()
+    val now = Calendar.getInstance()
+    cal.timeInMillis = epochSec * 1000
+
+    return when {
+        isSameDay(cal, now) -> "Today"
+        isYesterday(cal, now) -> "Yesterday"
+        cal.get(Calendar.YEAR) == now.get(Calendar.YEAR) -> {
+            SimpleDateFormat("MMMM d", Locale.getDefault()).format(Date(epochSec * 1000))
+        }
+        else -> {
+            SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()).format(Date(epochSec * 1000))
+        }
+    }
+}
+
+private fun isSameDay(c1: Calendar, c2: Calendar): Boolean {
+    return c1.get(Calendar.YEAR) == c2.get(Calendar.YEAR) &&
+            c1.get(Calendar.DAY_OF_YEAR) == c2.get(Calendar.DAY_OF_YEAR)
+}
+
+private fun isYesterday(c1: Calendar, c2: Calendar): Boolean {
+    val yesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
+    return c1.get(Calendar.YEAR) == yesterday.get(Calendar.YEAR) &&
+            c1.get(Calendar.DAY_OF_YEAR) == yesterday.get(Calendar.DAY_OF_YEAR)
 }
 
 @Composable

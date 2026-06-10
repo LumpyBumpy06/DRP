@@ -30,10 +30,10 @@ class PhotoMessagingViewModel(
 
     init {
         // Pull any snap already waiting, and refresh whenever the peer sends one.
-        loadLatest()
+        loadLatest(markNew = false)
         viewModelScope.launch {
             NotificationBus.events.collect { event ->
-                if (event == "PHOTO_MESSAGE") loadLatest()
+                if (event == "PHOTO_MESSAGE") loadLatest(markNew = true)
             }
         }
     }
@@ -54,15 +54,19 @@ class PhotoMessagingViewModel(
         }
     }
 
-    /** Fetch the peer's latest snap (server enforces expiry) and decode it for display. */
-    fun loadLatest() {
+    /**
+     * Fetch the peer's latest snap (server enforces expiry) and decode it for display.
+     * [markNew] flags it as a fresh arrival so the UI can pop a notification banner;
+     * the silent startup load passes false.
+     */
+    fun loadLatest(markNew: Boolean = false) {
         viewModelScope.launch {
             repository.getLatestPhoto(peerId)
                 .onSuccess { bytes ->
                     val bitmap = withContext(Dispatchers.Default) {
                         BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
                     }
-                    if (bitmap != null) state = state.copy(image = bitmap)
+                    if (bitmap != null) state = state.copy(image = bitmap, isNew = markNew)
                 }
                 .onFailure {
                     // 404 = nothing recent; just leave the current state as-is.
@@ -71,8 +75,13 @@ class PhotoMessagingViewModel(
         }
     }
 
+    /** Mark the current snap as seen so its notification banner dismisses. */
+    fun markSeen() {
+        state = state.copy(isNew = false)
+    }
+
     /** Dismiss the displayed snap. */
     fun clear() {
-        state = state.copy(image = null)
+        state = state.copy(image = null, isNew = false)
     }
 }

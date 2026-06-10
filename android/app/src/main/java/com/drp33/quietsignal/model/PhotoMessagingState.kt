@@ -6,4 +6,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 data class PhotoMessagingState(
     val image: ImageBitmap? = null,
     val status: String = "",
+    /** True when the snap just arrived (vs. one loaded silently on startup). */
+    val isNew: Boolean = false,
 )

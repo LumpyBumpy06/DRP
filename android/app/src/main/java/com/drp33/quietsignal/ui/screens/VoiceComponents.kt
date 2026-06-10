@@ -237,7 +237,7 @@ fun IncomingVoiceSection(
 }
 
 @Composable
-private fun VoiceMessagePlayer(
+internal fun VoiceMessagePlayer(
     isPlaying: Boolean,
     positionMs: Int,
     durationMs: Int,

@@ -76,6 +76,16 @@ fun deathStateOf(deathLevel: Float): DeathState = when {
 
 private val STAGE_ENDPOINTS = listOf(0.20f, 0.33f, 0.50f, 0.66f, 0.80f, 1.00f)
 
+/** The fixed height of the tree content region (trunk + canopy band). Kept in one
+ * place so the falling-leaf floor calculation and spawn bands stay in sync. The
+ * tree is anchored to the bottom of this region. */
+private val TREE_CONTENT_HEIGHT = 340.dp
+
+/** Extra empty space reserved ABOVE the content region so the scaled-up canopy
+ * isn't clipped at the top. Added to the Box height but excluded from all the
+ * leaf math, which stays anchored to the bottom content region. */
+private val TREE_TOP_HEADROOM = 50.dp
+
 // ---- Falling-leaf tuning (tweak these freely) ------------------------------
 
 // Spawn rate in leaves/second. Base = when healthy; it grows as the tree wilts
@@ -249,7 +259,7 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                 val density = currentDensity
                 val params = STAGE_SPAWN_PARAMS[idx]
 
-                val canvasHeightPx = with(density) { 300.dp.toPx() }
+                val canvasHeightPx = with(density) { TREE_CONTENT_HEIGHT.toPx() }
                 val floorY = canvasHeightPx * 0.98f
                 val spawnHalfWidthPx = with(density) { params.halfWidth.toPx() }
                 val spawnYTop = canvasHeightPx * params.yTop
@@ -402,7 +412,7 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(300.dp)
+            .height(TREE_CONTENT_HEIGHT + TREE_TOP_HEADROOM)
             .clipToBounds(),
         contentAlignment = Alignment.BottomCenter,
     ) {
@@ -412,7 +422,7 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
             dynamicProperties = dynamicProperties,
             modifier = Modifier
                 .size(220.dp)
-                .offset(y = 24.dp)
+                .offset(y = (-8).dp)
                 .graphicsLayer {
                     val f = zoom * 1.9f
                     scaleX = f
@@ -424,6 +434,10 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
         Canvas(modifier = Modifier.fillMaxSize().zIndex(1.0f)) {
             val canvasWidth = size.width
             val centerX = canvasWidth / 2f
+            // Leaf positions are computed in content-region space (anchored to the
+            // bottom). The Box also has headroom above that region, so shift leaf
+            // drawing down by the headroom to keep them glued to the canopy.
+            val headroomPx = TREE_TOP_HEADROOM.toPx()
 
             leaves.forEach { leaf ->
                 val ageMs = (currentFrameMs - leaf.spawnTimeMs).coerceAtLeast(0L)
@@ -443,7 +457,7 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                     withTransform({
                         translate(
                             left = centerX + leaf.x,
-                            top = leaf.y
+                            top = headroomPx + leaf.y
                         )
                         rotate(degrees = leaf.angle, pivot = Offset(currentSize / 2f, currentSize / 2f))
                     }) {
