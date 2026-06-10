@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -62,7 +63,23 @@ fun ElderlyScreen(
                 .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(modifier = Modifier.height(48.dp))
+            // Top bar: Switch role on the left, the always-available SOS on the
+            // right. Keeping them in a dedicated row stops the Emergency button
+            // from overlapping the title.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(onClick = onSwitchRole) {
+                    Text("← Switch role")
+                }
+                EmergencyButton(onTrigger = onEmergencyClick)
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
 
             Text(text = "$name's tree 🌳", fontSize = 22.sp, fontWeight = FontWeight.Bold)
 
@@ -72,10 +89,14 @@ fun ElderlyScreen(
             }
 
             Text(
-                text = "🌿 tap the tree to revisit your memories",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = "🌿 Tap the tree to revisit your memories",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
             )
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 text = treeHint(deathStateOf(tree.deathLevel)),
@@ -99,32 +120,18 @@ fun ElderlyScreen(
                 SnapButton(onCaptured = { photoVm.sendPhoto(it) { treeVm.refresh() } }, size = 96.dp)
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
-
-            IncomingPhotoSection(peerName = "Sadie", vm = photoVm)
-            Spacer(modifier = Modifier.height(12.dp))
-            IncomingVoiceSection(peerName = "Sadie", vm = voiceVm)
-
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        TextButton(
-            onClick = onSwitchRole,
+        // Heads-up notifications from Sadie slide in over the top of everything.
+        IncomingMessageBanner(
+            peerName = "Sadie",
+            photoVm = photoVm,
+            voiceVm = voiceVm,
             modifier = Modifier
-                .align(Alignment.TopStart)
+                .align(Alignment.TopCenter)
                 .statusBarsPadding()
-                .padding(8.dp),
-        ) {
-            Text("← Switch role")
-        }
-
-        // Always-available SOS in the opposite corner — one tap alerts Sadie.
-        EmergencyButton(
-            onTrigger = onEmergencyClick,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .statusBarsPadding()
-                .padding(8.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
         )
     }
 
