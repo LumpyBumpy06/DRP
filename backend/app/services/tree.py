@@ -10,7 +10,11 @@ Pure function of the event history, so Norman and Sadie see the same tree.
 from datetime import UTC, datetime
 
 # Cumulative total-waterings needed to reach each growth stage (increasing).
-GROWTH_THRESHOLDS = [0, 1, 3, 6, 10, 15]
+# Stages 0..5 grow the tree to full size; stages 6..9 are the "bird" stages,
+# where the fully-grown tree gains 1, 2, 3 then 4 birds circling it. Stage 10
+# adds a squirrel peeking from a hollow in the trunk, and stage 11 grows oranges
+# in the canopy that the birds snatch.
+GROWTH_THRESHOLDS = [0, 1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 66]
 
 # No watering for this many "day" windows => fully dead (deathLevel == 1.0).
 DEATH_WINDOWS = 6

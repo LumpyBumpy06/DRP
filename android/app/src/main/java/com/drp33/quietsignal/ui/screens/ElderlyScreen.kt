@@ -99,7 +99,7 @@ fun ElderlyScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = treeHint(deathStateOf(tree.deathLevel)),
+                text = treeHint(treeMoodOf(tree.deathLevel)),
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
             )
