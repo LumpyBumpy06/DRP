@@ -348,7 +348,7 @@ private fun ForestBirds(scrollPx: Float) {
         birds.forEach { b ->
             // Own drift + a sky-parallax shift from the scroll (slower than the
             // trees, like distant clouds), all wrapped so birds stay on screen.
-            var fx = (b.startX + b.speed * t - (scrollPx / wPx) * 0.12f) % 1.2f
+            var fx = (b.startX + b.speed * t - (scrollPx / wPx) * 0.12f) % 1.2f,
             if (fx < 0f) fx += 1.2f
             fx -= 0.1f
             val yy = b.y + sin(t * b.bobFreq + b.phase) * b.bobAmp
