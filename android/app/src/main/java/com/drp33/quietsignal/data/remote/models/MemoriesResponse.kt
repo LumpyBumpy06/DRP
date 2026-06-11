@@ -9,4 +9,5 @@ data class MemoryDto(
     val type: String = "",
     val sender: String = "",
     val epoch: Long = 0,
+    val tags: List<String> = emptyList(),
 )

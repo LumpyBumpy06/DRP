@@ -27,6 +27,22 @@ class EmergencyAlert(SQLModel, table=True):
     raised_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class MemoryTag(SQLModel, table=True):
+    """A label a user has stuck on a memory (photo or voice note).
+
+    Tags are shared between both partners — they hang off the memory's storage
+    key (`object_name`), so a memory can carry several tags and a tag can sit on
+    many memories. Tag names are free-form strings (e.g. "Favourites", "Family",
+    or anything custom the user types); de-duplication is case-insensitive and
+    handled when tags are written.
+    """
+
+    __table_args__ = (UniqueConstraint("object_name", "tag"),)
+    id: int | None = Field(default=None, primary_key=True)
+    object_name: str = Field(index=True)
+    tag: str = Field(index=True)
+
+
 # ---------- THREADS (conversations anchored to a memory) ----------
 
 

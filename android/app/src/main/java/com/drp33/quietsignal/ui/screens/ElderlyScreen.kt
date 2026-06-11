@@ -70,7 +70,6 @@ fun ElderlyScreen(
     val momentCount = memoriesVm.memories.count { (it.epoch / WEEK_SECONDS) * WEEK_SECONDS == weekStart }
     val lastMomentEpoch = memoriesVm.memories.maxOfOrNull { it.epoch }
 
-    var showGallery by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
 
     val promptsOn = remember(showSettings) { SettingsPreferences.promptsEnabled(context) }
@@ -87,13 +86,11 @@ fun ElderlyScreen(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    GroveHeaderActions(onGallery = { showGallery = true }, onSettings = { showSettings = true })
-                    EmergencyButton(onTrigger = onEmergencyClick)
-                }
+                GroveCircleButton(glyph = "⚙️", contentDescription = "Settings", onClick = { showSettings = true })
+                WantToTalkButton(onTrigger = onEmergencyClick)
             }
 
             GroveHeader(title = "Our garden", subtitle = "Little moments, shared with family.", momentCount = momentCount)
@@ -143,26 +140,23 @@ fun ElderlyScreen(
         )
     }
 
-    // Gallery + Settings dialogs (Norman is user id 1).
+    // Settings dialog (Norman is user id 1). The Gallery opens from the bottom nav.
     GroveModals(
-        showGallery = showGallery,
-        onCloseGallery = { showGallery = false },
         showSettings = showSettings,
         onCloseSettings = { showSettings = false },
-        memoriesVm = memoriesVm,
-        currentUserId = 1,
         threadsVm = threadsVm,
         onSwitchRole = onSwitchRole,
     )
 }
 
 /**
- * A small, unmistakably-red SOS button. Tapping it fires the alert immediately
- * (with a strong buzz), then briefly confirms and locks so a stray double-tap
- * can't spam Sadie.
+ * A warm "Want to talk" button. This is about wellbeing, not safety — Norman
+ * taps it when he's feeling lonely and would love to hear from Sadie, and she
+ * gets a gentle nudge to reach out. A soft buzz confirms, then it briefly locks
+ * so a stray double-tap doesn't send twice.
  */
 @Composable
-private fun EmergencyButton(onTrigger: () -> Unit, modifier: Modifier = Modifier) {
+private fun WantToTalkButton(onTrigger: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var sent by remember { mutableStateOf(false) }
 
@@ -182,14 +176,14 @@ private fun EmergencyButton(onTrigger: () -> Unit, modifier: Modifier = Modifier
         enabled = !sent,
         shape = RoundedCornerShape(50),
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFFD32F2F),
+            containerColor = Grove.Accent,
             disabledContainerColor = Grove.Foliage,
         ),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 9.dp),
         modifier = modifier,
     ) {
         Text(
-            text = if (sent) "✓ Sadie alerted" else "🆘 Emergency",
+            text = if (sent) "💛 Sadie knows" else "💬 Want to talk",
             color = Color.White,
             fontWeight = FontWeight.Bold,
         )

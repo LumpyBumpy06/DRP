@@ -20,6 +20,10 @@ interface CheckInRepository {
     suspend fun getForest(): Result<List<com.drp33.quietsignal.model.ForestWeek>>
     suspend fun getMedia(objectName: String): Result<ByteArray>
 
+    // ---------- TAGS (shared labels on a memory) ----------
+    suspend fun getAllTags(): Result<List<String>>
+    suspend fun setMemoryTags(objectName: String, tags: List<String>): Result<List<String>>
+
     // ---------- THREADS (conversations anchored to a memory) ----------
     suspend fun getThreads(userId: Int): Result<List<ThreadSummary>>
     suspend fun getThread(anchor: String): Result<List<ThreadMessage>>

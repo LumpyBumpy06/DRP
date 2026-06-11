@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlmodel import Session, col, desc, select
 
-from app.models import EmergencyAlert, OkayEvent, ThreadMessage, User, UserLink
+from app.models import EmergencyAlert, MemoryTag, OkayEvent, ThreadMessage, User, UserLink
 
 # One "day" in the current simulation. A check-in (or voice message) is only
 # considered current for this long.
@@ -156,3 +156,51 @@ def get_all_thread_messages(session: Session) -> list[ThreadMessage]:
     """Every thread message across all conversations, oldest first (for summaries)."""
     stmt = select(ThreadMessage).order_by(col(ThreadMessage.created_at))
     return list(session.exec(stmt).all())
+
+
+# ---------- TAGS (labels shared across both partners) ----------
+
+
+def get_tags_for(session: Session, object_name: str) -> list[str]:
+    """Every tag on one memory, alphabetical."""
+    stmt = select(MemoryTag.tag).where(MemoryTag.object_name == object_name).order_by(col(MemoryTag.tag))
+    return list(session.exec(stmt).all())
+
+
+def get_tags_map(session: Session, object_names: list[str]) -> dict[str, list[str]]:
+    """Tags for many memories at once: {object_name: [tag, ...]}."""
+    if not object_names:
+        return {}
+    stmt = select(MemoryTag).where(col(MemoryTag.object_name).in_(object_names))
+    out: dict[str, list[str]] = {}
+    for row in session.exec(stmt).all():
+        out.setdefault(row.object_name, []).append(row.tag)
+    for tags in out.values():
+        tags.sort(key=str.lower)
+    return out
+
+
+def set_tags_for(session: Session, object_name: str, tags: list[str]) -> list[str]:
+    """Replace the whole tag set on a memory. De-dupes case-insensitively and
+    drops blanks; both partners see the result (tags hang off the object)."""
+    existing = session.exec(select(MemoryTag).where(MemoryTag.object_name == object_name)).all()
+    for row in existing:
+        session.delete(row)
+
+    seen: set[str] = set()
+    for raw in tags:
+        name = raw.strip()
+        if not name or name.lower() in seen:
+            continue
+        seen.add(name.lower())
+        session.add(MemoryTag(object_name=object_name, tag=name))
+
+    session.commit()
+    return get_tags_for(session, object_name)
+
+
+def all_tag_names(session: Session) -> list[str]:
+    """Distinct tag names across all memories, alphabetical (case-insensitive)."""
+    names = list(session.exec(select(MemoryTag.tag).distinct()).all())
+    names.sort(key=str.lower)
+    return names

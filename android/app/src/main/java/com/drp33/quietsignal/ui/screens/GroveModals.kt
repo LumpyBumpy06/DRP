@@ -7,39 +7,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.drp33.quietsignal.data.SettingsPreferences
-import com.drp33.quietsignal.viewmodels.MemoriesViewModel
 import com.drp33.quietsignal.viewmodels.ThreadsViewModel
 
 /**
- * Hosts the Gallery and Settings dialogs for a home screen. Kept here so both
- * [AdultScreen] and [ElderlyScreen] open them identically. Starting a thread
- * from the Gallery opens [ThreadChatScreen] via the shared [ThreadsViewModel]
- * (the chat overlay lives in [MainShell]).
+ * Hosts the Settings dialog for a home screen. Kept here so both [AdultScreen]
+ * and [ElderlyScreen] open it identically. (The shared Gallery now opens from the
+ * bottom nav in [MainShell].)
  */
 @Composable
 fun GroveModals(
-    showGallery: Boolean,
-    onCloseGallery: () -> Unit,
     showSettings: Boolean,
     onCloseSettings: () -> Unit,
-    memoriesVm: MemoriesViewModel,
-    currentUserId: Int,
     threadsVm: ThreadsViewModel,
     onSwitchRole: () -> Unit = {},
 ) {
     val context = LocalContext.current
-
-    if (showGallery) {
-        MemoriesDialog(
-            vm = memoriesVm,
-            currentUserId = currentUserId,
-            onClose = onCloseGallery,
-            onStartThread = { item ->
-                threadsVm.openThread(item.objectName, item.type, item.sender)
-                onCloseGallery()
-            },
-        )
-    }
 
     if (showSettings) {
         var prompts by remember { mutableStateOf(SettingsPreferences.promptsEnabled(context)) }

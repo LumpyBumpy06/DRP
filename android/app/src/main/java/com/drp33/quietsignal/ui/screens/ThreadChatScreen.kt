@@ -9,6 +9,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -48,8 +50,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -87,12 +91,15 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
     }
 
     val listState = rememberLazyListState()
+    val focusManager = LocalFocusManager.current
     LaunchedEffect(vm.messages.size) {
         if (vm.messages.isNotEmpty()) listState.animateScrollToItem(vm.messages.size) // +1 header item
     }
 
     Box(modifier = Modifier.fillMaxSize().groveBackground()) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        // imePadding keeps the header pinned and lifts the composer above the
+        // keyboard (WhatsApp-style) instead of the window panning the header away.
+        Column(modifier = Modifier.fillMaxSize().imePadding()) {
             // ---- header ----
             Row(
                 modifier = Modifier
@@ -108,7 +115,7 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
                 Column(Modifier.weight(1f)) {
                     Text(
                         text = if (vm.activeIsPrompt) "A memory worth revisiting"
-                        else "${vm.activeSender}'s ${if (vm.activeType == "photo") "photo" else "voice note"}",
+                        else vm.threadTitle(anchor, vm.activeSender, vm.activeType),
                         fontFamily = NunitoSans, fontSize = 15.5.sp, fontWeight = FontWeight.Bold, color = Grove.Ink, maxLines = 1,
                     )
                     Text(
@@ -121,7 +128,10 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
             // ---- messages ----
             LazyColumn(
                 state = listState,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .pointerInput(Unit) { detectTapGestures(onTap = { focusManager.clearFocus() }) },
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -131,7 +141,7 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
                             PromptBanner()
                             Spacer(Modifier.height(8.dp))
                         }
-                        AnchorPin(type = vm.activeType, sender = vm.activeSender, image = anchorImage)
+                        AnchorPin(type = vm.activeType, title = vm.threadTitle(anchor, vm.activeSender, vm.activeType), image = anchorImage)
                         Spacer(Modifier.height(6.dp))
                     }
                 }
@@ -191,7 +201,7 @@ private fun AnchorThumb(type: String, image: ImageBitmap?, prompt: Boolean, size
 
 /** The memory the conversation is about, pinned at the top of the chat. */
 @Composable
-private fun AnchorPin(type: String, sender: String, image: ImageBitmap?) {
+private fun AnchorPin(type: String, title: String, image: ImageBitmap?) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -211,7 +221,7 @@ private fun AnchorPin(type: String, sender: String, image: ImageBitmap?) {
         }
         Column(Modifier.weight(1f)) {
             Text("This conversation is about", fontFamily = NunitoSans, fontSize = 11.sp, color = Grove.InkFaint, fontWeight = FontWeight.SemiBold)
-            Text("${sender}'s ${if (type == "photo") "photo" else "voice note"}", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 17.sp, color = Grove.Ink)
+            Text(title, fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 17.sp, color = Grove.Ink)
         }
     }
 }
