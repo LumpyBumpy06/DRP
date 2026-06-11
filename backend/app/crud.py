@@ -148,11 +148,11 @@ def add_thread_message(
 
 def get_thread_messages(session: Session, anchor: str) -> list[ThreadMessage]:
     """Every message in one conversation, oldest first."""
-    stmt = select(ThreadMessage).where(ThreadMessage.anchor == anchor).order_by(ThreadMessage.created_at)
+    stmt = select(ThreadMessage).where(ThreadMessage.anchor == anchor).order_by(col(ThreadMessage.created_at))
     return list(session.exec(stmt).all())
 
 
 def get_all_thread_messages(session: Session) -> list[ThreadMessage]:
     """Every thread message across all conversations, oldest first (for summaries)."""
-    stmt = select(ThreadMessage).order_by(ThreadMessage.created_at)
+    stmt = select(ThreadMessage).order_by(col(ThreadMessage.created_at))
     return list(session.exec(stmt).all())

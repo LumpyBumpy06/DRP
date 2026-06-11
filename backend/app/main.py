@@ -25,7 +25,7 @@ from app.crud import (
     reset_tree as reset_tree_data,
 )
 from app.db import create_engine_from_settings, get_session, init_db
-from app.models import User
+from app.models import ThreadMessage, User
 from app.services.firebase import init_firebase
 from app.services.notifications import send_notification
 from app.services.storage import download_audio, latest_recent_object_name, list_objects, upload_audio
@@ -362,7 +362,7 @@ class ThreadTextRequest(BaseModel):
     text: str
 
 
-def _message_dict(message) -> dict:
+def _message_dict(message: ThreadMessage) -> dict:
     return {
         "id": message.id,
         "anchor": message.anchor,
@@ -412,9 +412,7 @@ def get_thread(anchor: str, session: Session = SessionDependency) -> dict:
 @app.post("/thread/text")
 def post_thread_text(payload: ThreadTextRequest, session: Session = SessionDependency) -> dict:
     """Reply to a thread with words."""
-    message = add_thread_message(
-        session, anchor=payload.anchor, sender_id=payload.user_id, kind="text", text=payload.text
-    )
+    message = add_thread_message(session, anchor=payload.anchor, sender_id=payload.user_id, kind="text", text=payload.text)
     _notify_thread(session, payload.user_id, "💬")
     return _message_dict(message)
 
@@ -430,9 +428,7 @@ async def post_thread_voice(
     data = await file.read()
     object_name = f"{THREAD_PREFIX}{user_id}/{datetime.now(UTC):%Y%m%dT%H%M%S}-{uuid.uuid4().hex}.m4a"
     upload_audio(settings, data, object_name, content_type=file.content_type or "audio/mp4")
-    message = add_thread_message(
-        session, anchor=anchor, sender_id=user_id, kind="voice", media_object=object_name
-    )
+    message = add_thread_message(session, anchor=anchor, sender_id=user_id, kind="voice", media_object=object_name)
     _notify_thread(session, user_id, "🎙")
     return _message_dict(message)
 
@@ -448,9 +444,7 @@ async def post_thread_photo(
     data = await file.read()
     object_name = f"{THREAD_PREFIX}{user_id}/{datetime.now(UTC):%Y%m%dT%H%M%S}-{uuid.uuid4().hex}.jpg"
     upload_audio(settings, data, object_name, content_type=file.content_type or "image/jpeg")
-    message = add_thread_message(
-        session, anchor=anchor, sender_id=user_id, kind="photo", media_object=object_name
-    )
+    message = add_thread_message(session, anchor=anchor, sender_id=user_id, kind="photo", media_object=object_name)
     _notify_thread(session, user_id, "📸")
     return _message_dict(message)
 
