@@ -25,6 +25,8 @@ import com.drp33.quietsignal.viewmodels.MemoriesViewModel
 import com.drp33.quietsignal.viewmodels.MemoriesViewModelFactory
 import com.drp33.quietsignal.viewmodels.PhotoMessagingViewModel
 import com.drp33.quietsignal.viewmodels.PhotoMessagingViewModelFactory
+import com.drp33.quietsignal.viewmodels.ThreadsViewModel
+import com.drp33.quietsignal.viewmodels.ThreadsViewModelFactory
 import com.drp33.quietsignal.viewmodels.TreeViewModel
 import com.drp33.quietsignal.viewmodels.TreeViewModelFactory
 import com.drp33.quietsignal.viewmodels.VoiceMessagingViewModel
@@ -93,16 +95,20 @@ fun NavGraph() {
                 viewModel(factory = VoiceMessagingViewModelFactory(repository, selfId = 1, peerId = 2))
             val photoVm: PhotoMessagingViewModel =
                 viewModel(factory = PhotoMessagingViewModelFactory(repository, selfId = 1, peerId = 2))
+            // Shared memory threads, written as Norman (id 1).
+            val threadsVm: ThreadsViewModel =
+                viewModel(factory = ThreadsViewModelFactory(repository, selfId = 1))
 
             LaunchedEffect(Unit) { elderlyViewModel.postFCMToken(1) }
 
-            // "This week" + "Forest" tabs share the same warm Grove backdrop.
-            MainShell(forestVm = memoriesViewModel) { pad ->
+            // "This week" + "Threads" + "Forest" tabs share the warm Grove backdrop.
+            MainShell(forestVm = memoriesViewModel, threadsVm = threadsVm) { pad ->
                 ElderlyScreen(
                     treeVm = treeViewModel,
                     voiceVm = voiceVm,
                     photoVm = photoVm,
                     memoriesVm = memoriesViewModel,
+                    threadsVm = threadsVm,
                     contentPadding = pad,
                     onSwitchRole = switchRole,
                     onEmergencyClick = { elderlyViewModel.sendEmergency(1) },
@@ -116,6 +122,9 @@ fun NavGraph() {
                 viewModel(factory = VoiceMessagingViewModelFactory(repository, selfId = 2, peerId = 1))
             val photoVm: PhotoMessagingViewModel =
                 viewModel(factory = PhotoMessagingViewModelFactory(repository, selfId = 2, peerId = 1))
+            // Shared memory threads, written as Sadie (id 2).
+            val threadsVm: ThreadsViewModel =
+                viewModel(factory = ThreadsViewModelFactory(repository, selfId = 2))
 
             // Fetch initial state once, then rely on pushes.
             LaunchedEffect(Unit) {
@@ -124,13 +133,14 @@ fun NavGraph() {
                 adultViewModel.loadEmergencyStatus(2)
             }
 
-            MainShell(forestVm = memoriesViewModel) { pad ->
+            MainShell(forestVm = memoriesViewModel, threadsVm = threadsVm) { pad ->
                 AdultScreen(
                     viewModel = adultViewModel,
                     treeVm = treeViewModel,
                     voiceVm = voiceVm,
                     photoVm = photoVm,
                     memoriesVm = memoriesViewModel,
+                    threadsVm = threadsVm,
                     contentPadding = pad,
                     onSwitchRole = switchRole,
                     onAllGood = { adultViewModel.acknowledgeEmergency(2) },

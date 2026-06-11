@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlmodel import Session, col, desc, select
 
-from app.models import EmergencyAlert, OkayEvent, User, UserLink
+from app.models import EmergencyAlert, OkayEvent, ThreadMessage, User, UserLink
 
 # One "day" in the current simulation. A check-in (or voice message) is only
 # considered current for this long.
@@ -119,3 +119,40 @@ def is_okay_within_6h(event: OkayEvent | None) -> bool:
     event_timestamp = event.timestamp.replace(tzinfo=UTC)
 
     return event_timestamp >= datetime.now(UTC) - timedelta(seconds=CHECK_IN_WINDOW_SECONDS)
+
+
+# ---------- THREADS (conversations anchored to a memory) ----------
+
+
+def add_thread_message(
+    session: Session,
+    anchor: str,
+    sender_id: int,
+    kind: str,
+    text: str = "",
+    media_object: str | None = None,
+) -> ThreadMessage:
+    """Append one message to the conversation hanging off `anchor`."""
+    message = ThreadMessage(
+        anchor=anchor,
+        sender_id=sender_id,
+        kind=kind,
+        text=text,
+        media_object=media_object,
+    )
+    session.add(message)
+    session.commit()
+    session.refresh(message)
+    return message
+
+
+def get_thread_messages(session: Session, anchor: str) -> list[ThreadMessage]:
+    """Every message in one conversation, oldest first."""
+    stmt = select(ThreadMessage).where(ThreadMessage.anchor == anchor).order_by(ThreadMessage.created_at)
+    return list(session.exec(stmt).all())
+
+
+def get_all_thread_messages(session: Session) -> list[ThreadMessage]:
+    """Every thread message across all conversations, oldest first (for summaries)."""
+    stmt = select(ThreadMessage).order_by(ThreadMessage.created_at)
+    return list(session.exec(stmt).all())

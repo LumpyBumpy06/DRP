@@ -5,6 +5,11 @@ import com.drp33.quietsignal.data.remote.models.ForestResponse
 import com.drp33.quietsignal.data.remote.models.MemoriesResponse
 import com.drp33.quietsignal.data.remote.models.OkayRequest
 import com.drp33.quietsignal.data.remote.models.OkayStatusResponse
+import com.drp33.quietsignal.data.remote.models.PromptResponse
+import com.drp33.quietsignal.data.remote.models.ThreadMessageDto
+import com.drp33.quietsignal.data.remote.models.ThreadMessagesResponse
+import com.drp33.quietsignal.data.remote.models.ThreadTextRequest
+import com.drp33.quietsignal.data.remote.models.ThreadsResponse
 import com.drp33.quietsignal.data.remote.models.TokenRequest
 import com.drp33.quietsignal.data.remote.models.TreeResponse
 import okhttp3.MultipartBody
@@ -63,4 +68,36 @@ interface CheckInAPI {
 
     @GET("media")
     suspend fun getMedia(@Query("object_name") objectName: String): ResponseBody
+
+    // ---------- THREADS (conversations anchored to a memory) ----------
+
+    @GET("threads")
+    suspend fun getThreads(@Query("user_id") userId: Int): ThreadsResponse
+
+    @GET("thread")
+    suspend fun getThread(@Query("anchor") anchor: String): ThreadMessagesResponse
+
+    @POST("thread/text")
+    suspend fun postThreadText(@Body request: ThreadTextRequest): ThreadMessageDto
+
+    @Multipart
+    @POST("thread/voice")
+    suspend fun postThreadVoice(
+        @Query("anchor") anchor: String,
+        @Query("user_id") userId: Int,
+        @Part file: MultipartBody.Part,
+    ): ThreadMessageDto
+
+    @Multipart
+    @POST("thread/photo")
+    suspend fun postThreadPhoto(
+        @Query("anchor") anchor: String,
+        @Query("user_id") userId: Int,
+        @Part file: MultipartBody.Part,
+    ): ThreadMessageDto
+
+    // ---------- PROMPT (a memory the tree resurfaces when quiet) ----------
+
+    @GET("prompt")
+    suspend fun getPrompt(): PromptResponse
 }
