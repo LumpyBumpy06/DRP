@@ -90,7 +90,7 @@ private val TREE_CONTENT_HEIGHT = 340.dp
 /** Extra empty space reserved ABOVE the content region so the scaled-up canopy
  * isn't clipped at the top. Added to the Box height but excluded from all the
  * leaf math, which stays anchored to the bottom content region. */
-private val TREE_TOP_HEADROOM = 50.dp
+private val TREE_TOP_HEADROOM = 100.dp
 
 // ---- Bird stages (after the tree is fully grown) ---------------------------
 // Past stage 5 the tree stays full-size and gains birds: stage 6 = 1 bird up to
@@ -206,13 +206,16 @@ private data class LeafSpawnParams(
     val halfWidth: Dp
 )
 
+// Leaves spawn FROM the canopy band (fractions of content height) and fall to the
+// floor (the trunk base). Every yBottom must stay ABOVE the floor so leaves never
+// start below the tree. Higher stages = bigger, wider canopy reaching further up.
 private val STAGE_SPAWN_PARAMS = listOf(
-    LeafSpawnParams(0.85f, 0.98f, 20.dp), // Stage 0
-    LeafSpawnParams(0.75f, 0.98f, 30.dp), // Stage 1
-    LeafSpawnParams(0.65f, 0.98f, 40.dp), // Stage 2
-    LeafSpawnParams(0.55f, 0.75f, 50.dp), // Stage 3
-    LeafSpawnParams(0.55f, 0.75f, 60.dp), // Stage 4
-    LeafSpawnParams(0.55f, 0.75f, 70.dp), // Stage 5
+    LeafSpawnParams(0.58f, 0.74f, 28.dp), // Stage 0
+    LeafSpawnParams(0.52f, 0.74f, 36.dp), // Stage 1
+    LeafSpawnParams(0.46f, 0.73f, 44.dp), // Stage 2
+    LeafSpawnParams(0.42f, 0.72f, 52.dp), // Stage 3
+    LeafSpawnParams(0.38f, 0.70f, 60.dp), // Stage 4
+    LeafSpawnParams(0.34f, 0.68f, 70.dp), // Stage 5
 )
 
 private data class LeafBlob(val layer: String, val group: String, val originalColor: Color)
@@ -345,7 +348,13 @@ private data class FallingLeaf(
 )
 
 @Composable
-fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
+fun WateringTree(
+    stage: Int,
+    deathLevel: Float,
+    modifier: Modifier = Modifier,
+    showFallingLeaves: Boolean = true,
+    showWildlife: Boolean = true,
+) {
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.tree))
     val birdComposition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.bird))
     val squirrelComposition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.squirrel))
@@ -356,14 +365,16 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
 
     // Birds for this stage, thinned out by neglect: as the tree fades, birds
     // leave one by one until none remain at full neglect.
-    val targetBirds = (birdsForStage(stage) * (1f - death)).let { kotlin.math.round(it).toInt() }
-        .coerceIn(0, MAX_BIRDS)
+    // showWildlife = false (forest snapshots) → no birds, squirrel or oranges,
+    // just the tree itself.
+    val targetBirds = if (!showWildlife) 0 else
+        (birdsForStage(stage) * (1f - death)).let { kotlin.math.round(it).toInt() }.coerceIn(0, MAX_BIRDS)
 
     // The squirrel arrives at its stage but is shy — it ducks back into the
     // hollow when the tree is badly neglected. Oranges appear at their stage.
-    val holeVisible = DEBUG_FORCE_SQUIRREL || stage >= SQUIRREL_STAGE
+    val holeVisible = showWildlife && (DEBUG_FORCE_SQUIRREL || stage >= SQUIRREL_STAGE)
     val squirrelVisible = holeVisible && death < 0.5f
-    val orangesActive = DEBUG_FORCE_ORANGES || stage >= ORANGE_STAGE
+    val orangesActive = showWildlife && (DEBUG_FORCE_ORANGES || stage >= ORANGE_STAGE)
     val squirrelAlpha by animateFloatAsState(
         targetValue = if (squirrelVisible) 1f else 0f,
         animationSpec = tween(600, easing = FastOutSlowInEasing),
@@ -463,7 +474,10 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                 val params = STAGE_SPAWN_PARAMS[idx]
 
                 val canvasHeightPx = with(density) { TREE_CONTENT_HEIGHT.toPx() }
-                val floorY = canvasHeightPx * 0.98f
+                // Leaves rest at the trunk base. The tree's scaling pivot (0.89 of
+                // the Lottie) sits at the trunk base; 0.82 lands a leaf sprite's
+                // bottom right there instead of below the tree.
+                val floorY = canvasHeightPx * 0.82f
                 val spawnHalfWidthPx = with(density) { params.halfWidth.toPx() }
                 val spawnYTop = canvasHeightPx * params.yTop
                 val spawnYBottom = canvasHeightPx * params.yBottom
@@ -550,7 +564,8 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
                         .coerceAtMost(LEAF_RATE_MAX)
                 spawnAccumulator += dt * spawnRatePerSec
 
-                val maxLeaves = 70
+                // Forest trees pass showFallingLeaves = false → never spawn leaves.
+                val maxLeaves = if (showFallingLeaves) 70 else 0
 
                 while (spawnAccumulator >= 1f && leaves.size < maxLeaves) {
                     spawnAccumulator -= 1f

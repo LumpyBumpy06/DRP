@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -78,7 +79,8 @@ fun MainShell(
     week: @Composable (contentPadding: PaddingValues) -> Unit,
 ) {
     var tab by rememberSaveable { mutableStateOf(GroveTab.Week) }
-    val pad = PaddingValues(bottom = 104.dp)
+    // Clears the floating tab bar (which itself sits above the system nav bar).
+    val pad = PaddingValues(bottom = 150.dp)
 
     Box(modifier = Modifier.fillMaxSize().groveBackground()) {
         when (tab) {
@@ -97,8 +99,9 @@ fun MainShell(
 fun GroveBottomNav(tab: GroveTab, onSelect: (GroveTab) -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
+            .navigationBarsPadding()
             .padding(horizontal = 14.dp)
-            .padding(bottom = 26.dp)
+            .padding(bottom = 18.dp)
             .fillMaxWidth()
             .shadow(14.dp, RoundedCornerShape(22.dp), clip = false)
             .clip(RoundedCornerShape(22.dp))

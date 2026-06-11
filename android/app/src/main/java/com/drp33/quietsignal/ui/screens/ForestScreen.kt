@@ -5,12 +5,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -22,9 +25,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -40,6 +45,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.rememberLottieComposition
+import com.drp33.quietsignal.R
 import com.drp33.quietsignal.model.ForestWeek
 import com.drp33.quietsignal.model.WEEK_SECONDS
 import com.drp33.quietsignal.ui.theme.Grove
@@ -50,6 +60,8 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.sin
+import kotlin.random.Random
 
 /** Label from a week-start epoch (seconds). Includes the time so the short test
  * "weeks" (60s apart) stay visibly distinct. */
@@ -137,13 +149,13 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
 
             translate(left = -scrollPx * 0.18f) {
                 drawPath(
-                    rollingHill(-w, w * 2.4f, h * 0.62f, h * 0.085f, w * 0.62f, h),
+                    rollingHill(-w, w * 2.4f, h * 0.56f, h * 0.085f, w * 0.62f, h),
                     Grove.FoliageRest.copy(alpha = 0.32f),
                 )
             }
             translate(left = -scrollPx * 0.32f) {
                 drawPath(
-                    rollingHill(-w, w * 2.8f, h * 0.74f, h * 0.07f, w * 0.5f, h),
+                    rollingHill(-w, w * 2.8f, h * 0.65f, h * 0.07f, w * 0.5f, h),
                     Grove.Foliage2.copy(alpha = 0.22f),
                 )
             }
@@ -157,6 +169,10 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                 .height(160.dp)
                 .background(Brush.verticalGradient(0f to Color.Transparent, 0.5f to Grove.Ground)),
         )
+
+        // A few birds drifting across the sky up top — purely for life. They stay
+        // in the upper band and never reach the trees below.
+        ForestBirds()
 
         if (weeks.isEmpty()) {
             Text(
@@ -184,7 +200,7 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                             .width(156.dp)
                             .graphicsLayer {
                                 // Lift the entire column (tree + labels) for far trees
-                                translationY = if (far) (-72).dp.toPx() else 0f
+                                translationY = if (far) (-24).dp.toPx() else 30.dp.toPx()
                             }
                             .clickable { montageWeek = week },
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -203,22 +219,36 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                                 },
                             contentAlignment = Alignment.BottomCenter,
                         ) {
-                            WateringTree(stage = week.stage, deathLevel = week.deathLevel)
+                            // Forest snapshots are just the tree — no falling
+                            // leaves and no birds/squirrel/oranges.
+                            WateringTree(
+                                stage = week.stage,
+                                deathLevel = week.deathLevel,
+                                showFallingLeaves = false,
+                                showWildlife = false,
+                            )
                         }
 
-                        Text(
-                            text = weekLabel(week.weekStart),
-                            fontFamily = Newsreader,
-                            fontWeight = FontWeight.Medium,
-                            color = Grove.Ink,
-                            fontSize = 14.sp,
-                        )
-                        Text(
-                            text = "${mems.size} ${if (mems.size == 1) "moment" else "moments"}",
-                            fontFamily = NunitoSans,
-                            color = Grove.InkSoft,
-                            fontSize = 11.sp,
-                        )
+                        // Pulled up to sit close under the trunk (the tree box has
+                        // empty ground space below the trunk we don't want to show).
+                        Column(
+                            modifier = Modifier.offset(y = (-26).dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                text = weekLabel(week.weekStart),
+                                fontFamily = Newsreader,
+                                fontWeight = FontWeight.Medium,
+                                color = Grove.Ink,
+                                fontSize = 14.sp,
+                            )
+                            Text(
+                                text = "${mems.size} ${if (mems.size == 1) "moment" else "moments"}",
+                                fontFamily = NunitoSans,
+                                color = Grove.InkSoft,
+                                fontSize = 11.sp,
+                            )
+                        }
                     }
                 }
             }
@@ -253,6 +283,76 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
             vm = vm,
             onClose = { montageWeek = null },
         )
+    }
+}
+
+/** One bird drifting across the sky band, wrapping around the screen edges. */
+private class SkyBird(
+    val startX: Float,   // 0..1 of width
+    val y: Float,        // 0..1 of height, kept in the upper band
+    val speed: Float,    // fraction of width / second (sign = direction)
+    val scale: Float,
+    val bobAmp: Float,
+    val bobFreq: Float,
+    val phase: Float,
+)
+
+/**
+ * 3–4 birds gliding across the top of the forest for a touch of life. They wander
+ * only in the upper sky band (well above the trees), drift at varied speeds and
+ * heights, and bob gently — never touching any tree.
+ */
+@Composable
+private fun ForestBirds() {
+    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.bird))
+    val birds = remember {
+        List(Random.nextInt(3, 5)) {
+            SkyBird(
+                startX = Random.nextFloat(),
+                y = 0.12f + Random.nextFloat() * 0.16f,           // upper band 0.12..0.28
+                speed = (0.05f + Random.nextFloat() * 0.06f) * (if (Random.nextBoolean()) 1f else -1f),
+                scale = 0.7f + Random.nextFloat() * 0.45f,
+                bobAmp = 0.008f + Random.nextFloat() * 0.018f,
+                bobFreq = 0.5f + Random.nextFloat() * 0.8f,
+                phase = Random.nextFloat() * 6.2832f,
+            )
+        }
+    }
+    var t by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(Unit) {
+        var last = 0L
+        while (true) {
+            withFrameNanos { n ->
+                if (last != 0L) t += (n - last) / 1_000_000_000f
+                last = n
+            }
+        }
+    }
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val density = LocalDensity.current
+        val wPx = with(density) { maxWidth.toPx() }
+        val hPx = with(density) { maxHeight.toPx() }
+        birds.forEach { b ->
+            // Wrap horizontally with a little margin so it glides off and back on.
+            var fx = (b.startX + b.speed * t) % 1.2f
+            if (fx < 0f) fx += 1.2f
+            fx -= 0.1f
+            val yy = b.y + sin(t * b.bobFreq + b.phase) * b.bobAmp
+            val faceLeft = b.speed < 0f
+            LottieAnimation(
+                composition = composition,
+                iterations = LottieConstants.IterateForever,
+                modifier = Modifier
+                    .size(72.dp)
+                    .graphicsLayer {
+                        translationX = fx * wPx - size.width / 2f
+                        translationY = yy * hPx - size.height / 2f
+                        scaleX = b.scale * if (faceLeft) 1f else -1f
+                        scaleY = b.scale
+                    },
+            )
+        }
     }
 }
 
