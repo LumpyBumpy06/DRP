@@ -206,16 +206,17 @@ private data class LeafSpawnParams(
     val halfWidth: Dp
 )
 
-// Leaves spawn FROM the canopy band (fractions of content height) and fall to the
-// floor (the trunk base). Every yBottom must stay ABOVE the floor so leaves never
-// start below the tree. Higher stages = bigger, wider canopy reaching further up.
+// Leaves spawn FROM the canopy/bush band (fractions of content height) and fall to
+// the floor (the trunk base). The bushes sit high in the box, so these are well
+// above the floor; bigger stages have a taller, wider canopy. halfWidth spreads
+// leaves across the bushes (not just by the trunk).
 private val STAGE_SPAWN_PARAMS = listOf(
-    LeafSpawnParams(0.58f, 0.74f, 28.dp), // Stage 0
-    LeafSpawnParams(0.52f, 0.74f, 36.dp), // Stage 1
-    LeafSpawnParams(0.46f, 0.73f, 44.dp), // Stage 2
-    LeafSpawnParams(0.42f, 0.72f, 52.dp), // Stage 3
-    LeafSpawnParams(0.38f, 0.70f, 60.dp), // Stage 4
-    LeafSpawnParams(0.34f, 0.68f, 70.dp), // Stage 5
+    LeafSpawnParams(0.43f, 0.47f, 2.dp), // Stage 0
+    LeafSpawnParams(0.35f, 0.52f, 38.dp), // Stage 1
+    LeafSpawnParams(0.24f, 0.50f, 50.dp), // Stage 2
+    LeafSpawnParams(0.18f, 0.46f, 62.dp), // Stage 3
+    LeafSpawnParams(0.14f, 0.44f, 76.dp), // Stage 4
+    LeafSpawnParams(0.10f, 0.42f, 90.dp), // Stage 5
 )
 
 private data class LeafBlob(val layer: String, val group: String, val originalColor: Color)
@@ -474,10 +475,10 @@ fun WateringTree(
                 val params = STAGE_SPAWN_PARAMS[idx]
 
                 val canvasHeightPx = with(density) { TREE_CONTENT_HEIGHT.toPx() }
-                // Leaves rest at the trunk base. The tree's scaling pivot (0.89 of
-                // the Lottie) sits at the trunk base; 0.82 lands a leaf sprite's
-                // bottom right there instead of below the tree.
-                val floorY = canvasHeightPx * 0.82f
+                // Leaves rest at the trunk base. Calibrated from the rendered tree
+                // (the base sits ~0.82 of content; 0.75 lands a leaf sprite's bottom
+                // right at it rather than below the tree).
+                val floorY = canvasHeightPx * 0.63f
                 val spawnHalfWidthPx = with(density) { params.halfWidth.toPx() }
                 val spawnYTop = canvasHeightPx * params.yTop
                 val spawnYBottom = canvasHeightPx * params.yBottom

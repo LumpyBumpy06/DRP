@@ -82,7 +82,7 @@ fun ElderlyScreen(
                 EmergencyButton(onTrigger = onEmergencyClick)
             }
 
-            GroveHeader(title = "Our grove", subtitle = "Little moments, shared with family.", momentCount = momentCount)
+            GroveHeader(title = "Our garden", subtitle = "Little moments, shared with family.", momentCount = momentCount)
 
             Spacer(Modifier.height(12.dp))
             SafetyStrip(

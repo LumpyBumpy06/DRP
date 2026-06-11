@@ -73,7 +73,7 @@ fun AdultScreen(
                 }
             }
 
-            GroveHeader(title = "Our grove", subtitle = "A living record of staying close.", momentCount = momentCount)
+            GroveHeader(title = "Our garden", subtitle = "A living record of staying close.", momentCount = momentCount)
 
             Spacer(Modifier.height(12.dp))
             SafetyStrip(

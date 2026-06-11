@@ -188,7 +188,7 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
             LazyRow(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 112.dp, top = 116.dp),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 136.dp, top = 116.dp),
                 horizontalArrangement = Arrangement.spacedBy(0.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
@@ -200,7 +200,7 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                             .width(156.dp)
                             .graphicsLayer {
                                 // Lift the entire column (tree + labels) for far trees
-                                translationY = if (far) (-24).dp.toPx() else 30.dp.toPx()
+                                translationY = if (far) (-24).dp.toPx() else 8.dp.toPx()
                             }
                             .clickable { montageWeek = week },
                         horizontalAlignment = Alignment.CenterHorizontally,
