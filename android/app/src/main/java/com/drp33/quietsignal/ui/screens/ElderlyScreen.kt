@@ -15,7 +15,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,19 +29,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.drp33.quietsignal.data.SettingsPreferences
 import com.drp33.quietsignal.model.WEEK_SECONDS
 import com.drp33.quietsignal.ui.theme.Grove
 import com.drp33.quietsignal.ui.theme.NunitoSans
 import com.drp33.quietsignal.util.vibrateDoubleTap
 import com.drp33.quietsignal.viewmodels.MemoriesViewModel
 import com.drp33.quietsignal.viewmodels.PhotoMessagingViewModel
+import com.drp33.quietsignal.viewmodels.ThreadsViewModel
 import com.drp33.quietsignal.viewmodels.TreeViewModel
 import com.drp33.quietsignal.viewmodels.VoiceMessagingViewModel
 import kotlinx.coroutines.delay
 
 /**
  * Norman's home — the "This week" tab for the elder. Same Grove layout as
- * [AdultScreen] but the top row keeps the always-available SOS button.
+ * [AdultScreen] but the top row keeps the always-available SOS button, with the
+ * Gallery + Settings buttons beside it.
  */
 @Composable
 fun ElderlyScreen(
@@ -50,18 +52,30 @@ fun ElderlyScreen(
     voiceVm: VoiceMessagingViewModel,
     photoVm: PhotoMessagingViewModel,
     memoriesVm: MemoriesViewModel,
+    threadsVm: ThreadsViewModel,
     name: String = "Norman",
     contentPadding: PaddingValues = PaddingValues(),
     onSwitchRole: () -> Unit = {},
     onEmergencyClick: () -> Unit = {},
 ) {
+    val context = LocalContext.current
     val tree = treeVm.state
     val mood = treeMoodOf(tree.deathLevel)
 
-    LaunchedEffect(Unit) { memoriesVm.load() }
+    LaunchedEffect(Unit) {
+        memoriesVm.load()
+        threadsVm.loadThreads()
+    }
     val weekStart = (System.currentTimeMillis() / 1000 / WEEK_SECONDS) * WEEK_SECONDS
     val momentCount = memoriesVm.memories.count { (it.epoch / WEEK_SECONDS) * WEEK_SECONDS == weekStart }
     val lastMomentEpoch = memoriesVm.memories.maxOfOrNull { it.epoch }
+
+    var showGallery by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
+
+    val promptsOn = remember(showSettings) { SettingsPreferences.promptsEnabled(context) }
+    val prompt = threadsVm.prompt
+    val showPrompt = promptsOn && mood == TreeMood.FADING && prompt != null
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -73,13 +87,13 @@ fun ElderlyScreen(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = onSwitchRole) {
-                    Text("← Switch role", fontFamily = NunitoSans, color = Grove.InkSoft)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    GroveHeaderActions(onGallery = { showGallery = true }, onSettings = { showSettings = true })
+                    EmergencyButton(onTrigger = onEmergencyClick)
                 }
-                EmergencyButton(onTrigger = onEmergencyClick)
             }
 
             GroveHeader(title = "Our garden", subtitle = "Little moments, shared with family.", momentCount = momentCount)
@@ -95,21 +109,28 @@ fun ElderlyScreen(
                 WateringTree(stage = tree.stage, deathLevel = tree.deathLevel)
             }
 
-            Text(
-                text = "Add a moment to help it grow",
-                fontFamily = NunitoSans,
-                fontSize = 13.5.sp,
-                color = Grove.InkSoft,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (showPrompt && prompt != null) {
+                PromptCard(
+                    title = "It's been quiet — remember this?",
+                    subtitle = "A ${if (prompt.type == "photo") "photo" else "voice note"} from ${prompt.sender}",
+                    onClick = { threadsVm.openThread(prompt.objectName, prompt.type, prompt.sender, isPrompt = true) },
+                )
+            } else {
+                Text(
+                    text = "Add a moment to help it grow",
+                    fontFamily = NunitoSans,
+                    fontSize = 13.5.sp,
+                    color = Grove.InkSoft,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             Spacer(Modifier.height(10.dp))
 
             GroveInputRow(
                 onVoiceRecorded = { voiceVm.onRecorded(it, onUploaded = { treeVm.refresh() }) },
                 onPhotoCaptured = { photoVm.sendPhoto(it) { treeVm.refresh() } },
                 onWater = { treeVm.water(1) },
-                onNote = { treeVm.water(1) },
             )
             Spacer(Modifier.height(8.dp))
         }
@@ -121,6 +142,18 @@ fun ElderlyScreen(
             modifier = Modifier.matchParentSize(),
         )
     }
+
+    // Gallery + Settings dialogs (Norman is user id 1).
+    GroveModals(
+        showGallery = showGallery,
+        onCloseGallery = { showGallery = false },
+        showSettings = showSettings,
+        onCloseSettings = { showSettings = false },
+        memoriesVm = memoriesVm,
+        currentUserId = 1,
+        threadsVm = threadsVm,
+        onSwitchRole = onSwitchRole,
+    )
 }
 
 /**

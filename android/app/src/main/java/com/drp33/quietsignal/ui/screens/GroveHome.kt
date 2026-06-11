@@ -17,14 +17,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,17 +47,18 @@ import com.drp33.quietsignal.util.AudioRecorder
 import com.drp33.quietsignal.util.vibrateDoubleTap
 import com.drp33.quietsignal.util.vibrateTick
 import com.drp33.quietsignal.viewmodels.MemoriesViewModel
+import com.drp33.quietsignal.viewmodels.ThreadsViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /* ============================================================= *
- *  SHELL  —  "This week" (home) / "Forest" tabs + floating nav  *
+ *  SHELL  —  "This week" / "Threads" / "Forest" tabs + nav bar  *
  * ============================================================= */
 
-enum class GroveTab { Week, Forest }
+enum class GroveTab { Week, Threads, Forest }
 
-/** Warm Grove background gradient shared by both tabs. */
+/** Warm Grove background gradient shared by all tabs. */
 fun Modifier.groveBackground(): Modifier = this.background(
     Brush.verticalGradient(
         0f to Grove.SkyTop,
@@ -69,34 +68,45 @@ fun Modifier.groveBackground(): Modifier = this.background(
 )
 
 /**
- * Hosts the role's home ("This week") and the shared Forest under one floating
- * bottom-tab bar, swapping content in place (Grove style) rather than pushing a
- * route. [week] is given bottom padding so its content clears the nav bar.
+ * Hosts the role's home ("This week"), the shared Threads list, and the Forest
+ * under one floating bottom-tab bar, swapping content in place (Grove style).
+ * When a thread is opened (from here OR from the Gallery), [ThreadChatScreen]
+ * is laid over everything. [week] is given bottom padding so its content clears
+ * the nav bar.
  */
 @Composable
 fun MainShell(
     forestVm: MemoriesViewModel,
+    threadsVm: ThreadsViewModel,
     week: @Composable (contentPadding: PaddingValues) -> Unit,
 ) {
     var tab by rememberSaveable { mutableStateOf(GroveTab.Week) }
     // Clears the floating tab bar (which itself sits above the system nav bar).
     val pad = PaddingValues(bottom = 150.dp)
+    val unread = threadsVm.summaries.sumOf { it.incoming }
 
     Box(modifier = Modifier.fillMaxSize().groveBackground()) {
         when (tab) {
             GroveTab.Week -> week(pad)
+            GroveTab.Threads -> ThreadsPane(vm = threadsVm, contentPadding = pad)
             GroveTab.Forest -> ForestPane(vm = forestVm, contentPadding = pad)
         }
         GroveBottomNav(
             tab = tab,
+            unread = unread,
             onSelect = { tab = it },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
+
+        // The conversation view sits above the tabs and nav bar.
+        if (threadsVm.activeAnchor != null) {
+            ThreadChatScreen(vm = threadsVm, onClose = { threadsVm.closeThread() })
+        }
     }
 }
 
 @Composable
-fun GroveBottomNav(tab: GroveTab, onSelect: (GroveTab) -> Unit, modifier: Modifier = Modifier) {
+fun GroveBottomNav(tab: GroveTab, unread: Int, onSelect: (GroveTab) -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .navigationBarsPadding()
@@ -111,12 +121,13 @@ fun GroveBottomNav(tab: GroveTab, onSelect: (GroveTab) -> Unit, modifier: Modifi
         verticalAlignment = Alignment.CenterVertically,
     ) {
         NavItem("This week", "🌳", tab == GroveTab.Week, Modifier.weight(1f)) { onSelect(GroveTab.Week) }
+        NavItem("Threads", "💬", tab == GroveTab.Threads, Modifier.weight(1f), badge = unread) { onSelect(GroveTab.Threads) }
         NavItem("Forest", "🌲", tab == GroveTab.Forest, Modifier.weight(1f)) { onSelect(GroveTab.Forest) }
     }
 }
 
 @Composable
-private fun NavItem(label: String, glyph: String, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun NavItem(label: String, glyph: String, active: Boolean, modifier: Modifier, badge: Int = 0, onClick: () -> Unit) {
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
@@ -125,7 +136,22 @@ private fun NavItem(label: String, glyph: String, active: Boolean, modifier: Mod
             .padding(vertical = 7.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(text = glyph, fontSize = 19.sp)
+        Box {
+            Text(text = glyph, fontSize = 19.sp)
+            if (badge > 0) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 9.dp, y = (-4).dp)
+                        .size(16.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE0524B)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(text = if (badge > 9) "9+" else badge.toString(), color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
         Spacer(Modifier.height(2.dp))
         Text(
             text = label,
@@ -224,7 +250,6 @@ fun GroveInputRow(
     onVoiceRecorded: (ByteArray) -> Unit,
     onPhotoCaptured: (ByteArray) -> Unit,
     onWater: () -> Unit,
-    onNote: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -235,7 +260,6 @@ fun GroveInputRow(
         GroveVoiceTile(onVoiceRecorded)
         GrovePhotoTile(onPhotoCaptured)
         GroveHelloTile(onWater)
-        GroveNoteTile(onNote)
     }
 }
 
@@ -324,38 +348,4 @@ private fun GroveHelloTile(onWater: () -> Unit) {
     })
 }
 
-@Composable
-private fun GroveNoteTile(onSend: (String) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    GroveTile(label = "Note", glyph = "📝", tint = Grove.Note, onClick = { open = true })
-    if (open) {
-        NoteComposerDialog(onCancel = { open = false }, onSend = { open = false; onSend(it) })
-    }
-}
 
-@Composable
-private fun NoteComposerDialog(onCancel: () -> Unit, onSend: (String) -> Unit) {
-    var text by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onCancel,
-        containerColor = Grove.Surface,
-        title = { Text(text = "Leave a note", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 22.sp, color = Grove.Ink) },
-        text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                placeholder = { Text("A few words for the tree…", fontFamily = NunitoSans, color = Grove.InkFaint) },
-                minLines = 3,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = { if (text.isNotBlank()) onSend(text.trim()) }, enabled = text.isNotBlank()) {
-                Text(text = "Plant it", fontFamily = NunitoSans, fontWeight = FontWeight.Bold, color = Grove.Accent)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onCancel) { Text(text = "Cancel", fontFamily = NunitoSans, color = Grove.InkSoft) }
-        },
-    )
-}

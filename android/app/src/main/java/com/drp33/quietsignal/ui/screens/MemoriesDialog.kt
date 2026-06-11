@@ -83,7 +83,12 @@ private val CAPTION_SCRIM = listOf(Color.Transparent, Color(0xCC1B5E20))
  * it full, tap a voice memo to play it. ✕ to close.
  */
 @Composable
-fun MemoriesDialog(vm: MemoriesViewModel, currentUserId: Int, onClose: () -> Unit) {
+fun MemoriesDialog(
+    vm: MemoriesViewModel,
+    currentUserId: Int,
+    onClose: () -> Unit,
+    onStartThread: ((MemoryItem) -> Unit)? = null,
+) {
     var expandedItem by remember { mutableStateOf<MemoryItem?>(null) }
     // Gallery filter — defaults to photos; tap "Voice" to see the voice messages.
     var filter by remember { mutableStateOf("photo") }
@@ -195,7 +200,8 @@ fun MemoriesDialog(vm: MemoriesViewModel, currentUserId: Int, onClose: () -> Uni
             item = item,
             vm = vm,
             currentUserId = currentUserId,
-            onClose = { expandedItem = null }
+            onClose = { expandedItem = null },
+            onStartThread = onStartThread,
         )
     }
 }
@@ -226,7 +232,8 @@ private fun ExpandedMemoryDialog(
     item: MemoryItem,
     vm: MemoriesViewModel,
     currentUserId: Int,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onStartThread: ((MemoryItem) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val player = remember { AudioPlayer(context) }
@@ -313,6 +320,19 @@ private fun ExpandedMemoryDialog(
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
+
+                // Start (or continue) a conversation about this memory.
+                if (onStartThread != null) {
+                    Button(
+                        onClick = { onStartThread(item); onClose() },
+                        colors = ButtonDefaults.buttonColors(containerColor = TITLE_GREEN),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("\uD83D\uDCAC  Start a conversation", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),

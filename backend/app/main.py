@@ -3,16 +3,20 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import Depends, FastAPI, HTTPException, Response, UploadFile
+from pydantic import BaseModel
 from sqlmodel import Session
 
 from app.crud import (
     CHECK_IN_WINDOW_SECONDS,
     active_emergency_sender_for,
+    add_thread_message,
     clear_emergencies_for,
     create_okay_event,
+    get_all_thread_messages,
     get_latest_okay_event,
     get_linked_users,
     get_okay_timestamps,
+    get_thread_messages,
     is_okay_within_6h,
     raise_emergency,
     upsert_user_token,
@@ -21,7 +25,7 @@ from app.crud import (
     reset_tree as reset_tree_data,
 )
 from app.db import create_engine_from_settings, get_session, init_db
-from app.models import User
+from app.models import ThreadMessage, User
 from app.services.firebase import init_firebase
 from app.services.notifications import send_notification
 from app.services.storage import download_audio, latest_recent_object_name, list_objects, upload_audio
@@ -39,6 +43,11 @@ VOICE_TTL_SECONDS = 60
 
 # How long a snap stays viewable.
 PHOTO_TTL_SECONDS = 120
+
+# Object-storage prefix for media attached to a thread message. Kept out of the
+# memory board (the /memories listing skips it) so chat snaps/clips don't show
+# up twice.
+THREAD_PREFIX = "threads/"
 
 
 # ---------- ENGINE (stateless per deployment) ----------
@@ -295,11 +304,26 @@ def get_latest_photo(user_id: int) -> Response:
 # ---------- MEMORIES (everything ever sent) ----------
 
 
+def _memory_meta(object_name: str) -> tuple[str, str]:
+    """(kind, sender display-name) for a stored object, mirroring /memories."""
+    if object_name.startswith("photos/"):
+        sender_id = _photo_sender_from(object_name)
+        return "photo", (USER_NAMES.get(sender_id, "Someone") if sender_id is not None else "Someone")
+    sender_id = _sender_id_from(object_name)
+    return "voice", (USER_NAMES.get(sender_id, "Someone") if sender_id is not None else "Someone")
+
+
+def _board_objects() -> list[tuple[str, datetime]]:
+    """Every memory-board object (voice + snaps), newest first, excluding thread media."""
+    objects = sorted(list_objects(settings), key=lambda o: o[1], reverse=True)
+    return [(name, lm) for name, lm in objects if not name.startswith(THREAD_PREFIX)]
+
+
 @app.get("/memories")
 def get_memories() -> dict:
     """Every voice memo + snap ever sent, newest first — the shared memory board."""
     try:
-        objects = sorted(list_objects(settings), key=lambda o: o[1], reverse=True)
+        objects = _board_objects()
     except Exception:
         # Object storage (MinIO) unavailable — degrade to an empty board instead
         # of a 500 so the rest of the app (tree, forest) keeps working.
@@ -308,17 +332,12 @@ def get_memories() -> dict:
 
     items: list[dict] = []
     for object_name, last_modified in objects:
-        if object_name.startswith("photos/"):
-            kind = "photo"
-            sender_id = _photo_sender_from(object_name)
-        else:
-            kind = "voice"
-            sender_id = _sender_id_from(object_name)
+        kind, sender = _memory_meta(object_name)
         items.append(
             {
                 "objectName": object_name,
                 "type": kind,
-                "sender": USER_NAMES.get(sender_id, "Someone") if sender_id is not None else "Someone",
+                "sender": sender,
                 "epoch": int(last_modified.timestamp()),
             }
         )
@@ -332,3 +351,144 @@ def get_media(object_name: str) -> Response:
     data = download_audio(settings, object_name)
     media_type = "image/jpeg" if object_name.endswith(".jpg") else "audio/mp4"
     return Response(content=data, media_type=media_type)
+
+
+# ---------- THREADS (conversations anchored to a memory) ----------
+
+
+class ThreadTextRequest(BaseModel):
+    anchor: str
+    user_id: int
+    text: str
+
+
+def _message_dict(message: ThreadMessage) -> dict:
+    return {
+        "id": message.id,
+        "anchor": message.anchor,
+        "senderId": message.sender_id,
+        "sender": USER_NAMES.get(message.sender_id, "Someone"),
+        "kind": message.kind,
+        "text": message.text,
+        "mediaObject": message.media_object,
+        "epoch": int(message.created_at.replace(tzinfo=UTC).timestamp()),
+    }
+
+
+@app.get("/threads")
+def get_threads(user_id: int, session: Session = SessionDependency) -> dict:
+    """One summary row per conversation (anchor) — the WhatsApp-style list.
+
+    `incoming` counts messages from the partner, a soft unread hint for the
+    badge (there are no read receipts in this demo).
+    """
+    summaries: dict[str, dict] = {}
+    for message in get_all_thread_messages(session):
+        kind, sender = _memory_meta(message.anchor)
+        summary = summaries.setdefault(
+            message.anchor,
+            {"anchor": message.anchor, "memoryType": kind, "memorySender": sender, "count": 0, "incoming": 0},
+        )
+        summary["count"] += 1
+        if message.sender_id != user_id:
+            summary["incoming"] += 1
+        # get_all_thread_messages is oldest-first, so the last write wins as "latest".
+        summary["lastKind"] = message.kind
+        summary["lastText"] = message.text
+        summary["lastSenderId"] = message.sender_id
+        summary["lastSender"] = USER_NAMES.get(message.sender_id, "Someone")
+        summary["lastEpoch"] = int(message.created_at.replace(tzinfo=UTC).timestamp())
+
+    threads = sorted(summaries.values(), key=lambda s: s.get("lastEpoch", 0), reverse=True)
+    return {"threads": threads}
+
+
+@app.get("/thread")
+def get_thread(anchor: str, session: Session = SessionDependency) -> dict:
+    """Every message in one conversation, oldest first."""
+    return {"messages": [_message_dict(m) for m in get_thread_messages(session, anchor)]}
+
+
+@app.post("/thread/text")
+def post_thread_text(payload: ThreadTextRequest, session: Session = SessionDependency) -> dict:
+    """Reply to a thread with words."""
+    message = add_thread_message(session, anchor=payload.anchor, sender_id=payload.user_id, kind="text", text=payload.text)
+    _notify_thread(session, payload.user_id, "💬")
+    return _message_dict(message)
+
+
+@app.post("/thread/voice")
+async def post_thread_voice(
+    anchor: str,
+    user_id: int,
+    file: UploadFile,
+    session: Session = SessionDependency,
+) -> dict:
+    """Reply to a thread with a voice note (stored under the threads/ prefix)."""
+    data = await file.read()
+    object_name = f"{THREAD_PREFIX}{user_id}/{datetime.now(UTC):%Y%m%dT%H%M%S}-{uuid.uuid4().hex}.m4a"
+    upload_audio(settings, data, object_name, content_type=file.content_type or "audio/mp4")
+    message = add_thread_message(session, anchor=anchor, sender_id=user_id, kind="voice", media_object=object_name)
+    _notify_thread(session, user_id, "🎙")
+    return _message_dict(message)
+
+
+@app.post("/thread/photo")
+async def post_thread_photo(
+    anchor: str,
+    user_id: int,
+    file: UploadFile,
+    session: Session = SessionDependency,
+) -> dict:
+    """Reply to a thread with a snap (stored under the threads/ prefix)."""
+    data = await file.read()
+    object_name = f"{THREAD_PREFIX}{user_id}/{datetime.now(UTC):%Y%m%dT%H%M%S}-{uuid.uuid4().hex}.jpg"
+    upload_audio(settings, data, object_name, content_type=file.content_type or "image/jpeg")
+    message = add_thread_message(session, anchor=anchor, sender_id=user_id, kind="photo", media_object=object_name)
+    _notify_thread(session, user_id, "📸")
+    return _message_dict(message)
+
+
+def _notify_thread(session: Session, sender_id: int, glyph: str) -> None:
+    """Nudge the partner that a reply landed in a shared thread."""
+    sender_name = USER_NAMES.get(sender_id, "Someone")
+    for linked_id in get_linked_users(session, sender_id):
+        linked_user = session.get(User, linked_id)
+        if linked_user and linked_user.token:
+            send_notification(
+                linked_user.token,
+                f"{glyph} {sender_name} replied in a memory thread",
+                message_type="THREAD_MESSAGE",
+            )
+
+
+# ---------- PROMPT (a memory the tree resurfaces when things go quiet) ----------
+
+
+@app.get("/prompt")
+def get_prompt() -> dict:
+    """Pick one memory to gently resurface — deterministic per day so BOTH
+    partners are offered the same one ("sends to both"). The client decides
+    whether to show it (only when prompts are on and the tree is quiet)."""
+    try:
+        objects = _board_objects()
+    except Exception:
+        logging.exception("Memory storage unavailable; no prompt")
+        return {"prompt": None}
+
+    if not objects:
+        return {"prompt": None}
+
+    # Resurface older moments: drop the few most-recent, then pick stably by day.
+    pool = objects[3:] or objects
+    day_index = int(datetime.now(UTC).timestamp() // 86400)
+    object_name, last_modified = pool[day_index % len(pool)]
+    kind, sender = _memory_meta(object_name)
+    return {
+        "prompt": {
+            "objectName": object_name,
+            "type": kind,
+            "sender": sender,
+            "epoch": int(last_modified.timestamp()),
+        }
+    }

@@ -1,5 +1,9 @@
 package com.drp33.quietsignal.data.repo
 
+import com.drp33.quietsignal.model.PromptMemory
+import com.drp33.quietsignal.model.ThreadMessage
+import com.drp33.quietsignal.model.ThreadSummary
+
 interface CheckInRepository {
     suspend fun postRegisterToken(userId: Int, token: String): Result<Unit>
     suspend fun postSendOkay(userId: Int ): Result<Unit>
@@ -15,4 +19,14 @@ interface CheckInRepository {
     suspend fun getMemories(): Result<List<com.drp33.quietsignal.model.MemoryItem>>
     suspend fun getForest(): Result<List<com.drp33.quietsignal.model.ForestWeek>>
     suspend fun getMedia(objectName: String): Result<ByteArray>
+
+    // ---------- THREADS (conversations anchored to a memory) ----------
+    suspend fun getThreads(userId: Int): Result<List<ThreadSummary>>
+    suspend fun getThread(anchor: String): Result<List<ThreadMessage>>
+    suspend fun postThreadText(anchor: String, userId: Int, text: String): Result<ThreadMessage>
+    suspend fun postThreadVoice(anchor: String, userId: Int, audio: ByteArray): Result<ThreadMessage>
+    suspend fun postThreadPhoto(anchor: String, userId: Int, jpeg: ByteArray): Result<ThreadMessage>
+
+    // ---------- PROMPT (resurfaced memory) ----------
+    suspend fun getPrompt(): Result<PromptMemory?>
 }
