@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.drp33.quietsignal.data.SettingsPreferences
 import com.drp33.quietsignal.model.WEEK_SECONDS
 import com.drp33.quietsignal.ui.theme.Grove
+import com.drp33.quietsignal.ui.theme.Newsreader
 import com.drp33.quietsignal.ui.theme.NunitoSans
 import com.drp33.quietsignal.viewmodels.AdultViewModel
 import com.drp33.quietsignal.viewmodels.MemoriesViewModel
@@ -155,20 +156,35 @@ fun AdultScreen(
         onSwitchRole = onSwitchRole,
     )
 
-    // Emergency popup — only dismissible via "All good" so it must be acknowledged.
+    // "Wants to talk" nudge — a gentle wellbeing prompt, not an alarm. Dismissed
+    // only by acknowledging so Sadie notices it.
     if (viewModel.state.emergency) {
         AlertDialog(
             onDismissRequest = { /* require an explicit acknowledgement */ },
             containerColor = Grove.Surface,
-            icon = { Text(text = "🚨", fontSize = 40.sp) },
-            title = { Text(text = "Emergency", color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold) },
-            text = { Text(text = "Norman pressed the emergency button. Please check on him right away.", fontFamily = NunitoSans) },
+            icon = { Text(text = "💛", fontSize = 40.sp) },
+            title = {
+                Text(
+                    text = "Norman would love to talk",
+                    fontFamily = Newsreader,
+                    fontWeight = FontWeight.Medium,
+                    color = Grove.Ink,
+                    fontSize = 21.sp,
+                )
+            },
+            text = {
+                Text(
+                    text = "He's feeling a little lonely and would love to hear from you. Give him a call or send a moment when you can.",
+                    fontFamily = NunitoSans,
+                    color = Grove.InkSoft,
+                )
+            },
             confirmButton = {
                 Button(
                     onClick = onAllGood,
-                    colors = ButtonDefaults.buttonColors(containerColor = Grove.Foliage),
+                    colors = ButtonDefaults.buttonColors(containerColor = Grove.Accent),
                 ) {
-                    Text(text = "All good", color = Color.White)
+                    Text(text = "I'll reach out", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
         )

@@ -10,6 +10,7 @@ from app.crud import (
     CHECK_IN_WINDOW_SECONDS,
     active_emergency_sender_for,
     add_thread_message,
+    all_tag_names,
     clear_emergencies_for,
     create_okay_event,
     get_all_thread_messages,
@@ -17,8 +18,11 @@ from app.crud import (
     get_linked_users,
     get_okay_timestamps,
     get_thread_messages,
+    get_tags_for,
+    get_tags_map,
     is_okay_within_6h,
     raise_emergency,
+    set_tags_for,
     upsert_user_token,
 )
 from app.crud import (
@@ -177,7 +181,7 @@ def trigger_emergency(user_id: int, session: Session = SessionDependency) -> dic
         if linked_user and linked_user.token:
             send_notification(
                 linked_user.token,
-                f"🚨 {sender_name} needs help right now!",
+                f"💛 {sender_name} would love to talk with you",
                 message_type="EMERGENCY",
             )
 
@@ -320,7 +324,7 @@ def _board_objects() -> list[tuple[str, datetime]]:
 
 
 @app.get("/memories")
-def get_memories() -> dict:
+def get_memories(session: Session = SessionDependency) -> dict:
     """Every voice memo + snap ever sent, newest first — the shared memory board."""
     try:
         objects = _board_objects()
@@ -342,6 +346,10 @@ def get_memories() -> dict:
             }
         )
 
+    tags_map = get_tags_map(session, [item["objectName"] for item in items])
+    for item in items:
+        item["tags"] = tags_map.get(item["objectName"], [])
+
     return {"memories": items}
 
 
@@ -351,6 +359,35 @@ def get_media(object_name: str) -> Response:
     data = download_audio(settings, object_name)
     media_type = "image/jpeg" if object_name.endswith(".jpg") else "audio/mp4"
     return Response(content=data, media_type=media_type)
+
+
+# ---------- TAGS (shared labels on a memory) ----------
+
+
+class MemoryTagsRequest(BaseModel):
+    tags: list[str] = []
+
+
+@app.get("/tags")
+def list_all_tags(session: Session = SessionDependency) -> dict:
+    """Every distinct tag name anyone has created — powers the filter chips."""
+    return {"tags": all_tag_names(session)}
+
+
+@app.get("/memory/tags")
+def get_memory_tags(object_name: str, session: Session = SessionDependency) -> dict:
+    """The tags currently on one memory."""
+    return {"tags": get_tags_for(session, object_name)}
+
+
+@app.post("/memory/tags")
+def set_memory_tags(
+    object_name: str,
+    payload: MemoryTagsRequest,
+    session: Session = SessionDependency,
+) -> dict:
+    """Replace the full tag set on one memory (shared with the partner)."""
+    return {"tags": set_tags_for(session, object_name, payload.tags)}
 
 
 # ---------- THREADS (conversations anchored to a memory) ----------

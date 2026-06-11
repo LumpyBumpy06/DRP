@@ -2,6 +2,7 @@ package com.drp33.quietsignal.data.repo
 
 import android.util.Log
 import com.drp33.quietsignal.data.remote.CheckInAPI
+import com.drp33.quietsignal.data.remote.models.MemoryTagsRequest
 import com.drp33.quietsignal.data.remote.models.OkayRequest
 import com.drp33.quietsignal.data.remote.models.ThreadMessageDto
 import com.drp33.quietsignal.data.remote.models.ThreadTextRequest
@@ -91,8 +92,17 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
                 type = it.type,
                 sender = it.sender,
                 epoch = it.epoch,
+                tags = it.tags,
             )
         }
+    }
+
+    override suspend fun getAllTags(): Result<List<String>> = runCatching {
+        api.getTags().tags
+    }
+
+    override suspend fun setMemoryTags(objectName: String, tags: List<String>): Result<List<String>> = runCatching {
+        api.setMemoryTags(objectName, MemoryTagsRequest(tags)).tags
     }
 
     override suspend fun getForest(): Result<List<com.drp33.quietsignal.model.ForestWeek>> = runCatching {

@@ -26,6 +26,10 @@ class MemoriesViewModel(
     var loading by mutableStateOf(false)
         private set
 
+    /** Every tag name known to the server — drives the gallery filter chips. */
+    var allTags by mutableStateOf<List<String>>(emptyList())
+        private set
+
     fun load() {
         viewModelScope.launch {
             loading = true
@@ -33,6 +37,7 @@ class MemoriesViewModel(
                 .onSuccess { items ->
                     memories = items
                     loading = false
+                    loadTags()
                     // Decode each snap thumbnail in the background, filling tiles in as they arrive.
                     items.filter { it.type == "photo" }.forEach { item ->
                         repository.getMedia(item.objectName).onSuccess { bytes ->
@@ -48,6 +53,29 @@ class MemoriesViewModel(
                     }
                 }
                 .onFailure { loading = false }
+        }
+    }
+
+    /** Refresh the list of every tag name (for the filter chips). */
+    fun loadTags() {
+        viewModelScope.launch {
+            repository.getAllTags().onSuccess { allTags = it }
+        }
+    }
+
+    /**
+     * Replace the tag set on one memory. Updates the board optimistically so the
+     * UI reacts at once, then persists to the server (shared with the partner)
+     * and refreshes the known-tag list so any newly-created tag appears in the
+     * filter chips.
+     */
+    fun setTags(objectName: String, tags: List<String>) {
+        memories = memories.map { if (it.objectName == objectName) it.copy(tags = tags) else it }
+        viewModelScope.launch {
+            repository.setMemoryTags(objectName, tags).onSuccess { saved ->
+                memories = memories.map { if (it.objectName == objectName) it.copy(tags = saved) else it }
+                loadTags()
+            }
         }
     }
 

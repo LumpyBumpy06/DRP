@@ -9,4 +9,6 @@ data class MemoryItem(
     val sender: String,
     val epoch: Long,
     val image: ImageBitmap? = null,
+    /** Shared labels on this memory (e.g. "Favourites", "Family", custom). */
+    val tags: List<String> = emptyList(),
 )

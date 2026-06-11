@@ -3,6 +3,9 @@ package com.drp33.quietsignal.data.remote
 import com.drp33.quietsignal.data.remote.models.EmergencyStatusResponse
 import com.drp33.quietsignal.data.remote.models.ForestResponse
 import com.drp33.quietsignal.data.remote.models.MemoriesResponse
+import com.drp33.quietsignal.data.remote.models.MemoryTagsRequest
+import com.drp33.quietsignal.data.remote.models.MemoryTagsResponse
+import com.drp33.quietsignal.data.remote.models.TagsResponse
 import com.drp33.quietsignal.data.remote.models.OkayRequest
 import com.drp33.quietsignal.data.remote.models.OkayStatusResponse
 import com.drp33.quietsignal.data.remote.models.PromptResponse
@@ -68,6 +71,17 @@ interface CheckInAPI {
 
     @GET("media")
     suspend fun getMedia(@Query("object_name") objectName: String): ResponseBody
+
+    // ---------- TAGS (shared labels on a memory) ----------
+
+    @GET("tags")
+    suspend fun getTags(): TagsResponse
+
+    @POST("memory/tags")
+    suspend fun setMemoryTags(
+        @Query("object_name") objectName: String,
+        @Body request: MemoryTagsRequest,
+    ): MemoryTagsResponse
 
     // ---------- THREADS (conversations anchored to a memory) ----------
 
