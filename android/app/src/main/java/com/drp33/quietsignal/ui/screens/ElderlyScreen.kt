@@ -61,6 +61,7 @@ fun ElderlyScreen(
     LaunchedEffect(Unit) { memoriesVm.load() }
     val weekStart = (System.currentTimeMillis() / 1000 / WEEK_SECONDS) * WEEK_SECONDS
     val momentCount = memoriesVm.memories.count { (it.epoch / WEEK_SECONDS) * WEEK_SECONDS == weekStart }
+    val lastMomentEpoch = memoriesVm.memories.maxOfOrNull { it.epoch }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -84,7 +85,11 @@ fun ElderlyScreen(
             GroveHeader(title = "Our grove", subtitle = "Little moments, shared with family.", momentCount = momentCount)
 
             Spacer(Modifier.height(12.dp))
-            SafetyStrip(mood = mood)
+            SafetyStrip(
+                mood = mood,
+                peerName = "Sadie",
+                lastMomentEpoch = lastMomentEpoch
+            )
 
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 WateringTree(stage = tree.stage, deathLevel = tree.deathLevel)

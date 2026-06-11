@@ -33,7 +33,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -383,8 +382,8 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
             1 -> 1.9f
             2 -> 1.6f
             3 -> 1.3f
-            4 -> 1.1f
-            else -> 1.0f
+            // Stage 4+ all get the zoomed-out view
+            else -> 0.85f
         },
         animationSpec = tween(1500, easing = FastOutSlowInEasing),
         label = "tree-zoom",
@@ -671,8 +670,7 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(TREE_CONTENT_HEIGHT + TREE_TOP_HEADROOM)
-            .clipToBounds(),
+            .height(TREE_CONTENT_HEIGHT + TREE_TOP_HEADROOM),
         contentAlignment = Alignment.BottomCenter,
     ) {
         LottieAnimation(
@@ -680,10 +678,10 @@ fun WateringTree(stage: Int, deathLevel: Float, modifier: Modifier = Modifier) {
             progress = { progress },
             dynamicProperties = dynamicProperties,
             modifier = Modifier
-                .size(220.dp)
+                .size(280.dp)
                 .offset(y = (-8).dp)
                 .graphicsLayer {
-                    val f = zoom * 1.9f
+                    val f = zoom * 1.5f
                     scaleX = f
                     scaleY = f
                     transformOrigin = TransformOrigin(0.5f, 0.89f)

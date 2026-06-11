@@ -14,20 +14,28 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -48,10 +56,27 @@ import java.util.Locale
 private fun weekLabel(weekStart: Long): String =
     SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()).format(Date(weekStart * 1000))
 
+/** A row of soft rolling hills across [x0]..[x1], baseline [baseY], crests
+ * rising [amp] above it every [wavelength]px. Closed down to [bottom]. */
+private fun rollingHill(x0: Float, x1: Float, baseY: Float, amp: Float, wavelength: Float, bottom: Float): Path =
+    Path().apply {
+        moveTo(x0, baseY)
+        var x = x0
+        while (x < x1) {
+            val nx = x + wavelength
+            quadraticBezierTo((x + nx) / 2f, baseY - amp, nx, baseY)
+            x = nx
+        }
+        lineTo(x1, bottom)
+        lineTo(x0, bottom)
+        close()
+    }
+
 /**
- * The shared forest as a Grove tab: soft sky, layered hills and a ground band,
- * with one frozen [WateringTree] per completed week sitting on the soil. Tap a
- * tree to relive that week as a [Montage]. No back button — it's a bottom tab.
+ * The shared forest as a Grove tab with a 2.5D parallax feel: drifting clouds,
+ * two layers of hills that slide as you swipe, and trees that alternate
+ * near (large, low, in front) / far (small, high, faded) for depth. Tap a tree
+ * to relive that week as a [Montage].
  */
 @Composable
 fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingValues()) {
@@ -73,25 +98,55 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
     val currentWeekStart = (System.currentTimeMillis() / 1000 / WEEK_SECONDS) * WEEK_SECONDS
     val weeks = vm.forestWeeks.filter { it.weekStart < currentWeekStart }
 
+    // Scroll position (px) drives the parallax. Items are uniform width, so
+    // index*width + offset is an exact scroll measure — and reading it from the
+    // LazyListState keeps us lazy (only visible trees compose/animate).
+    val listState = rememberLazyListState()
+    val itemWidthPx = with(LocalDensity.current) { 156.dp.toPx() }
+    val scrollPx by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex * itemWidthPx + listState.firstVisibleItemScrollOffset
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
-        // Layered hills (drawn over the shell's sky gradient).
+        // ---- parallax backdrop: clouds (slow) + far hills + mid hills (faster) ----
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
-            val far = Path().apply {
-                moveTo(0f, h * 0.64f)
-                quadraticBezierTo(w * 0.28f, h * 0.56f, w * 0.58f, h * 0.62f)
-                quadraticBezierTo(w * 0.84f, h * 0.67f, w, h * 0.60f)
-                lineTo(w, h); lineTo(0f, h); close()
+            val cloud = Grove.Surface
+
+            translate(left = -scrollPx * 0.08f) {
+                val cy = h * 0.14f
+                val xs = floatArrayOf(0.16f, 0.52f, 0.86f, 1.22f, 1.6f)
+                xs.forEachIndexed { i, fx ->
+                    val cx = w * fx
+                    val rx = if (i % 2 == 0) 92f else 66f
+                    drawOval(
+                        color = cloud.copy(alpha = 0.55f),
+                        topLeft = Offset(cx, cy + (i % 3) * 26f),
+                        size = Size(rx * 2f, rx * 0.62f),
+                    )
+                    drawOval(
+                        color = cloud.copy(alpha = 0.45f),
+                        topLeft = Offset(cx + rx * 0.5f, cy - 10f + (i % 3) * 26f),
+                        size = Size(rx * 1.4f, rx * 0.5f),
+                    )
+                }
             }
-            drawPath(far, Grove.FoliageRest.copy(alpha = 0.32f))
-            val mid = Path().apply {
-                moveTo(0f, h * 0.74f)
-                quadraticBezierTo(w * 0.34f, h * 0.66f, w * 0.7f, h * 0.72f)
-                quadraticBezierTo(w * 0.9f, h * 0.75f, w, h * 0.69f)
-                lineTo(w, h); lineTo(0f, h); close()
+
+            translate(left = -scrollPx * 0.18f) {
+                drawPath(
+                    rollingHill(-w, w * 2.4f, h * 0.62f, h * 0.085f, w * 0.62f, h),
+                    Grove.FoliageRest.copy(alpha = 0.32f),
+                )
             }
-            drawPath(mid, Grove.Foliage2.copy(alpha = 0.22f))
+            translate(left = -scrollPx * 0.32f) {
+                drawPath(
+                    rollingHill(-w, w * 2.8f, h * 0.74f, h * 0.07f, w * 0.5f, h),
+                    Grove.Foliage2.copy(alpha = 0.22f),
+                )
+            }
         }
 
         // Ground band at the bottom (above the nav bar).
@@ -99,7 +154,7 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(150.dp)
+                .height(160.dp)
                 .background(Brush.verticalGradient(0f to Color.Transparent, 0.5f to Grove.Ground)),
         )
 
@@ -115,32 +170,54 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
             // Newest week first so the latest tree greets you on the left.
             val display = weeks.asReversed()
             LazyRow(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 116.dp, top = 120.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 112.dp, top = 116.dp),
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
-                items(display, key = { it.weekStart }) { week ->
+                itemsIndexed(display, key = { _, w -> w.weekStart }) { index, week ->
                     val mems = memoriesByWeek[week.weekStart].orEmpty()
+                    val far = index % 2 == 1
                     Column(
                         modifier = Modifier
-                            .width(210.dp)
+                            .width(156.dp)
+                            .graphicsLayer {
+                                // Lift the entire column (tree + labels) for far trees
+                                translationY = if (far) (-72).dp.toPx() else 0f
+                            }
                             .clickable { montageWeek = week },
                         horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Bottom,
                     ) {
-                        WateringTree(stage = week.stage, deathLevel = week.deathLevel)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .graphicsLayer {
+                                    // Scale ONLY the tree graphic
+                                    val s = if (far) 0.66f else 0.94f
+                                    scaleX = s
+                                    scaleY = s
+                                    alpha = if (far) 0.88f else 1f
+                                    transformOrigin = TransformOrigin(0.5f, 1f)
+                                },
+                            contentAlignment = Alignment.BottomCenter,
+                        ) {
+                            WateringTree(stage = week.stage, deathLevel = week.deathLevel)
+                        }
+
                         Text(
                             text = weekLabel(week.weekStart),
                             fontFamily = Newsreader,
                             fontWeight = FontWeight.Medium,
                             color = Grove.Ink,
-                            fontSize = 17.sp,
+                            fontSize = 14.sp,
                         )
                         Text(
                             text = "${mems.size} ${if (mems.size == 1) "moment" else "moments"}",
                             fontFamily = NunitoSans,
                             color = Grove.InkSoft,
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                         )
                     }
                 }
@@ -160,6 +237,11 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
             Text(
                 text = "${weeks.size} ${if (weeks.size == 1) "week" else "weeks"}, planted together",
                 fontFamily = NunitoSans, fontSize = 13.sp, color = Grove.InkSoft,
+            )
+            Text(
+                text = "swipe to wander →",
+                fontFamily = NunitoSans, fontSize = 11.sp, color = Grove.InkFaint,
+                modifier = Modifier.padding(top = 2.dp),
             )
         }
     }

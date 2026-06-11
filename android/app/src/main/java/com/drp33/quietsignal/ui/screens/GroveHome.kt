@@ -48,6 +48,9 @@ import com.drp33.quietsignal.util.AudioRecorder
 import com.drp33.quietsignal.util.vibrateDoubleTap
 import com.drp33.quietsignal.util.vibrateTick
 import com.drp33.quietsignal.viewmodels.MemoriesViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /* ============================================================= *
  *  SHELL  —  "This week" (home) / "Forest" tabs + floating nav  *
@@ -158,14 +161,36 @@ fun GroveHeader(title: String, subtitle: String, momentCount: Int, modifier: Mod
     }
 }
 
-fun safetyText(mood: TreeMood): String = when (mood) {
-    TreeMood.THRIVING -> "You're all caught up — the grove is thriving 🌿"
-    TreeMood.OKAY -> "A gentle week so far. A moment keeps it bright."
-    TreeMood.FADING -> "It's been quiet lately — share a moment to bring colour back."
+fun safetyText(
+    mood: TreeMood,
+    peerName: String? = null,
+    peerLastSeenToday: Boolean = false,
+    lastMomentEpoch: Long? = null
+): String {
+    if (mood == TreeMood.THRIVING && peerName != null) {
+        val presence = if (peerLastSeenToday) "$peerName's been here today" else "You're all caught up"
+        val moment = lastMomentEpoch?.let {
+            val time = SimpleDateFormat("EEE HH:mm", Locale.getDefault()).format(Date(it * 1000))
+            " · last moment $time"
+        } ?: ""
+        return "$presence$moment"
+    }
+
+    return when (mood) {
+        TreeMood.THRIVING -> "You're all caught up — the grove is thriving 🌿"
+        TreeMood.OKAY -> "A gentle week so far. A moment keeps it bright."
+        TreeMood.FADING -> "It's been quiet lately — share a moment to bring colour back."
+    }
 }
 
 @Composable
-fun SafetyStrip(mood: TreeMood, modifier: Modifier = Modifier) {
+fun SafetyStrip(
+    mood: TreeMood,
+    modifier: Modifier = Modifier,
+    peerName: String? = null,
+    peerLastSeenToday: Boolean = false,
+    lastMomentEpoch: Long? = null
+) {
     val dot = if (mood == TreeMood.THRIVING) Grove.Foliage else Grove.Accent
     Row(
         modifier = modifier
@@ -178,7 +203,12 @@ fun SafetyStrip(mood: TreeMood, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(9.dp),
     ) {
         Box(Modifier.size(9.dp).clip(CircleShape).background(dot))
-        Text(text = safetyText(mood), fontFamily = NunitoSans, fontSize = 13.sp, color = Grove.InkSoft)
+        Text(
+            text = safetyText(mood, peerName, peerLastSeenToday, lastMomentEpoch),
+            fontFamily = NunitoSans,
+            fontSize = 13.sp,
+            color = Grove.InkSoft
+        )
     }
 }
 

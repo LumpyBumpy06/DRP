@@ -57,6 +57,7 @@ fun AdultScreen(
     LaunchedEffect(Unit) { memoriesVm.load() }
     val weekStart = (System.currentTimeMillis() / 1000 / WEEK_SECONDS) * WEEK_SECONDS
     val momentCount = memoriesVm.memories.count { (it.epoch / WEEK_SECONDS) * WEEK_SECONDS == weekStart }
+    val lastMomentEpoch = memoriesVm.memories.maxOfOrNull { it.epoch }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -72,10 +73,15 @@ fun AdultScreen(
                 }
             }
 
-            GroveHeader(title = "Mum's grove", subtitle = "A living record of staying close.", momentCount = momentCount)
+            GroveHeader(title = "Our grove", subtitle = "A living record of staying close.", momentCount = momentCount)
 
             Spacer(Modifier.height(12.dp))
-            SafetyStrip(mood = mood)
+            SafetyStrip(
+                mood = mood,
+                peerName = "Dad",
+                peerLastSeenToday = viewModel.state.checkedIn,
+                lastMomentEpoch = lastMomentEpoch
+            )
 
             // Living tree — fills the middle. Untouched WateringTree (tree.json).
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
