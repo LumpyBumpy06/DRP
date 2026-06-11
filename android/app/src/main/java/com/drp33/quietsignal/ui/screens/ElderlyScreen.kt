@@ -15,7 +15,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -88,12 +87,9 @@ fun ElderlyScreen(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = onSwitchRole) {
-                    Text("← Switch role", fontFamily = NunitoSans, color = Grove.InkSoft)
-                }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     GroveHeaderActions(onGallery = { showGallery = true }, onSettings = { showSettings = true })
                     EmergencyButton(onTrigger = onEmergencyClick)
@@ -135,7 +131,6 @@ fun ElderlyScreen(
                 onVoiceRecorded = { voiceVm.onRecorded(it, onUploaded = { treeVm.refresh() }) },
                 onPhotoCaptured = { photoVm.sendPhoto(it) { treeVm.refresh() } },
                 onWater = { treeVm.water(1) },
-                onNote = { treeVm.water(1) },
             )
             Spacer(Modifier.height(8.dp))
         }
@@ -157,6 +152,7 @@ fun ElderlyScreen(
         memoriesVm = memoriesVm,
         currentUserId = 1,
         threadsVm = threadsVm,
+        onSwitchRole = onSwitchRole,
     )
 }
 

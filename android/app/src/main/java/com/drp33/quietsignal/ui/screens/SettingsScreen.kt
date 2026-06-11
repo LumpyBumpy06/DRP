@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +52,7 @@ fun SettingsSheet(
     onFrequencyChange: (String) -> Unit,
     onQuietDeliveryChange: (Boolean) -> Unit,
     onPromptBothChange: (Boolean) -> Unit,
+    onSignOut: () -> Unit,
     onClose: () -> Unit,
 ) {
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -163,6 +165,20 @@ fun SettingsSheet(
                         SettingRow(label = "Send to both people", desc = "Norman and Sadie see the same prompt thread.", last = true) {
                             GroveSwitch(on = promptBoth, onChange = onPromptBothChange)
                         }
+                    }
+
+                    Spacer(Modifier.height(18.dp))
+                    TextButton(
+                        onClick = onSignOut,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            text = "Sign out",
+                            fontFamily = NunitoSans,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFD32F2F)
+                        )
                     }
 
                     Spacer(Modifier.height(18.dp))

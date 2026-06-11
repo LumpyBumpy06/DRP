@@ -22,10 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -253,7 +250,6 @@ fun GroveInputRow(
     onVoiceRecorded: (ByteArray) -> Unit,
     onPhotoCaptured: (ByteArray) -> Unit,
     onWater: () -> Unit,
-    onNote: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -264,7 +260,6 @@ fun GroveInputRow(
         GroveVoiceTile(onVoiceRecorded)
         GrovePhotoTile(onPhotoCaptured)
         GroveHelloTile(onWater)
-        GroveNoteTile(onNote)
     }
 }
 
@@ -353,38 +348,4 @@ private fun GroveHelloTile(onWater: () -> Unit) {
     })
 }
 
-@Composable
-private fun GroveNoteTile(onSend: (String) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    GroveTile(label = "Note", glyph = "📝", tint = Grove.Note, onClick = { open = true })
-    if (open) {
-        NoteComposerDialog(onCancel = { open = false }, onSend = { open = false; onSend(it) })
-    }
-}
 
-@Composable
-private fun NoteComposerDialog(onCancel: () -> Unit, onSend: (String) -> Unit) {
-    var text by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onCancel,
-        containerColor = Grove.Surface,
-        title = { Text(text = "Leave a note", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 22.sp, color = Grove.Ink) },
-        text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                placeholder = { Text("A few words for the tree…", fontFamily = NunitoSans, color = Grove.InkFaint) },
-                minLines = 3,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = { if (text.isNotBlank()) onSend(text.trim()) }, enabled = text.isNotBlank()) {
-                Text(text = "Plant it", fontFamily = NunitoSans, fontWeight = FontWeight.Bold, color = Grove.Accent)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onCancel) { Text(text = "Cancel", fontFamily = NunitoSans, color = Grove.InkSoft) }
-        },
-    )
-}

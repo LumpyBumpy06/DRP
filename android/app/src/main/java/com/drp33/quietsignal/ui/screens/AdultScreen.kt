@@ -15,7 +15,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -88,12 +87,9 @@ fun AdultScreen(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = onSwitchRole) {
-                    Text("← Switch role", fontFamily = NunitoSans, color = Grove.InkSoft)
-                }
                 GroveHeaderActions(onGallery = { showGallery = true }, onSettings = { showSettings = true })
             }
 
@@ -134,8 +130,6 @@ fun AdultScreen(
                 onVoiceRecorded = { voiceVm.onRecorded(it, onUploaded = { treeVm.refresh() }) },
                 onPhotoCaptured = { photoVm.sendPhoto(it) { treeVm.refresh() } },
                 onWater = { treeVm.water(2) },
-                // No note backend yet — a note still nurtures the shared tree.
-                onNote = { treeVm.water(2) },
             )
             Spacer(Modifier.height(8.dp))
         }
@@ -158,6 +152,7 @@ fun AdultScreen(
         memoriesVm = memoriesVm,
         currentUserId = 2,
         threadsVm = threadsVm,
+        onSwitchRole = onSwitchRole,
     )
 
     // Emergency popup — only dismissible via "All good" so it must be acknowledged.

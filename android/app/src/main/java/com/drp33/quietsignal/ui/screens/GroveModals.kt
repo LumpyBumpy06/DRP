@@ -25,6 +25,7 @@ fun GroveModals(
     memoriesVm: MemoriesViewModel,
     currentUserId: Int,
     threadsVm: ThreadsViewModel,
+    onSwitchRole: () -> Unit = {},
 ) {
     val context = LocalContext.current
 
@@ -56,6 +57,7 @@ fun GroveModals(
             onFrequencyChange = { freq = it; SettingsPreferences.setPromptFrequency(context, it) },
             onQuietDeliveryChange = { quiet = it; SettingsPreferences.setQuietDelivery(context, it) },
             onPromptBothChange = { both = it; SettingsPreferences.setPromptBoth(context, it) },
+            onSignOut = { onSwitchRole(); onCloseSettings() },
             onClose = onCloseSettings,
         )
     }
