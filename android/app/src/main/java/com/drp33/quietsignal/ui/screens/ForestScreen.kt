@@ -105,6 +105,8 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
     val memoriesByWeek = remember(vm.memories) {
         vm.memories.groupBy { (it.epoch / WEEK_SECONDS) * WEEK_SECONDS }
     }
+    // Tapping a tree opens that week's gallery; the gallery offers "Play montage".
+    var galleryWeek by remember { mutableStateOf<ForestWeek?>(null) }
     var montageWeek by remember { mutableStateOf<ForestWeek?>(null) }
 
     val currentWeekStart = (System.currentTimeMillis() / 1000 / WEEK_SECONDS) * WEEK_SECONDS
@@ -171,8 +173,8 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
         )
 
         // A few birds drifting across the sky up top — purely for life. They stay
-        // in the upper band and never reach the trees below.
-        ForestBirds()
+        // in the upper band and parallax with the scroll like the rest of the sky.
+        ForestBirds(scrollPx = scrollPx)
 
         if (weeks.isEmpty()) {
             Text(
@@ -202,7 +204,7 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                                 // Lift the entire column (tree + labels) for far trees
                                 translationY = if (far) (-24).dp.toPx() else 8.dp.toPx()
                             }
-                            .clickable { montageWeek = week },
+                            .clickable { galleryWeek = week },
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Bottom,
                     ) {
@@ -276,6 +278,16 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
         }
     }
 
+    galleryWeek?.let { week ->
+        WeekGalleryDialog(
+            week = week,
+            memories = memoriesByWeek[week.weekStart].orEmpty(),
+            vm = vm,
+            onPlayMontage = { montageWeek = week; galleryWeek = null },
+            onClose = { galleryWeek = null },
+        )
+    }
+
     montageWeek?.let { week ->
         Montage(
             week = week,
@@ -303,7 +315,7 @@ private class SkyBird(
  * heights, and bob gently — never touching any tree.
  */
 @Composable
-private fun ForestBirds() {
+private fun ForestBirds(scrollPx: Float) {
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.bird))
     val birds = remember {
         List(Random.nextInt(3, 5)) {
@@ -334,8 +346,9 @@ private fun ForestBirds() {
         val wPx = with(density) { maxWidth.toPx() }
         val hPx = with(density) { maxHeight.toPx() }
         birds.forEach { b ->
-            // Wrap horizontally with a little margin so it glides off and back on.
-            var fx = (b.startX + b.speed * t) % 1.2f
+            // Own drift + a sky-parallax shift from the scroll (slower than the
+            // trees, like distant clouds), all wrapped so birds stay on screen.
+            var fx = (b.startX + b.speed * t - (scrollPx / wPx) * 0.12f) % 1.2f
             if (fx < 0f) fx += 1.2f
             fx -= 0.1f
             val yy = b.y + sin(t * b.bobFreq + b.phase) * b.bobAmp
