@@ -18,6 +18,7 @@ data class ThreadSummary(
     val lastSenderId: Int,
     val lastSender: String,
     val lastEpoch: Long,
+    val image: ImageBitmap? = null,
 )
 
 /** One message inside a thread. `image` is decoded lazily for photo messages. */

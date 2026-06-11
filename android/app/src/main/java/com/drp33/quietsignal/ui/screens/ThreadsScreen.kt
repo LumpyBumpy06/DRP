@@ -1,5 +1,6 @@
 package com.drp33.quietsignal.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -139,7 +141,18 @@ private fun ThreadRow(summary: ThreadSummary, selfId: Int, onClick: () -> Unit) 
             modifier = Modifier.size(54.dp).clip(RoundedCornerShape(14.dp))
                 .background(if (summary.memoryType == "photo") Grove.Photo.copy(alpha = 0.18f) else Grove.Voice.copy(alpha = 0.18f)),
             contentAlignment = Alignment.Center,
-        ) { Text(if (summary.memoryType == "photo") "📸" else "🎙", fontSize = 22.sp) }
+        ) {
+            if (summary.memoryType == "photo" && summary.image != null) {
+                Image(
+                    bitmap = summary.image,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Text(if (summary.memoryType == "photo") "📸" else "🎙", fontSize = 22.sp)
+            }
+        }
 
         Column(Modifier.weight(1f)) {
             Text(

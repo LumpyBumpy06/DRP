@@ -48,7 +48,22 @@ class ThreadsViewModel(
     fun loadThreads() {
         viewModelScope.launch {
             loading = true
-            repository.getThreads(selfId).onSuccess { summaries = it }
+            repository.getThreads(selfId).onSuccess { items ->
+                summaries = items
+                // Decode anchored-memory thumbnails for the list.
+                items.filter { it.memoryType == "photo" }.forEach { summary ->
+                    repository.getMedia(summary.anchor).onSuccess { bytes ->
+                        val bmp = withContext(Dispatchers.Default) {
+                            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                        }
+                        if (bmp != null) {
+                            summaries = summaries.map {
+                                if (it.anchor == summary.anchor) it.copy(image = bmp) else it
+                            }
+                        }
+                    }
+                }
+            }
             loading = false
         }
         loadPrompt()
