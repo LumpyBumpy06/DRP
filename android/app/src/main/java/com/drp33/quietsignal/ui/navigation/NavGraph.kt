@@ -14,6 +14,8 @@ import com.drp33.quietsignal.data.repo.CheckInRepositoryImpl
 import com.drp33.quietsignal.model.UserRole
 import com.drp33.quietsignal.ui.screens.AdultScreen
 import com.drp33.quietsignal.ui.screens.ElderlyScreen
+import com.drp33.quietsignal.ui.screens.ForestScreen
+import com.drp33.quietsignal.ui.screens.MainShell
 import com.drp33.quietsignal.ui.screens.RoleSelectScreen
 import com.drp33.quietsignal.viewmodels.AdultViewModel
 import com.drp33.quietsignal.viewmodels.AdultViewModelFactory
@@ -94,14 +96,18 @@ fun NavGraph() {
 
             LaunchedEffect(Unit) { elderlyViewModel.postFCMToken(1) }
 
-            ElderlyScreen(
-                treeVm = treeViewModel,
-                voiceVm = voiceVm,
-                photoVm = photoVm,
-                memoriesVm = memoriesViewModel,
-                onSwitchRole = switchRole,
-                onEmergencyClick = { elderlyViewModel.sendEmergency(1) },
-            )
+            // "This week" + "Forest" tabs share the same warm Grove backdrop.
+            MainShell(forestVm = memoriesViewModel) { pad ->
+                ElderlyScreen(
+                    treeVm = treeViewModel,
+                    voiceVm = voiceVm,
+                    photoVm = photoVm,
+                    memoriesVm = memoriesViewModel,
+                    contentPadding = pad,
+                    onSwitchRole = switchRole,
+                    onEmergencyClick = { elderlyViewModel.sendEmergency(1) },
+                )
+            }
         }
 
         composable(Routes.ADULT) {
@@ -118,14 +124,25 @@ fun NavGraph() {
                 adultViewModel.loadEmergencyStatus(2)
             }
 
-            AdultScreen(
-                viewModel = adultViewModel,
-                treeVm = treeViewModel,
-                voiceVm = voiceVm,
-                photoVm = photoVm,
-                memoriesVm = memoriesViewModel,
-                onSwitchRole = switchRole,
-                onAllGood = { adultViewModel.acknowledgeEmergency(2) },
+            MainShell(forestVm = memoriesViewModel) { pad ->
+                AdultScreen(
+                    viewModel = adultViewModel,
+                    treeVm = treeViewModel,
+                    voiceVm = voiceVm,
+                    photoVm = photoVm,
+                    memoriesVm = memoriesViewModel,
+                    contentPadding = pad,
+                    onSwitchRole = switchRole,
+                    onAllGood = { adultViewModel.acknowledgeEmergency(2) },
+                )
+            }
+        }
+
+        // Kept for compatibility; the forest is now a bottom tab inside MainShell.
+        composable(Routes.FOREST) {
+            ForestScreen(
+                vm = memoriesViewModel,
+                onBack = { navController.popBackStack() },
             )
         }
     }

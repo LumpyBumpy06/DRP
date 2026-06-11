@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.drp33.quietsignal.data.repo.CheckInRepository
+import com.drp33.quietsignal.model.ForestWeek
 import com.drp33.quietsignal.model.MemoryItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -19,6 +20,8 @@ class MemoriesViewModel(
 ) : ViewModel() {
 
     var memories by mutableStateOf<List<MemoryItem>>(emptyList())
+        private set
+    var forestWeeks by mutableStateOf<List<ForestWeek>>(emptyList())
         private set
     var loading by mutableStateOf(false)
         private set
@@ -45,6 +48,13 @@ class MemoriesViewModel(
                     }
                 }
                 .onFailure { loading = false }
+        }
+    }
+
+    /** Load the per-week frozen tree snapshots for the forest. */
+    fun loadForest() {
+        viewModelScope.launch {
+            repository.getForest().onSuccess { forestWeeks = it }
         }
     }
 

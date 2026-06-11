@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import UTC, datetime
 
@@ -24,7 +25,7 @@ from app.models import User
 from app.services.firebase import init_firebase
 from app.services.notifications import send_notification
 from app.services.storage import download_audio, latest_recent_object_name, list_objects, upload_audio
-from app.services.tree import compute_tree_state
+from app.services.tree import compute_current_week_state, compute_forest, compute_tree_state
 from app.settings import get_settings
 
 app = FastAPI()
@@ -106,13 +107,26 @@ def reset_tree(session: Session = SessionDependency) -> dict:
 
 @app.get("/tree")
 def get_tree(session: Session = SessionDependency) -> dict:
-    """The shared tree state — same for Norman and Sadie (a pure function of history)."""
-    return compute_tree_state(
+    """The shared tree state — this week's tree, which resets each week boundary."""
+    return compute_current_week_state(
         get_okay_timestamps(session, 1),
         get_okay_timestamps(session, 2),
         datetime.now(UTC),
         CHECK_IN_WINDOW_SECONDS,
     )
+
+
+@app.get("/forest")
+def get_forest(session: Session = SessionDependency) -> dict:
+    """One frozen tree per elapsed week (oldest first) — the shared forest."""
+    return {
+        "weeks": compute_forest(
+            get_okay_timestamps(session, 1),
+            get_okay_timestamps(session, 2),
+            datetime.now(UTC),
+            CHECK_IN_WINDOW_SECONDS,
+        )
+    }
 
 
 def _notify_watering(session: Session, sender_id: int, message_type: str) -> None:
@@ -284,7 +298,13 @@ def get_latest_photo(user_id: int) -> Response:
 @app.get("/memories")
 def get_memories() -> dict:
     """Every voice memo + snap ever sent, newest first — the shared memory board."""
-    objects = sorted(list_objects(settings), key=lambda o: o[1], reverse=True)
+    try:
+        objects = sorted(list_objects(settings), key=lambda o: o[1], reverse=True)
+    except Exception:
+        # Object storage (MinIO) unavailable — degrade to an empty board instead
+        # of a 500 so the rest of the app (tree, forest) keeps working.
+        logging.exception("Memory storage unavailable; returning empty board")
+        return {"memories": []}
 
     items: list[dict] = []
     for object_name, last_modified in objects:

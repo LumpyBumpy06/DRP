@@ -19,6 +19,22 @@ GROWTH_THRESHOLDS = [0, 1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 66]
 # No watering for this many "day" windows => fully dead (deathLevel == 1.0).
 DEATH_WINDOWS = 6
 
+# Length of one "forest" week. Each elapsed week becomes a frozen tree.
+# TEST VALUE: 60s so new trees appear ~every minute (matches the compressed
+# 10s "day"). For production use 7 * 24 * 3600. MUST match the client's WEEK_SECONDS.
+WEEK_SECONDS = 60
+
+# Cap how many recent weeks the forest returns, so a long history (especially
+# with the short test week) doesn't produce hundreds of trees to render.
+MAX_FOREST_WEEKS = 16
+
+
+def _epoch(ts: datetime) -> float:
+    """Unix seconds for a timestamp, assuming UTC when it's naive."""
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=UTC)
+    return ts.timestamp()
+
 
 def compute_tree_state(
     norman_ts: list[datetime],
@@ -46,3 +62,65 @@ def compute_tree_state(
         "deathLevel": round(death_level, 3),
         "totalWaterings": total,
     }
+
+
+def compute_current_week_state(
+    norman_ts: list[datetime],
+    sadie_ts: list[datetime],
+    now: datetime,
+    day_seconds: int,
+) -> dict:
+    """The live tree for the CURRENT week only.
+
+    Each week is its own tree: it grows from the waterings that happen *this* week
+    and resets to stage 0 when the week rolls over (the finished tree is kept in
+    the forest).
+    """
+    now_epoch = now.timestamp()
+    week_start = (int(now_epoch) // WEEK_SECONDS) * WEEK_SECONDS
+    n = [t for t in norman_ts if week_start <= _epoch(t) <= now_epoch]
+    s = [t for t in sadie_ts if week_start <= _epoch(t) <= now_epoch]
+    return compute_tree_state(n, s, now, day_seconds)
+
+
+def compute_forest(
+    norman_ts: list[datetime],
+    sadie_ts: list[datetime],
+    now: datetime,
+    day_seconds: int,
+) -> list[dict]:
+    """One frozen tree per elapsed week, oldest first.
+
+    Each week's tree is the *real* shared-tree state at that week's end (the live
+    state for the in-progress week), computed from the event history up to that
+    instant — so neglect/deathLevel is captured, and both users see an identical
+    forest with no stored snapshots needed.
+    """
+    combined = norman_ts + sadie_ts
+    if not combined:
+        return []
+
+    now_epoch = now.timestamp()
+    first_week = int(min(_epoch(t) for t in combined)) // WEEK_SECONDS
+    current_week = int(now_epoch) // WEEK_SECONDS
+    # Only the most recent MAX_FOREST_WEEKS weeks, so the forest stays bounded.
+    first_week = max(first_week, current_week - (MAX_FOREST_WEEKS - 1))
+
+    weeks: list[dict] = []
+    for w in range(first_week, current_week + 1):
+        # Freeze at the week's end, or "now" for the still-running current week.
+        week_start_epoch = float(w * WEEK_SECONDS)
+        eval_epoch = min(float((w + 1) * WEEK_SECONDS), now_epoch)
+        eval_dt = datetime.fromtimestamp(eval_epoch, UTC)
+        # Each week is its own tree: only THIS week's waterings count toward it.
+        n = [t for t in norman_ts if week_start_epoch <= _epoch(t) <= eval_epoch]
+        s = [t for t in sadie_ts if week_start_epoch <= _epoch(t) <= eval_epoch]
+        state = compute_tree_state(n, s, eval_dt, day_seconds)
+        weeks.append(
+            {
+                "weekStart": w * WEEK_SECONDS,
+                "stage": state["stage"],
+                "deathLevel": state["deathLevel"],
+            }
+        )
+    return weeks

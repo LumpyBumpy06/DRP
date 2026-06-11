@@ -78,6 +78,9 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
 
+    // Google Fonts
+    implementation(libs.androidx.compose.googlefonts)
+
 
 
 }
