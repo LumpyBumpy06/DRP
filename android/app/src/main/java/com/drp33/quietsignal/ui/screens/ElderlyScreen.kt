@@ -70,7 +70,6 @@ fun ElderlyScreen(
     val momentCount = memoriesVm.memories.count { (it.epoch / WEEK_SECONDS) * WEEK_SECONDS == weekStart }
     val lastMomentEpoch = memoriesVm.memories.maxOfOrNull { it.epoch }
 
-    var showGallery by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
 
     val promptsOn = remember(showSettings) { SettingsPreferences.promptsEnabled(context) }
@@ -87,13 +86,11 @@ fun ElderlyScreen(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    GroveHeaderActions(onGallery = { showGallery = true }, onSettings = { showSettings = true })
-                    WantToTalkButton(onTrigger = onEmergencyClick)
-                }
+                GroveCircleButton(glyph = "⚙️", contentDescription = "Settings", onClick = { showSettings = true })
+                WantToTalkButton(onTrigger = onEmergencyClick)
             }
 
             GroveHeader(title = "Our garden", subtitle = "Little moments, shared with family.", momentCount = momentCount)
@@ -143,14 +140,10 @@ fun ElderlyScreen(
         )
     }
 
-    // Gallery + Settings dialogs (Norman is user id 1).
+    // Settings dialog (Norman is user id 1). The Gallery opens from the bottom nav.
     GroveModals(
-        showGallery = showGallery,
-        onCloseGallery = { showGallery = false },
         showSettings = showSettings,
         onCloseSettings = { showSettings = false },
-        memoriesVm = memoriesVm,
-        currentUserId = 1,
         threadsVm = threadsVm,
         onSwitchRole = onSwitchRole,
     )

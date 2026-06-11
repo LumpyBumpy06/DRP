@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -32,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -250,6 +252,22 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                                 color = Grove.InkSoft,
                                 fontSize = 11.sp,
                             )
+                            // A gentle hint that the tree is tappable.
+                            Box(
+                                modifier = Modifier
+                                    .padding(top = 5.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Grove.Accent.copy(alpha = 0.12f))
+                                    .padding(horizontal = 9.dp, vertical = 3.dp),
+                            ) {
+                                Text(
+                                    text = "tap to relive ↗",
+                                    fontFamily = NunitoSans,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Grove.Accent,
+                                    fontSize = 9.5.sp,
+                                )
+                            }
                         }
                     }
                 }
@@ -271,7 +289,7 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                 fontFamily = NunitoSans, fontSize = 13.sp, color = Grove.InkSoft,
             )
             Text(
-                text = "swipe to wander →",
+                text = "swipe to wander → · tap a tree to relive its week",
                 fontFamily = NunitoSans, fontSize = 11.sp, color = Grove.InkFaint,
                 modifier = Modifier.padding(top = 2.dp),
             )

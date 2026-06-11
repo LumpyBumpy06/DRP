@@ -42,7 +42,7 @@ fun MemoriesDialog(
     vm: MemoriesViewModel,
     currentUserId: Int,
     onClose: () -> Unit,
-    onStartThread: ((MemoryItem) -> Unit)? = null,
+    onStartThread: ((MemoryItem, String) -> Unit)? = null,
 ) {
     LaunchedEffect(Unit) { vm.load() }
 

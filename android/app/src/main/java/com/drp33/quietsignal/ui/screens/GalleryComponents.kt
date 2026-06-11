@@ -24,7 +24,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
@@ -161,7 +163,7 @@ fun GalleryBody(
     memories: List<MemoryItem>,
     vm: MemoriesViewModel,
     currentUserId: Int,
-    onStartThread: ((MemoryItem) -> Unit)?,
+    onStartThread: ((MemoryItem, String) -> Unit)?,
     groupByDate: Boolean,
     showItemActions: Boolean,
     modifier: Modifier = Modifier,
@@ -242,14 +244,25 @@ fun GalleryBody(
     }
 
     openItem?.let { item ->
-        MemoryDetailDialog(
-            item = item,
-            vm = vm,
-            currentUserId = currentUserId,
-            onStartThread = onStartThread,
-            showItemActions = showItemActions,
-            onClose = { openItem = null },
-        )
+        if (item.type == "photo") {
+            FullscreenPhotoViewer(
+                item = item,
+                vm = vm,
+                currentUserId = currentUserId,
+                onStartThread = onStartThread,
+                showItemActions = showItemActions,
+                onClose = { openItem = null },
+            )
+        } else {
+            MemoryDetailDialog(
+                item = item,
+                vm = vm,
+                currentUserId = currentUserId,
+                onStartThread = onStartThread,
+                showItemActions = showItemActions,
+                onClose = { openItem = null },
+            )
+        }
     }
 }
 
@@ -571,11 +584,12 @@ private fun MemoryDetailDialog(
     item: MemoryItem,
     vm: MemoriesViewModel,
     currentUserId: Int,
-    onStartThread: ((MemoryItem) -> Unit)?,
+    onStartThread: ((MemoryItem, String) -> Unit)?,
     showItemActions: Boolean,
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
+    var showCaption by remember { mutableStateOf(false) }
     val player = remember { AudioPlayer(context) }
     var playing by remember { mutableStateOf(false) }
     var durationMs by remember { mutableIntStateOf(0) }
@@ -672,7 +686,7 @@ private fun MemoryDetailDialog(
                     Spacer(Modifier.height(18.dp))
                     if (onStartThread != null) {
                         Button(
-                            onClick = { onStartThread(live); onClose() },
+                            onClick = { showCaption = true },
                             colors = ButtonDefaults.buttonColors(containerColor = Grove.Foliage),
                             shape = RoundedCornerShape(14.dp),
                             modifier = Modifier.fillMaxWidth().height(50.dp),
@@ -702,6 +716,201 @@ private fun MemoryDetailDialog(
                 Spacer(Modifier.height(8.dp))
                 TextButton(onClick = onClose, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                     Text("Close", fontFamily = NunitoSans, fontWeight = FontWeight.Bold, color = Grove.Accent, fontSize = 15.sp)
+                }
+            }
+        }
+    }
+
+    if (showCaption && onStartThread != null) {
+        CaptionDialog(
+            onConfirm = { caption -> onStartThread(live, caption); showCaption = false; onClose() },
+            onDismiss = { showCaption = false },
+        )
+    }
+}
+
+/* ----------------------------- fullscreen photo viewer ----------------------------- */
+
+/**
+ * Tapping a photo opens it full-screen over a dim backdrop. A light, transparent
+ * action bar sits along the bottom: Tags (a popup of the tag editor floats just
+ * above it), Reshare (middle), and Start a conversation (right — which asks for a
+ * caption that becomes the conversation's title). Grove tokens throughout.
+ */
+@Composable
+private fun FullscreenPhotoViewer(
+    item: MemoryItem,
+    vm: MemoriesViewModel,
+    currentUserId: Int,
+    onStartThread: ((MemoryItem, String) -> Unit)?,
+    showItemActions: Boolean,
+    onClose: () -> Unit,
+) {
+    val context = LocalContext.current
+    val live = vm.memories.firstOrNull { it.objectName == item.objectName } ?: item
+    val known = remember(vm.allTags, live.tags) { knownTagNames(vm.allTags, live.tags) }
+    var showTags by remember { mutableStateOf(false) }
+    var showCaption by remember { mutableStateOf(false) }
+
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(modifier = Modifier.fillMaxSize().background(Color(0xF21C1A12))) {
+            val img = live.image
+            if (img != null) {
+                Image(
+                    bitmap = img,
+                    contentDescription = "Photo from ${live.sender}",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize().padding(vertical = 72.dp),
+                )
+            } else {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("🌿", fontSize = 56.sp) }
+            }
+
+            // Close + who/when (top).
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalAlignment = Alignment.End
+            ) {
+                Box(
+                    modifier = Modifier.size(40.dp).clip(CircleShape).background(Color(0x33FFFFFF)).clickable { onClose() },
+                    contentAlignment = Alignment.Center,
+                ) { Text("✕", color = Color.White, fontSize = 17.sp) }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "${live.sender} · ${groveAgo(live.epoch)}",
+                    fontFamily = NunitoSans, fontSize = 13.sp, color = Color.White.copy(alpha = 0.85f),
+                )
+            }
+
+            // Tag editor popup, floating just above the bottom bar.
+            if (showTags) {
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Grove.Surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .navigationBarsPadding()
+                        .padding(start = 12.dp, end = 12.dp, bottom = 82.dp)
+                        .fillMaxWidth(),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp).heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+                        TagEditor(
+                            current = live.tags,
+                            known = known,
+                            onToggle = { tag ->
+                                val on = live.tags.any { it.equals(tag, ignoreCase = true) }
+                                val next = if (on) live.tags.filterNot { it.equals(tag, ignoreCase = true) } else live.tags + tag
+                                vm.setTags(live.objectName, next)
+                            },
+                            onCreate = { tag -> if (live.tags.none { it.equals(tag, ignoreCase = true) }) vm.setTags(live.objectName, live.tags + tag) },
+                        )
+                    }
+                }
+            }
+
+            // Bottom action bar: Tags · Reshare · Start a conversation.
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0x99000000))))
+                    .navigationBarsPadding()
+                    .padding(horizontal = 8.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                GlassBarButton(label = "🏷  Tags", selected = showTags, modifier = Modifier.weight(1f)) { showTags = !showTags }
+                GlassBarButton(label = "⤓  Save", modifier = Modifier.weight(1f)) {
+                    vm.loadMediaBytes(live.objectName) { bytes -> saveMemoryToDisk(context, bytes, live.type, live.objectName) }
+                }
+                if (showItemActions) {
+                    GlassBarButton(label = "↻  Reshare", modifier = Modifier.weight(1f)) {
+                        vm.reshare(live, currentUserId) {
+                            Toast.makeText(context, "Shared again 🌱", Toast.LENGTH_SHORT).show(); onClose()
+                        }
+                    }
+                    if (onStartThread != null) {
+                        GlassBarButton(label = "💬  Start a chat", modifier = Modifier.weight(1f)) { showCaption = true }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showCaption && onStartThread != null) {
+        CaptionDialog(
+            onConfirm = { caption -> onStartThread(live, caption); showCaption = false; onClose() },
+            onDismiss = { showCaption = false },
+        )
+    }
+}
+
+/** A light, transparent action used along the fullscreen photo's bottom bar. */
+@Composable
+private fun GlassBarButton(label: String, modifier: Modifier = Modifier, selected: Boolean = false, onClick: () -> Unit) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (selected) Color(0x40FFFFFF) else Color(0x1FFFFFFF))
+            .border(0.5.dp, Color(0x33FFFFFF), RoundedCornerShape(14.dp))
+            .clickable { onClick() }
+            .padding(vertical = 12.dp, horizontal = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            fontFamily = NunitoSans,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+        )
+    }
+}
+
+/**
+ * A simple centred popup that asks for a caption before starting a conversation.
+ * The caption becomes the thread's title throughout the app.
+ */
+@Composable
+private fun CaptionDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    var caption by remember { mutableStateOf("") }
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Grove.Surface),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(modifier = Modifier.padding(22.dp)) {
+                Text("Start a conversation", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 21.sp, color = Grove.Ink)
+                Spacer(Modifier.height(4.dp))
+                Text("Add a caption to title this conversation.", fontFamily = NunitoSans, fontSize = 13.sp, color = Grove.InkSoft)
+                Spacer(Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = caption,
+                    onValueChange = { caption = it },
+                    placeholder = { Text("Add a caption…", fontFamily = NunitoSans, color = Grove.InkFaint) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(18.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
+                        Text("Cancel", fontFamily = NunitoSans, fontWeight = FontWeight.Bold, color = Grove.InkSoft, fontSize = 15.sp)
+                    }
+                    Button(
+                        onClick = { onConfirm(caption.trim()) },
+                        enabled = caption.isNotBlank(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Grove.Foliage, disabledContainerColor = Grove.FoliageRest),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.weight(1f).height(50.dp),
+                    ) { Text("Start", fontFamily = NunitoSans, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp) }
                 }
             }
         }

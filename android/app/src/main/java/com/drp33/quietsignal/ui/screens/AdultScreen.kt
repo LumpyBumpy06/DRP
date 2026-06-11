@@ -71,7 +71,6 @@ fun AdultScreen(
     val momentCount = memoriesVm.memories.count { (it.epoch / WEEK_SECONDS) * WEEK_SECONDS == weekStart }
     val lastMomentEpoch = memoriesVm.memories.maxOfOrNull { it.epoch }
 
-    var showGallery by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
 
     val promptsOn = remember(showSettings) { SettingsPreferences.promptsEnabled(context) }
@@ -88,10 +87,10 @@ fun AdultScreen(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                GroveHeaderActions(onGallery = { showGallery = true }, onSettings = { showSettings = true })
+                GroveCircleButton(glyph = "⚙️", contentDescription = "Settings", onClick = { showSettings = true })
             }
 
             GroveHeader(title = "Our garden", subtitle = "A living record of staying close.", momentCount = momentCount)
@@ -144,14 +143,10 @@ fun AdultScreen(
         )
     }
 
-    // Gallery + Settings dialogs (Sadie is user id 2).
+    // Settings dialog (Sadie is user id 2). The Gallery opens from the bottom nav.
     GroveModals(
-        showGallery = showGallery,
-        onCloseGallery = { showGallery = false },
         showSettings = showSettings,
         onCloseSettings = { showSettings = false },
-        memoriesVm = memoriesVm,
-        currentUserId = 2,
         threadsVm = threadsVm,
         onSwitchRole = onSwitchRole,
     )

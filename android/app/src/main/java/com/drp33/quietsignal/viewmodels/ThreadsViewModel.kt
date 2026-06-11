@@ -2,6 +2,7 @@ package com.drp33.quietsignal.viewmodels
 
 import android.graphics.BitmapFactory
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asImageBitmap
@@ -44,6 +45,29 @@ class ThreadsViewModel(
     var messages by mutableStateOf<List<ThreadMessage>>(emptyList())
         private set
 
+    /** User-given captions per anchor — the conversation's title, set when a
+     *  thread is first started. Kept in memory so it shows throughout the app
+     *  (chat header, pinned memory, threads list). */
+    private val captions = mutableStateMapOf<String, String>()
+
+    /** The title for a conversation: its caption if one was given, otherwise the
+     *  gentle default ("Sadie's photo" / "Norman's voice note"). */
+    fun threadTitle(anchor: String, sender: String, type: String): String =
+        captions[anchor]?.takeIf { it.isNotBlank() }
+            ?: "${sender}'s ${if (type == "photo") "photo" else "voice note"}"
+
+    /** The latest message epoch we've seen for each anchor (the server has no
+     *  read-state, so we mark threads read locally once they're opened). */
+    private val seenEpoch = mutableStateMapOf<String, Long>()
+
+    /** Unread count to show for a thread — hidden once it's been opened, and only
+     *  reappearing when a newer message lands. */
+    fun unreadFor(summary: ThreadSummary): Int =
+        if ((seenEpoch[summary.anchor] ?: 0L) >= summary.lastEpoch) 0 else summary.incoming
+
+    /** Total unread across all threads (drives the Threads tab badge). */
+    val unreadTotal: Int get() = summaries.sumOf { unreadFor(it) }
+
     /** Refresh the conversation list (and the gentle prompt suggestion). */
     fun loadThreads() {
         viewModelScope.launch {
@@ -76,7 +100,8 @@ class ThreadsViewModel(
     }
 
     /** Open the conversation hanging off [anchor], decoding any photo messages. */
-    fun openThread(anchor: String, type: String, sender: String, isPrompt: Boolean = false) {
+    fun openThread(anchor: String, type: String, sender: String, isPrompt: Boolean = false, title: String? = null) {
+        if (!title.isNullOrBlank()) captions[anchor] = title.trim()
         activeAnchor = anchor
         activeType = type
         activeSender = sender
@@ -97,6 +122,9 @@ class ThreadsViewModel(
         viewModelScope.launch {
             repository.getThread(anchor).onSuccess { items ->
                 messages = items
+                // Opening (and watching) the thread marks everything in it as read.
+                val latest = items.maxOfOrNull { it.epoch } ?: 0L
+                seenEpoch[anchor] = maxOf(seenEpoch[anchor] ?: 0L, latest)
                 // Decode photo-message thumbnails in the background.
                 items.filter { it.kind == "photo" && it.mediaObject != null }.forEach { msg ->
                     repository.getMedia(msg.mediaObject!!).onSuccess { bytes ->

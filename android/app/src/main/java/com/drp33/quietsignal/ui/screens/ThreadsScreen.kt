@@ -16,10 +16,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,6 +35,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -88,7 +91,7 @@ fun ThreadsPane(vm: ThreadsViewModel, contentPadding: PaddingValues = PaddingVal
             }
 
             items(vm.summaries, key = { it.anchor }) { summary ->
-                ThreadRow(summary = summary, selfId = vm.selfId, onClick = {
+                ThreadRow(summary = summary, selfId = vm.selfId, unread = vm.unreadFor(summary), title = vm.threadTitle(summary.anchor, summary.memorySender, summary.memoryType), onClick = {
                     vm.openThread(summary.anchor, summary.memoryType, summary.memorySender)
                 })
             }
@@ -125,7 +128,7 @@ private fun PromptThreadRow(subtitle: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ThreadRow(summary: ThreadSummary, selfId: Int, onClick: () -> Unit) {
+private fun ThreadRow(summary: ThreadSummary, selfId: Int, unread: Int, title: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -156,7 +159,7 @@ private fun ThreadRow(summary: ThreadSummary, selfId: Int, onClick: () -> Unit) 
 
         Column(Modifier.weight(1f)) {
             Text(
-                text = "${summary.memorySender}'s ${if (summary.memoryType == "photo") "photo" else "voice note"}",
+                text = title,
                 fontFamily = NunitoSans, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Grove.Ink, maxLines = 1,
             )
             Spacer(Modifier.height(2.dp))
@@ -171,7 +174,7 @@ private fun ThreadRow(summary: ThreadSummary, selfId: Int, onClick: () -> Unit) 
 
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(threadTime(summary.lastEpoch), fontFamily = NunitoSans, fontSize = 11.5.sp, color = Grove.InkFaint)
-            if (summary.incoming > 0) Badge(count = summary.incoming, color = Color(0xFFE0524B))
+            if (unread > 0) Badge(count = unread, color = Color(0xFFE0524B))
             else Spacer(Modifier.size(20.dp))
         }
     }
@@ -180,10 +183,17 @@ private fun ThreadRow(summary: ThreadSummary, selfId: Int, onClick: () -> Unit) 
 @Composable
 private fun Badge(count: Int, color: Color) {
     Box(
-        modifier = Modifier.height(20.dp).clip(CircleShape).background(color).padding(horizontal = 6.dp),
+        modifier = Modifier.height(20.dp).widthIn(min = 20.dp).clip(CircleShape).background(color).padding(horizontal = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = count.toString(), color = Color.White, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+        Text(
+            text = count.toString(),
+            color = Color.White,
+            fontSize = 11.5.sp,
+            lineHeight = 11.5.sp,
+            fontWeight = FontWeight.Bold,
+            style = LocalTextStyle.current.copy(platformStyle = PlatformTextStyle(includeFontPadding = false)),
+        )
     }
 }
 

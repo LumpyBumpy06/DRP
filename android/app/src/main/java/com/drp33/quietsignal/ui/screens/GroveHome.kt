@@ -22,9 +22,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -35,7 +39,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,6 +54,7 @@ import com.drp33.quietsignal.util.vibrateDoubleTap
 import com.drp33.quietsignal.util.vibrateTick
 import com.drp33.quietsignal.viewmodels.MemoriesViewModel
 import com.drp33.quietsignal.viewmodels.ThreadsViewModel
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -81,9 +88,10 @@ fun MainShell(
     week: @Composable (contentPadding: PaddingValues) -> Unit,
 ) {
     var tab by rememberSaveable { mutableStateOf(GroveTab.Week) }
+    var showGallery by rememberSaveable { mutableStateOf(false) }
     // Clears the floating tab bar (which itself sits above the system nav bar).
     val pad = PaddingValues(bottom = 150.dp)
-    val unread = threadsVm.summaries.sumOf { it.incoming }
+    val unread = threadsVm.unreadTotal
 
     Box(modifier = Modifier.fillMaxSize().groveBackground()) {
         when (tab) {
@@ -95,6 +103,7 @@ fun MainShell(
             tab = tab,
             unread = unread,
             onSelect = { tab = it },
+            onGallery = { showGallery = true },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
 
@@ -102,11 +111,24 @@ fun MainShell(
         if (threadsVm.activeAnchor != null) {
             ThreadChatScreen(vm = threadsVm, onClose = { threadsVm.closeThread() })
         }
+
+        // The shared "Our memories" gallery, opened from the bottom nav.
+        if (showGallery) {
+            MemoriesDialog(
+                vm = forestVm,
+                currentUserId = threadsVm.selfId,
+                onClose = { showGallery = false },
+                onStartThread = { item, caption ->
+                    threadsVm.openThread(item.objectName, item.type, item.sender, title = caption)
+                    showGallery = false
+                },
+            )
+        }
     }
 }
 
 @Composable
-fun GroveBottomNav(tab: GroveTab, unread: Int, onSelect: (GroveTab) -> Unit, modifier: Modifier = Modifier) {
+fun GroveBottomNav(tab: GroveTab, unread: Int, onSelect: (GroveTab) -> Unit, onGallery: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .navigationBarsPadding()
@@ -123,6 +145,7 @@ fun GroveBottomNav(tab: GroveTab, unread: Int, onSelect: (GroveTab) -> Unit, mod
         NavItem("This week", "🌳", tab == GroveTab.Week, Modifier.weight(1f)) { onSelect(GroveTab.Week) }
         NavItem("Threads", "💬", tab == GroveTab.Threads, Modifier.weight(1f), badge = unread) { onSelect(GroveTab.Threads) }
         NavItem("Forest", "🌲", tab == GroveTab.Forest, Modifier.weight(1f)) { onSelect(GroveTab.Forest) }
+        NavItem("Gallery", "🖼", false, Modifier.weight(1f)) { onGallery() }
     }
 }
 
@@ -142,13 +165,20 @@ private fun NavItem(label: String, glyph: String, active: Boolean, modifier: Mod
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .offset(x = 9.dp, y = (-4).dp)
+                        .offset(x = 8.dp, y = (-7).dp)
                         .size(16.dp)
                         .clip(CircleShape)
                         .background(Color(0xFFE0524B)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(text = if (badge > 9) "9+" else badge.toString(), color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = if (badge > 9) "9+" else badge.toString(),
+                        color = Color.White,
+                        fontSize = 9.sp,
+                        lineHeight = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        style = LocalTextStyle.current.copy(platformStyle = PlatformTextStyle(includeFontPadding = false)),
+                    )
                 }
             }
         }
@@ -264,19 +294,35 @@ fun GroveInputRow(
 }
 
 @Composable
-private fun GroveTile(label: String, glyph: String, tint: Color, active: Boolean = false, onClick: () -> Unit) {
+private fun GroveTile(label: String, glyph: String, tint: Color, active: Boolean = false, pulse: Float = 0f, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .size(60.dp)
-                .shadow(6.dp, RoundedCornerShape(18.dp), clip = false)
-                .clip(RoundedCornerShape(18.dp))
-                .background(Grove.Surface)
-                .border(1.5.dp, tint.copy(alpha = if (active) 0.95f else 0.32f), RoundedCornerShape(18.dp))
-                .clickable { onClick() },
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(text = glyph, fontSize = 24.sp)
+        Box(contentAlignment = Alignment.Center) {
+            // A soft halo that breathes with the mic's loudness while recording.
+            if (pulse > 0f) {
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .graphicsLayer {
+                            val s = 1f + pulse * 0.7f
+                            scaleX = s; scaleY = s
+                            alpha = 0.18f + pulse * 0.30f
+                        }
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(tint),
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .shadow(6.dp, RoundedCornerShape(18.dp), clip = false)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(Grove.Surface)
+                    .border(1.5.dp, tint.copy(alpha = if (active) 0.95f else 0.32f), RoundedCornerShape(18.dp))
+                    .clickable { onClick() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(text = glyph, fontSize = 24.sp)
+            }
         }
         Spacer(Modifier.height(6.dp))
         Text(text = label, fontFamily = NunitoSans, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (active) tint else Grove.InkSoft)
@@ -295,11 +341,24 @@ private fun GroveVoiceTile(onRecorded: (ByteArray) -> Unit) {
         }
     }
 
+    // Poll the mic's loudness while recording to drive the reactive halo.
+    var amp by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(isRecording) {
+        if (!isRecording) { amp = 0f; return@LaunchedEffect }
+        while (isRecording) {
+            amp = (recorder.amplitude() / 14000f).coerceIn(0f, 1f)
+            delay(70)
+        }
+        amp = 0f
+    }
+    val pulse by animateFloatAsState(targetValue = if (isRecording) amp else 0f, label = "micPulse")
+
     GroveTile(
         label = if (isRecording) "Stop" else "Voice",
         glyph = if (isRecording) "⏺" else "🎙️",
         tint = Grove.Voice,
         active = isRecording,
+        pulse = pulse,
         onClick = {
             val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
             when {
