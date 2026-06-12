@@ -15,17 +15,22 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -98,9 +103,8 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
     }
 
     Box(modifier = Modifier.fillMaxSize().groveBackground()) {
-        // imePadding keeps the header pinned and lifts the composer above the
-        // keyboard (WhatsApp-style) instead of the window panning the header away.
-        Column(modifier = Modifier.fillMaxSize().imePadding()) {
+        // We handle insets manually to avoid the "jumping composer" issue.
+        Column(modifier = Modifier.fillMaxSize()) {
             // ---- header ----
             Row(
                 modifier = Modifier
@@ -305,7 +309,7 @@ private fun ChatComposer(onSendText: (String) -> Unit, onSendVoice: (ByteArray) 
         modifier = Modifier
             .fillMaxWidth()
             .background(Grove.Surface)
-            .navigationBarsPadding()
+            .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
