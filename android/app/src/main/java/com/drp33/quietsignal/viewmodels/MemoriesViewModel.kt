@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.drp33.quietsignal.data.repo.CheckInRepository
 import com.drp33.quietsignal.model.ForestWeek
 import com.drp33.quietsignal.model.MemoryItem
+import com.drp33.quietsignal.util.MediaCache
 import com.drp33.quietsignal.util.decodeSampledBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -42,11 +43,17 @@ class MemoriesViewModel(
                     // while still providing a responsive "filling in" effect.
                     items.filter { it.type == "photo" }.chunked(5).forEach { chunk ->
                         val bitmaps = chunk.mapNotNull { item ->
+                            // Check cache first
+                            MediaCache.get(item.objectName)?.let { return@mapNotNull item.objectName to it }
+
                             repository.getMedia(item.objectName).getOrNull()?.let { bytes ->
                                 val bmp = withContext(Dispatchers.Default) {
                                     decodeSampledBitmap(bytes, 400, 400)?.asImageBitmap()
                                 }
-                                if (bmp != null) item.objectName to bmp else null
+                                if (bmp != null) {
+                                    MediaCache.put(item.objectName, bmp)
+                                    item.objectName to bmp
+                                } else null
                             }
                         }.toMap()
 

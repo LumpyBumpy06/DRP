@@ -12,7 +12,7 @@ object RetroFitProvider {
 //    private const val BASE_URL = "http://127.0.0.1:8000/"             // LOCAL via `adb reverse tcp:8000 tcp:8000` (works on physical device + emulator)
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
+        level = HttpLoggingInterceptor.Level.HEADERS
     }
 
     // Timeouts so a slow/unreachable endpoint fails fast instead of hanging the

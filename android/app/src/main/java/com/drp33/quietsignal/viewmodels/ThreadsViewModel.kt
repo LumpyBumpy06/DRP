@@ -12,6 +12,7 @@ import com.drp33.quietsignal.data.repo.CheckInRepository
 import com.drp33.quietsignal.model.PromptMemory
 import com.drp33.quietsignal.model.ThreadMessage
 import com.drp33.quietsignal.model.ThreadSummary
+import com.drp33.quietsignal.util.MediaCache
 import com.drp33.quietsignal.util.decodeSampledBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -89,11 +90,17 @@ class ThreadsViewModel(
                 // Decode anchored-memory thumbnails in parallel batches of 5
                 items.filter { it.memoryType == "photo" }.chunked(5).forEach { chunk ->
                     val bitmaps = chunk.mapNotNull { summary ->
+                        // Check cache first
+                        MediaCache.get(summary.anchor)?.let { return@mapNotNull summary.anchor to it }
+
                         repository.getMedia(summary.anchor).getOrNull()?.let { bytes ->
                             val bmp = withContext(Dispatchers.Default) {
                                 decodeSampledBitmap(bytes, 300, 300)?.asImageBitmap()
                             }
-                            if (bmp != null) summary.anchor to bmp else null
+                            if (bmp != null) {
+                                MediaCache.put(summary.anchor, bmp)
+                                summary.anchor to bmp
+                            } else null
                         }
                     }.toMap()
 
@@ -145,11 +152,17 @@ class ThreadsViewModel(
                 // Decode photo-message thumbnails in parallel batches of 5
                 items.filter { it.kind == "photo" && it.mediaObject != null }.chunked(5).forEach { chunk ->
                     val bitmaps = chunk.mapNotNull { msg ->
-                        repository.getMedia(msg.mediaObject!!).getOrNull()?.let { bytes ->
+                        val objectName = msg.mediaObject!!
+                        MediaCache.get(objectName)?.let { return@mapNotNull msg.id to it }
+
+                        repository.getMedia(objectName).getOrNull()?.let { bytes ->
                             val bmp = withContext(Dispatchers.Default) {
                                 decodeSampledBitmap(bytes, 400, 400)?.asImageBitmap()
                             }
-                            if (bmp != null) msg.id to bmp else null
+                            if (bmp != null) {
+                                MediaCache.put(objectName, bmp)
+                                msg.id to bmp
+                            } else null
                         }
                     }.toMap()
 
