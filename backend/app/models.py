@@ -19,6 +19,22 @@ class OkayEvent(SQLModel, table=True):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True, primary_key=True)
 
 
+class ForestTree(SQLModel, table=True):
+    """One frozen weekly tree in the shared forest.
+
+    When a week elapses, the live tree's final state is snapshotted into this
+    table exactly once and never recomputed — so the forest is stable history:
+    trees can't disappear or change retroactively as events age out or are
+    deleted. `week_index` is the human label ("Week 1", "Week 2", …), assigned
+    sequentially as trees are frozen.
+    """
+
+    week_start: int = Field(primary_key=True)  # Unix seconds, aligned to WEEK_SECONDS
+    week_index: int
+    stage: int
+    death_level: float
+
+
 class EmergencyAlert(SQLModel, table=True):
     # One row per sender while their SOS is unacknowledged; deleted when a carer
     # taps "All good". Persisting it (rather than relying only on the push) lets

@@ -52,6 +52,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
@@ -120,8 +122,9 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
     var galleryWeek by remember { mutableStateOf<ForestWeek?>(null) }
     var montageWeek by remember { mutableStateOf<ForestWeek?>(null) }
 
-    val currentWeekStart = (System.currentTimeMillis() / 1000 / WEEK_SECONDS) * WEEK_SECONDS
-    val weeks = vm.forestWeeks.filter { it.weekStart < currentWeekStart }
+    // The backend only ever returns FROZEN (elapsed) weeks — the live tree
+    // joins the forest automatically once its week ends.
+    val weeks = vm.forestWeeks
 
     // Scroll position (px) drives the parallax. Items are uniform width, so
     // index*width + offset is an exact scroll measure — and reading it from the
@@ -281,11 +284,17 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             Text(
-                                text = weekLabel(week.weekStart),
+                                text = "Week ${week.weekIndex}",
                                 fontFamily = Newsreader,
                                 fontWeight = FontWeight.Medium,
                                 color = Grove.Ink,
                                 fontSize = 14.sp,
+                            )
+                            Text(
+                                text = weekLabel(week.weekStart),
+                                fontFamily = NunitoSans,
+                                color = Grove.InkSoft,
+                                fontSize = 11.sp,
                             )
                             Text(
                                 text = "${mems.size} ${if (mems.size == 1) "moment" else "moments"}",
@@ -348,12 +357,19 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
     }
 
     montageWeek?.let { week ->
-        Montage(
-            week = week,
-            memories = memoriesByWeek[week.weekStart].orEmpty(),
-            vm = vm,
-            onClose = { montageWeek = null },
-        )
+        // Full-screen dialog so the montage covers everything — including the
+        // bottom tab bar. Only the ✕ (or back) closes it.
+        Dialog(
+            onDismissRequest = { montageWeek = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+        ) {
+            Montage(
+                week = week,
+                memories = memoriesByWeek[week.weekStart].orEmpty(),
+                vm = vm,
+                onClose = { montageWeek = null },
+            )
+        }
     }
 }
 

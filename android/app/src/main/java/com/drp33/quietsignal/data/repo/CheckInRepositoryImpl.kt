@@ -105,14 +105,27 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
         api.setMemoryTags(objectName, MemoryTagsRequest(tags)).tags
     }
 
+    override suspend fun addMemoryTag(objectName: String, tag: String): Result<List<String>> = runCatching {
+        api.addMemoryTag(objectName, tag).tags
+    }
+
+    override suspend fun removeMemoryTag(objectName: String, tag: String): Result<List<String>> = runCatching {
+        api.removeMemoryTag(objectName, tag).tags
+    }
+
     override suspend fun getForest(): Result<List<com.drp33.quietsignal.model.ForestWeek>> = runCatching {
         api.getForest().weeks.map {
             com.drp33.quietsignal.model.ForestWeek(
                 weekStart = it.weekStart,
+                weekIndex = it.weekIndex,
                 stage = it.stage,
                 deathLevel = it.deathLevel,
             )
         }
+    }
+
+    override suspend fun reshare(userId: Int, objectName: String): Result<Unit> = runCatching {
+        api.postReshare(userId, objectName)
     }
 
     override suspend fun getMedia(objectName: String): Result<ByteArray> = runCatching {

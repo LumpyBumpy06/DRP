@@ -72,6 +72,14 @@ interface CheckInAPI {
     @GET("media")
     suspend fun getMedia(@Query("object_name") objectName: String): ResponseBody
 
+    // Re-deliver an existing memory to the partner (notification + popup only —
+    // the server does NOT add it to the gallery again).
+    @POST("reshare")
+    suspend fun postReshare(
+        @Query("user_id") userId: Int,
+        @Query("object_name") objectName: String,
+    )
+
     // ---------- TAGS (shared labels on a memory) ----------
 
     @GET("tags")
@@ -81,6 +89,20 @@ interface CheckInAPI {
     suspend fun setMemoryTags(
         @Query("object_name") objectName: String,
         @Body request: MemoryTagsRequest,
+    ): MemoryTagsResponse
+
+    // Atomic single-tag operations — these can never clobber other tags the way
+    // a stale replace-all can, so tags survive refreshes and concurrent edits.
+    @POST("memory/tags/add")
+    suspend fun addMemoryTag(
+        @Query("object_name") objectName: String,
+        @Query("tag") tag: String,
+    ): MemoryTagsResponse
+
+    @POST("memory/tags/remove")
+    suspend fun removeMemoryTag(
+        @Query("object_name") objectName: String,
+        @Query("tag") tag: String,
     ): MemoryTagsResponse
 
     // ---------- THREADS (conversations anchored to a memory) ----------

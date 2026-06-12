@@ -19,10 +19,13 @@ interface CheckInRepository {
     suspend fun getMemories(): Result<List<com.drp33.quietsignal.model.MemoryItem>>
     suspend fun getForest(): Result<List<com.drp33.quietsignal.model.ForestWeek>>
     suspend fun getMedia(objectName: String): Result<ByteArray>
+    suspend fun reshare(userId: Int, objectName: String): Result<Unit>
 
     // ---------- TAGS (shared labels on a memory) ----------
     suspend fun getAllTags(): Result<List<String>>
     suspend fun setMemoryTags(objectName: String, tags: List<String>): Result<List<String>>
+    suspend fun addMemoryTag(objectName: String, tag: String): Result<List<String>>
+    suspend fun removeMemoryTag(objectName: String, tag: String): Result<List<String>>
 
     // ---------- THREADS (conversations anchored to a memory) ----------
     suspend fun getThreads(userId: Int): Result<List<ThreadSummary>>
