@@ -64,6 +64,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.drp33.quietsignal.model.ThreadMessage
 import com.drp33.quietsignal.ui.theme.Grove
 import com.drp33.quietsignal.ui.theme.Newsreader
@@ -92,6 +94,30 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
         if (vm.activeType == "photo") {
             vm.loadMediaBytes(anchor) { bytes ->
                 anchorImage = decodeSampledBitmap(bytes, 600, 600)?.asImageBitmap()
+            }
+        }
+    }
+
+    // Full-screen viewer for any image in the thread (the anchor or a snap bubble).
+    var viewerImage by remember { mutableStateOf<ImageBitmap?>(null) }
+    fun openImage(objectName: String) {
+        vm.loadMediaBytes(objectName) { bytes ->
+            viewerImage = decodeSampledBitmap(bytes, 1600, 1600)?.asImageBitmap()
+        }
+    }
+
+    // Player for the anchored voice memo (tap the pin to listen).
+    val anchorPlayer = remember(anchor) { AudioPlayer(context) }
+    var anchorPlaying by remember(anchor) { mutableStateOf(false) }
+    DisposableEffect(anchor) { onDispose { anchorPlayer.release() } }
+    fun toggleAnchorAudio() {
+        if (anchorPlaying) {
+            anchorPlayer.pause()
+            anchorPlaying = false
+        } else {
+            vm.loadMediaBytes(anchor) { bytes ->
+                anchorPlayer.play(bytes) { anchorPlaying = false }
+                anchorPlaying = true
             }
         }
     }
@@ -147,12 +173,25 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
                             PromptBanner()
                             Spacer(Modifier.height(8.dp))
                         }
-                        AnchorPin(type = vm.activeType, title = vm.threadTitle(anchor, vm.activeSender, vm.activeType), image = anchorImage)
+                        AnchorPin(
+                            type = vm.activeType,
+                            title = vm.threadTitle(anchor, vm.activeSender, vm.activeType),
+                            image = anchorImage,
+                            playing = anchorPlaying,
+                            onTap = {
+                                if (vm.activeType == "photo") openImage(anchor) else toggleAnchorAudio()
+                            },
+                        )
                         Spacer(Modifier.height(6.dp))
                     }
                 }
                 items(vm.messages, key = { it.id }) { msg ->
-                    MessageBubble(msg = msg, isSelf = msg.senderId == selfId, vm = vm)
+                    MessageBubble(
+                        msg = msg,
+                        isSelf = msg.senderId == selfId,
+                        vm = vm,
+                        onOpenImage = { msg.mediaObject?.let(::openImage) },
+                    )
                 }
             }
 
@@ -162,6 +201,35 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
                 onSendVoice = { vm.sendVoice(it) },
                 onSendPhoto = { vm.sendPhoto(it) },
             )
+        }
+    }
+
+    // Full-screen image viewer (anchor photo or a snap from the conversation).
+    viewerImage?.let { img ->
+        Dialog(
+            onDismissRequest = { viewerImage = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+                    .clickable { viewerImage = null },
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(bitmap = img, contentDescription = "Full photo", contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+                Text(
+                    text = "✕",
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .statusBarsPadding()
+                        .padding(top = 16.dp, end = 18.dp)
+                        .clickable { viewerImage = null },
+                )
+            }
         }
     }
 }
@@ -205,14 +273,16 @@ private fun AnchorThumb(type: String, image: ImageBitmap?, prompt: Boolean, size
     }
 }
 
-/** The memory the conversation is about, pinned at the top of the chat. */
+/** The memory the conversation is about, pinned at the top of the chat.
+ *  Tappable: a photo anchor opens full-screen, a voice anchor plays/pauses. */
 @Composable
-private fun AnchorPin(type: String, title: String, image: ImageBitmap?) {
+private fun AnchorPin(type: String, title: String, image: ImageBitmap?, playing: Boolean, onTap: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(Grove.Surface)
+            .clickable { onTap() }
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -222,18 +292,29 @@ private fun AnchorPin(type: String, title: String, image: ImageBitmap?) {
                 .background(if (type == "photo") Grove.Photo.copy(alpha = 0.18f) else Grove.Voice.copy(alpha = 0.18f)),
             contentAlignment = Alignment.Center,
         ) {
-            if (type == "photo" && image != null) Image(bitmap = image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            else Text(if (type == "photo") "📸" else "🎙", fontSize = 22.sp)
+            when {
+                type == "photo" && image != null ->
+                    Image(bitmap = image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                type == "photo" -> Text("📸", fontSize = 22.sp)
+                else -> Box(
+                    modifier = Modifier.size(38.dp).clip(CircleShape).background(Grove.Voice),
+                    contentAlignment = Alignment.Center,
+                ) { Text(if (playing) "⏸" else "▶", color = Color.White, fontSize = 16.sp) }
+            }
         }
         Column(Modifier.weight(1f)) {
             Text("This conversation is about", fontFamily = NunitoSans, fontSize = 11.sp, color = Grove.InkFaint, fontWeight = FontWeight.SemiBold)
             Text(title, fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 17.sp, color = Grove.Ink)
+            Text(
+                text = if (type == "photo") "Tap to view the photo" else if (playing) "Playing — tap to pause" else "Tap to listen",
+                fontFamily = NunitoSans, fontSize = 11.5.sp, color = Grove.Accent, fontWeight = FontWeight.SemiBold,
+            )
         }
     }
 }
 
 @Composable
-private fun MessageBubble(msg: ThreadMessage, isSelf: Boolean, vm: ThreadsViewModel) {
+private fun MessageBubble(msg: ThreadMessage, isSelf: Boolean, vm: ThreadsViewModel, onOpenImage: () -> Unit) {
     val bg = if (isSelf) Grove.Accent else Grove.Surface
     val fg = if (isSelf) Color.White else Grove.Ink
     val shape = RoundedCornerShape(
@@ -254,7 +335,7 @@ private fun MessageBubble(msg: ThreadMessage, isSelf: Boolean, vm: ThreadsViewMo
         ) {
             when (msg.kind) {
                 "text" -> Text(msg.text, fontFamily = NunitoSans, fontSize = 15.sp, color = fg, lineHeight = 20.sp, modifier = Modifier.padding(horizontal = 13.dp, vertical = 9.dp))
-                "photo" -> Box(modifier = Modifier.width(196.dp).aspectRatio(4f / 3f).clip(RoundedCornerShape(14.dp)).background(Grove.Photo.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
+                "photo" -> Box(modifier = Modifier.width(196.dp).aspectRatio(4f / 3f).clip(RoundedCornerShape(14.dp)).background(Grove.Photo.copy(alpha = 0.18f)).clickable { onOpenImage() }, contentAlignment = Alignment.Center) {
                     val img = msg.image
                     if (img != null) Image(bitmap = img, contentDescription = "Snap", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                     else Text("📷", fontSize = 30.sp)
