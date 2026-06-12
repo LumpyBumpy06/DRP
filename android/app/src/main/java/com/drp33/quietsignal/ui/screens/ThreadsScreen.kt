@@ -79,10 +79,15 @@ fun ThreadsPane(vm: ThreadsViewModel, contentPadding: PaddingValues = PaddingVal
         ) {
             if (showPrompt) {
                 item {
+                    val summary = vm.summaries.find { it.anchor == prompt.objectName }
+                    val unreadCount = summary?.let { vm.unreadFor(it) } ?: 0
+
                     PromptThreadRow(
-                        subtitle = "Grove · ${if (prompt!!.type == "photo") "📷 Photo" else "🎙 Voice note"} from ${prompt.sender}",
-                        onClick = { vm.openThread(prompt.objectName, prompt.type, prompt.sender, isPrompt = true) },
-                    )
+                        subtitle = "Grove · ${if (prompt.type == "photo") "📷 Photo" else "🎙 Voice note"} from ${prompt.sender}",
+                        unread = unreadCount,
+                    ) {
+                        vm.openThread(prompt.objectName, prompt.type, prompt.sender, isPrompt = true)
+                    }
                 }
             }
 
@@ -100,7 +105,7 @@ fun ThreadsPane(vm: ThreadsViewModel, contentPadding: PaddingValues = PaddingVal
 }
 
 @Composable
-private fun PromptThreadRow(subtitle: String, onClick: () -> Unit) {
+private fun PromptThreadRow(subtitle: String, unread: Int, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -122,7 +127,8 @@ private fun PromptThreadRow(subtitle: String, onClick: () -> Unit) {
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("PROMPT", fontFamily = NunitoSans, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp, color = Grove.Accent)
-            Badge(count = 1, color = Grove.Accent)
+            if (unread > 0) Badge(count = unread, color = Grove.Accent)
+            else Spacer(Modifier.size(20.dp))
         }
     }
 }

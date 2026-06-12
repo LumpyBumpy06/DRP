@@ -1,6 +1,5 @@
 package com.drp33.quietsignal.viewmodels
 
-import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -11,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.drp33.quietsignal.data.repo.CheckInRepository
 import com.drp33.quietsignal.model.NotificationBus
 import com.drp33.quietsignal.model.PhotoMessagingState
+import com.drp33.quietsignal.util.decodeSampledBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -64,7 +64,7 @@ class PhotoMessagingViewModel(
             repository.getLatestPhoto(peerId)
                 .onSuccess { bytes ->
                     val bitmap = withContext(Dispatchers.Default) {
-                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                        decodeSampledBitmap(bytes, 800, 800)?.asImageBitmap()
                     }
                     if (bitmap != null) {
                         // Count back-to-back snaps so the viewer sees how many
