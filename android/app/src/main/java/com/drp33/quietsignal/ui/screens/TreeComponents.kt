@@ -705,6 +705,7 @@ fun WateringTree(
                     scaleX = f
                     scaleY = f
                     transformOrigin = TransformOrigin(0.5f, 0.89f)
+                    clip = false
                 },
         )
 

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -136,11 +137,17 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
             val h = size.height
             val cloud = Grove.Surface
 
-            translate(left = -scrollPx * 0.08f) {
+            // Clouds: Tiled every 1.5 screen widths
+            val cloudParallax = 0.08f
+            val cloudSpacing = w * 1.5f
+            val cloudOffset = (scrollPx * cloudParallax) % cloudSpacing
+            
+            for (tile in -1..2) {
+                val tileX = tile * cloudSpacing - cloudOffset
                 val cy = h * 0.14f
-                val xs = floatArrayOf(0.16f, 0.52f, 0.86f, 1.22f, 1.6f)
+                val xs = floatArrayOf(0.16f, 0.52f, 0.86f)
                 xs.forEachIndexed { i, fx ->
-                    val cx = w * fx
+                    val cx = tileX + w * fx
                     val rx = if (i % 2 == 0) 92f else 66f
                     drawOval(
                         color = cloud.copy(alpha = 0.55f),
@@ -155,17 +162,33 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                 }
             }
 
-            translate(left = -scrollPx * 0.18f) {
-                drawPath(
-                    rollingHill(-w, w * 2.4f, h * 0.56f, h * 0.085f, w * 0.62f, h),
-                    Grove.FoliageRest.copy(alpha = 0.32f),
-                )
+            // Far Hills: Tiled for seamless join
+            val farParallax = 0.18f
+            val farSpacing = w * 2f
+            val farOffset = (scrollPx * farParallax) % farSpacing
+            // Wavelength = spacing / N ensures a seamless join at the edge of the tile
+            val farWave = farSpacing / 4f 
+            for (tile in -1..1) {
+                translate(left = tile * farSpacing - farOffset) {
+                    drawPath(
+                        rollingHill(0f, farSpacing, h * 0.56f, h * 0.085f, farWave, h),
+                        Grove.FoliageRest.copy(alpha = 0.32f),
+                    )
+                }
             }
-            translate(left = -scrollPx * 0.32f) {
-                drawPath(
-                    rollingHill(-w, w * 2.8f, h * 0.65f, h * 0.07f, w * 0.5f, h),
-                    Grove.Foliage2.copy(alpha = 0.22f),
-                )
+
+            // Mid Hills: Tiled for seamless join
+            val midParallax = 0.32f
+            val midSpacing = w * 2f
+            val midOffset = (scrollPx * midParallax) % midSpacing
+            val midWave = midSpacing / 5f
+            for (tile in -1..1) {
+                translate(left = tile * midSpacing - midOffset) {
+                    drawPath(
+                        rollingHill(0f, midSpacing, h * 0.65f, h * 0.07f, midWave, h),
+                        Grove.Foliage2.copy(alpha = 0.22f),
+                    )
+                }
             }
         }
 
@@ -195,7 +218,7 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
             val display = weeks.asReversed()
             LazyRow(
                 state = listState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().graphicsLayer { clip = false },
                 contentPadding = PaddingValues(
                     start = contentPadding.calculateStartPadding(LayoutDirection.Ltr) + 12.dp,
                     end = contentPadding.calculateEndPadding(LayoutDirection.Ltr) + 12.dp,
@@ -224,6 +247,7 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .wrapContentWidth(unbounded = true) // Allow far tree branches to bleed outside 156dp
                                 .graphicsLayer {
                                     // Scale ONLY the tree graphic
                                     val s = if (far) 0.66f else 0.94f
@@ -231,6 +255,7 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                                     scaleY = s
                                     alpha = if (far) 0.88f else 1f
                                     transformOrigin = TransformOrigin(0.5f, 1f)
+                                    clip = false // Ensure far tree branches aren't clipped by this box
                                 },
                             contentAlignment = Alignment.BottomCenter,
                         ) {
