@@ -24,6 +24,8 @@ interface CheckInRepository {
     // ---------- TAGS (shared labels on a memory) ----------
     suspend fun getAllTags(): Result<List<String>>
     suspend fun setMemoryTags(objectName: String, tags: List<String>): Result<List<String>>
+    suspend fun addMemoryTag(objectName: String, tag: String): Result<List<String>>
+    suspend fun removeMemoryTag(objectName: String, tag: String): Result<List<String>>
 
     // ---------- THREADS (conversations anchored to a memory) ----------
     suspend fun getThreads(userId: Int): Result<List<ThreadSummary>>

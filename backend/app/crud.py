@@ -259,6 +259,35 @@ def set_tags_for(session: Session, object_name: str, tags: list[str]) -> list[st
     return get_tags_for(session, object_name)
 
 
+def add_tag_for(session: Session, object_name: str, tag: str) -> list[str]:
+    """Add one tag to a memory (no-op if it already has it, case-insensitively).
+
+    Atomic per tag — unlike a replace-all, two devices adding different tags at
+    once can never wipe each other's tags out.
+    """
+    name = tag.strip()
+    if name:
+        existing = {t.lower() for t in get_tags_for(session, object_name)}
+        if name.lower() not in existing:
+            session.add(MemoryTag(object_name=object_name, tag=name))
+            session.commit()
+    return get_tags_for(session, object_name)
+
+
+def remove_tag_for(session: Session, object_name: str, tag: str) -> list[str]:
+    """Remove one tag (case-insensitively) from a memory."""
+    rows = session.exec(select(MemoryTag).where(MemoryTag.object_name == object_name)).all()
+    target = tag.strip().lower()
+    removed = False
+    for row in rows:
+        if row.tag.lower() == target:
+            session.delete(row)
+            removed = True
+    if removed:
+        session.commit()
+    return get_tags_for(session, object_name)
+
+
 def all_tag_names(session: Session) -> list[str]:
     """Distinct tag names across all memories, alphabetical (case-insensitive)."""
     names = list(session.exec(select(MemoryTag.tag).distinct()).all())

@@ -91,6 +91,20 @@ interface CheckInAPI {
         @Body request: MemoryTagsRequest,
     ): MemoryTagsResponse
 
+    // Atomic single-tag operations — these can never clobber other tags the way
+    // a stale replace-all can, so tags survive refreshes and concurrent edits.
+    @POST("memory/tags/add")
+    suspend fun addMemoryTag(
+        @Query("object_name") objectName: String,
+        @Query("tag") tag: String,
+    ): MemoryTagsResponse
+
+    @POST("memory/tags/remove")
+    suspend fun removeMemoryTag(
+        @Query("object_name") objectName: String,
+        @Query("tag") tag: String,
+    ): MemoryTagsResponse
+
     // ---------- THREADS (conversations anchored to a memory) ----------
 
     @GET("threads")

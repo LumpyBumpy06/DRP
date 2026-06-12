@@ -88,17 +88,32 @@ fun Montage(week: ForestWeek, memories: List<MemoryItem>, vm: MemoriesViewModel,
     var current by remember { mutableIntStateOf(0) }
     var progress by remember { mutableFloatStateOf(0f) }
     var paused by remember { mutableStateOf(false) }
+    // How long the CURRENT slide lasts. Photo/title/end slides use SLIDE_MS;
+    // a voice slide lasts exactly as long as its clip (set once the clip's
+    // duration is known — until then the slide holds).
+    var slideMs by remember { mutableFloatStateOf(SLIDE_MS) }
 
     fun next() { if (current < total - 1) current++ else onClose() }
     fun prev() { if (current > 0) current-- }
 
-    // Auto-advance the current slide.
+    // Auto-advance the current slide. Voice slides start "held" (infinite
+    // duration) and get their real length from the player; if the audio never
+    // loads, a fallback timeout keeps the montage moving.
     LaunchedEffect(current) {
         progress = 0f
+        val isVoice = current in 1..memories.size && memories[current - 1].type == "voice"
+        slideMs = if (isVoice) Float.POSITIVE_INFINITY else SLIDE_MS
         var last = 0L
+        var heldMs = 0f
         while (progress < 1f) {
             val t = withFrameMillis { it }
-            if (last != 0L && !paused) progress += (t - last) / SLIDE_MS
+            if (last != 0L && !paused) {
+                progress += (t - last) / slideMs
+                if (slideMs == Float.POSITIVE_INFINITY) {
+                    heldMs += t - last
+                    if (heldMs > 8000f) slideMs = SLIDE_MS // audio never arrived
+                }
+            }
             last = t
         }
         next()
@@ -127,7 +142,17 @@ fun Montage(week: ForestWeek, memories: List<MemoryItem>, vm: MemoriesViewModel,
             when (idx) {
                 0 -> TitleSlide(week, memories.size)
                 total - 1 -> EndSlide()
-                else -> MemorySlide(memories[idx - 1], vm)
+                else -> MemorySlide(
+                    item = memories[idx - 1],
+                    vm = vm,
+                    paused = paused,
+                    onAudioStarted = { durationMs ->
+                        // Only the live slide may set the timer (not the one
+                        // fading out in AnimatedContent).
+                        if (idx == current) slideMs = durationMs.coerceAtLeast(1000).toFloat()
+                    },
+                    onAudioFinished = { if (idx == current) next() },
+                )
             }
         }
 
@@ -202,7 +227,13 @@ private fun TitleSlide(week: ForestWeek, count: Int) {
 }
 
 @Composable
-private fun MemorySlide(item: MemoryItem, vm: MemoriesViewModel) {
+private fun MemorySlide(
+    item: MemoryItem,
+    vm: MemoriesViewModel,
+    paused: Boolean = false,
+    onAudioStarted: (Int) -> Unit = {},
+    onAudioFinished: () -> Unit = {},
+) {
     val accent = accentFor(item.type)
     Column(
         modifier = Modifier.fillMaxSize().padding(28.dp),
@@ -225,7 +256,7 @@ private fun MemorySlide(item: MemoryItem, vm: MemoriesViewModel) {
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)),
                 )
-                item.type == "voice" -> VoiceSlidePlayer(item, vm, accent)
+                item.type == "voice" -> VoiceSlidePlayer(item, vm, accent, paused, onAudioStarted, onAudioFinished)
                 else -> Text(text = glyphFor(item.type), fontSize = 80.sp)
             }
         }
@@ -240,13 +271,41 @@ private fun MemorySlide(item: MemoryItem, vm: MemoriesViewModel) {
     }
 }
 
-/** A tappable play control for a voice memo inside its montage slide. */
+/** A voice memo inside its montage slide. The clip starts playing by itself as
+ * the slide appears, the slide lasts for the clip's duration (reported via
+ * [onStarted]), and the montage advances when it ends ([onFinished]).
+ * Press-and-hold on the montage pauses the audio along with the timer. */
 @Composable
-private fun VoiceSlidePlayer(item: MemoryItem, vm: MemoriesViewModel, accent: Color) {
+private fun VoiceSlidePlayer(
+    item: MemoryItem,
+    vm: MemoriesViewModel,
+    accent: Color,
+    paused: Boolean,
+    onStarted: (Int) -> Unit,
+    onFinished: () -> Unit,
+) {
     val context = LocalContext.current
     val player = remember { AudioPlayer(context) }
     var playing by remember { mutableStateOf(false) }
     DisposableEffect(item.objectName) { onDispose { player.release() } }
+
+    // Auto-play as soon as the slide appears.
+    LaunchedEffect(item.objectName) {
+        vm.loadMediaBytes(item.objectName) { bytes ->
+            val durationMs = player.play(bytes) {
+                playing = false
+                onFinished()
+            }
+            playing = true
+            onStarted(durationMs)
+        }
+    }
+
+    // The montage's press-and-hold pause also holds the audio.
+    LaunchedEffect(paused) {
+        if (!playing) return@LaunchedEffect
+        if (paused) player.pause() else player.resume()
+    }
 
     Row(
         modifier = Modifier.padding(horizontal = 24.dp),
@@ -254,26 +313,10 @@ private fun VoiceSlidePlayer(item: MemoryItem, vm: MemoriesViewModel, accent: Co
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Box(
-            modifier = Modifier
-                .size(60.dp)
-                .clip(CircleShape)
-                .background(accent)
-                .pointerInput(item.objectName) {
-                    detectTapGestures {
-                        if (playing) {
-                            player.pause()
-                            playing = false
-                        } else {
-                            vm.loadMediaBytes(item.objectName) { bytes ->
-                                player.play(bytes) { playing = false }
-                                playing = true
-                            }
-                        }
-                    }
-                },
+            modifier = Modifier.size(60.dp).clip(CircleShape).background(accent),
             contentAlignment = Alignment.Center,
         ) {
-            Text(text = if (playing) "⏸" else "▶", color = Color.White, fontSize = 26.sp)
+            Text(text = if (playing && !paused) "🎤" else "⏸", color = Color.White, fontSize = 26.sp)
         }
         Waveform(color = accent, modifier = Modifier.weight(1f).height(48.dp))
     }
