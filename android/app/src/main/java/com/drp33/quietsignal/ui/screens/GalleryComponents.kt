@@ -94,7 +94,7 @@ import java.util.Locale
 const val FAVOURITE_TAG = "Favourites"
 
 /** Tags we always offer in the editor, even before any exist on the server. */
-val SUGGESTED_TAGS = listOf(FAVOURITE_TAG, "Family", "Outdoors", "Funny", "Special")
+val SUGGESTED_TAGS = listOf(FAVOURITE_TAG, "Family", "Funny", "Special")
 
 private fun isFavourite(item: MemoryItem): Boolean = item.tags.any { it.equals(FAVOURITE_TAG, ignoreCase = true) }
 
