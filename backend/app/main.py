@@ -13,7 +13,9 @@ from app.crud import (
     all_tag_names,
     clear_emergencies_for,
     create_okay_event,
+    freeze_elapsed_weeks,
     get_all_thread_messages,
+    get_forest_trees,
     get_latest_okay_event,
     get_linked_users,
     get_okay_timestamps,
@@ -33,7 +35,7 @@ from app.models import ThreadMessage, User
 from app.services.firebase import init_firebase
 from app.services.notifications import send_notification
 from app.services.storage import download_audio, latest_recent_object_name, list_objects, upload_audio
-from app.services.tree import compute_current_week_state, compute_forest, compute_tree_state
+from app.services.tree import compute_current_week_state, compute_tree_state
 from app.settings import get_settings
 
 app = FastAPI()
@@ -52,6 +54,11 @@ PHOTO_TTL_SECONDS = 120
 # memory board (the /memories listing skips it) so chat snaps/clips don't show
 # up twice.
 THREAD_PREFIX = "threads/"
+
+# Object-storage prefix for reshared copies of existing memories. Also kept out
+# of the memory board: resharing only re-delivers the moment to the partner, it
+# must NOT add a duplicate to the top of the gallery.
+RESHARE_PREFIX = "reshares/"
 
 
 # ---------- ENGINE (stateless per deployment) ----------
@@ -121,24 +128,34 @@ def reset_tree(session: Session = SessionDependency) -> dict:
 @app.get("/tree")
 def get_tree(session: Session = SessionDependency) -> dict:
     """The shared tree state — this week's tree, which resets each week boundary."""
+    now = datetime.now(UTC)
+    # Bank any week that just finished before reporting the fresh one.
+    freeze_elapsed_weeks(session, now)
     return compute_current_week_state(
         get_okay_timestamps(session, 1),
         get_okay_timestamps(session, 2),
-        datetime.now(UTC),
+        now,
         CHECK_IN_WINDOW_SECONDS,
     )
 
 
 @app.get("/forest")
 def get_forest(session: Session = SessionDependency) -> dict:
-    """One frozen tree per elapsed week (oldest first) — the shared forest."""
+    """The frozen weekly trees, oldest first. Stored permanently in the DB —
+    the live (current-week) tree is NOT included; it joins once its week ends."""
+    freeze_elapsed_weeks(session, datetime.now(UTC))
     return {
-        "weeks": compute_forest(
-            get_okay_timestamps(session, 1),
-            get_okay_timestamps(session, 2),
-            datetime.now(UTC),
-            CHECK_IN_WINDOW_SECONDS,
-        )
+        "weeks": [
+            {
+                "weekStart": tree.week_start,
+                # Numbered by position (oldest = Week 1) so labels are always
+                # a clean 1, 2, 3… sequence regardless of stored indexes.
+                "weekIndex": position,
+                "stage": tree.stage,
+                "deathLevel": tree.death_level,
+            }
+            for position, tree in enumerate(get_forest_trees(session), start=1)
+        ]
     }
 
 
@@ -249,7 +266,9 @@ def get_latest_voice(user_id: int) -> Response:
     A voice message expires with the check-in window, so once a "day"
     (CHECK_IN_WINDOW_SECONDS) has passed the listener can no longer play it.
     """
-    object_name = latest_recent_object_name(settings, f"{user_id}/", VOICE_TTL_SECONDS)
+    object_name = latest_recent_object_name(
+        settings, [f"{user_id}/", f"{RESHARE_PREFIX}{user_id}/"], VOICE_TTL_SECONDS
+    )
     if object_name is None:
         raise HTTPException(status_code=404, detail="No current voice message")
 
@@ -297,12 +316,53 @@ def _photo_sender_from(object_name: str) -> int | None:
 @app.get("/photo/latest")
 def get_latest_photo(user_id: int) -> Response:
     """Stream the latest snap from `user_id`, within the snap viewing window."""
-    object_name = latest_recent_object_name(settings, f"photos/{user_id}/", PHOTO_TTL_SECONDS)
+    object_name = latest_recent_object_name(
+        settings, [f"photos/{user_id}/", f"{RESHARE_PREFIX}photos/{user_id}/"], PHOTO_TTL_SECONDS
+    )
     if object_name is None:
         raise HTTPException(status_code=404, detail="No current snap")
 
     data = download_audio(settings, object_name)
     return Response(content=data, media_type="image/jpeg")
+
+
+# ---------- RESHARE (re-deliver an existing memory) ----------
+
+
+@app.post("/reshare")
+def reshare_memory(user_id: int, object_name: str, session: Session = SessionDependency) -> dict:
+    """Re-deliver an existing memory to the partner.
+
+    Copies the stored object under the reshares/ prefix (so the partner's
+    "latest snap/clip" popup picks it up) and pushes a notification. It does
+    NOT create a new gallery entry and does NOT water the tree — the original
+    memory stays where it is on the board.
+    """
+    data = download_audio(settings, object_name)
+
+    is_photo = object_name.startswith("photos/")
+    stamp = f"{datetime.now(UTC):%Y%m%dT%H%M%S}-{uuid.uuid4().hex}"
+    if is_photo:
+        copy_name = f"{RESHARE_PREFIX}photos/{user_id}/{stamp}.jpg"
+        content_type = "image/jpeg"
+    else:
+        copy_name = f"{RESHARE_PREFIX}{user_id}/{stamp}.m4a"
+        content_type = "audio/mp4"
+    upload_audio(settings, data, copy_name, content_type=content_type)
+
+    sender_name = USER_NAMES.get(user_id, "Someone")
+    kind_label = "snap" if is_photo else "voice memo"
+    message_type = "PHOTO_MESSAGE" if is_photo else "VOICE_MESSAGE"
+    for linked_id in get_linked_users(session, user_id):
+        linked_user = session.get(User, linked_id)
+        if linked_user and linked_user.token:
+            send_notification(
+                linked_user.token,
+                f"💌 {sender_name} reshared a {kind_label} with you!",
+                message_type=message_type,
+            )
+
+    return {"ok": True, "object": copy_name}
 
 
 # ---------- MEMORIES (everything ever sent) ----------
@@ -318,9 +378,14 @@ def _memory_meta(object_name: str) -> tuple[str, str]:
 
 
 def _board_objects() -> list[tuple[str, datetime]]:
-    """Every memory-board object (voice + snaps), newest first, excluding thread media."""
+    """Every memory-board object (voice + snaps), newest first, excluding thread
+    media and reshared copies."""
     objects = sorted(list_objects(settings), key=lambda o: o[1], reverse=True)
-    return [(name, lm) for name, lm in objects if not name.startswith(THREAD_PREFIX)]
+    return [
+        (name, lm)
+        for name, lm in objects
+        if not name.startswith(THREAD_PREFIX) and not name.startswith(RESHARE_PREFIX)
+    ]
 
 
 @app.get("/memories")

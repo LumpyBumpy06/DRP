@@ -48,14 +48,21 @@ def upload_audio(
     )
 
 
-def latest_recent_object_name(settings: Settings, prefix: str, max_age_seconds: int) -> str | None:
-    """Newest object under `prefix`, but only if stored within `max_age_seconds`.
+def latest_recent_object_name(settings: Settings, prefix: str | list[str], max_age_seconds: int) -> str | None:
+    """Newest object under `prefix` (or any of several prefixes), but only if
+    stored within `max_age_seconds`.
 
     Returns None when nothing is there or the newest clip has expired, so callers
     can treat an old message as gone.
     """
     client = get_storage(settings)
-    objects = [o for o in client.list_objects(settings.minio_bucket, prefix=prefix, recursive=True) if o.object_name and o.last_modified]
+    prefixes = [prefix] if isinstance(prefix, str) else prefix
+    objects = [
+        o
+        for p in prefixes
+        for o in client.list_objects(settings.minio_bucket, prefix=p, recursive=True)
+        if o.object_name and o.last_modified
+    ]
     if not objects:
         return None
 

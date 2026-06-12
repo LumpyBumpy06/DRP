@@ -2,7 +2,8 @@ from datetime import UTC, datetime, timedelta
 
 from sqlmodel import Session, col, desc, select
 
-from app.models import EmergencyAlert, MemoryTag, OkayEvent, ThreadMessage, User, UserLink
+from app.models import EmergencyAlert, ForestTree, MemoryTag, OkayEvent, ThreadMessage, User, UserLink
+from app.services.tree import WEEK_SECONDS, compute_week_snapshot, week_start_of
 
 # One "day" in the current simulation. A check-in (or voice message) is only
 # considered current for this long.
@@ -94,12 +95,71 @@ def create_okay_event(session: Session, user_id: int) -> OkayEvent:
 
 
 def reset_tree(session: Session) -> int:
-    """Delete every check-in so the shared tree returns to its initial state."""
+    """Delete every check-in AND every frozen forest tree — a full restart."""
     events = list(session.exec(select(OkayEvent)).all())
     for event in events:
         session.delete(event)
+    for tree in session.exec(select(ForestTree)).all():
+        session.delete(tree)
     session.commit()
     return len(events)
+
+
+# ---------- FOREST (frozen weekly trees) ----------
+
+
+def get_forest_trees(session: Session) -> list[ForestTree]:
+    """Every frozen weekly tree, oldest first."""
+    return list(session.exec(select(ForestTree).order_by(col(ForestTree.week_start))).all())
+
+
+def freeze_elapsed_weeks(session: Session, now: datetime) -> None:
+    """Snapshot any elapsed weeks that aren't yet in the forest.
+
+    Idempotent and cheap: called on every /tree and /forest read, it looks at
+    weeks between the last frozen one (or the first watering) and the current
+    week, and stores one ForestTree per week that had at least one watering.
+    Once a row exists it is never touched again, so the forest only ever grows.
+    """
+    current_week = week_start_of(now.timestamp())
+
+    existing = get_forest_trees(session)
+    frozen_weeks = {t.week_start for t in existing}
+    next_index = max((t.week_index for t in existing), default=0) + 1
+
+    norman = get_okay_timestamps(session, 1)
+    sadie = get_okay_timestamps(session, 2)
+    combined = norman + sadie
+    if not combined:
+        return
+
+    def _epoch(ts: datetime) -> float:
+        return (ts.replace(tzinfo=UTC) if ts.tzinfo is None else ts).timestamp()
+
+    first_week = week_start_of(min(_epoch(t) for t in combined))
+    # Resume after the newest frozen week so we never re-evaluate old weeks.
+    if frozen_weeks:
+        first_week = max(first_week, max(frozen_weeks) + WEEK_SECONDS)
+
+    added = False
+    for week_start in range(first_week, current_week, WEEK_SECONDS):
+        if week_start in frozen_weeks:
+            continue
+        # Every elapsed week plants a tree — an idle week just plants a
+        # fully-neglected sapling rather than nothing.
+        snapshot = compute_week_snapshot(norman, sadie, week_start, CHECK_IN_WINDOW_SECONDS)
+        session.add(
+            ForestTree(
+                week_start=week_start,
+                week_index=next_index,
+                stage=snapshot["stage"],
+                death_level=snapshot["deathLevel"],
+            )
+        )
+        next_index += 1
+        added = True
+    if added:
+        session.commit()
 
 
 def get_latest_okay_event(session: Session, user_id: int) -> OkayEvent | None:

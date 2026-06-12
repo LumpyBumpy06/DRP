@@ -6,6 +6,7 @@ data class ForestResponse(
 
 data class ForestWeekResponse(
     val weekStart: Long = 0,
+    val weekIndex: Int = 0,
     val stage: Int = 0,
     val deathLevel: Float = 0f,
 )
