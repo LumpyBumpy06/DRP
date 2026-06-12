@@ -67,29 +67,33 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
+
+/** A smooth wave hill that starts and ends at the baseline with zero slope
+ * for seamless tiling. Closed down to [bottom]. */
+private fun smoothHill(x1: Float, baseY: Float, amp: Float, wavelength: Float, bottom: Float): Path =
+    Path().apply {
+        moveTo(0f, baseY)
+        val step = 10f
+        var x = 0f
+        while (x < x1) {
+            x = (x + step).coerceAtMost(x1)
+            val phase = x / wavelength
+            val y = baseY - amp * (0.5f - 0.5f * cos(2f * PI.toFloat() * phase))
+            lineTo(x, y)
+        }
+        lineTo(x1, bottom)
+        lineTo(0f, bottom)
+        close()
+    }
 
 /** Label from a week-start epoch (seconds). Includes the time so the short test
  * "weeks" (60s apart) stay visibly distinct. */
 private fun weekLabel(weekStart: Long): String =
     SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()).format(Date(weekStart * 1000))
-
-/** A row of soft rolling hills across [x0]..[x1], baseline [baseY], crests
- * rising [amp] above it every [wavelength]px. Closed down to [bottom]. */
-private fun rollingHill(x0: Float, x1: Float, baseY: Float, amp: Float, wavelength: Float, bottom: Float): Path =
-    Path().apply {
-        moveTo(x0, baseY)
-        var x = x0
-        while (x < x1) {
-            val nx = x + wavelength
-            quadraticBezierTo((x + nx) / 2f, baseY - amp, nx, baseY)
-            x = nx
-        }
-        lineTo(x1, bottom)
-        lineTo(x0, bottom)
-        close()
-    }
 
 /**
  * The shared forest as a Grove tab with a 2.5D parallax feel: drifting clouds,
@@ -162,30 +166,27 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                 }
             }
 
-            // Far Hills: Tiled for seamless join
+            // Far Hills: Truly seamless tiling
             val farParallax = 0.18f
-            val farSpacing = w * 2f
+            val farSpacing = w * 2.2f 
             val farOffset = (scrollPx * farParallax) % farSpacing
-            // Wavelength = spacing / N ensures a seamless join at the edge of the tile
-            val farWave = farSpacing / 4f 
             for (tile in -1..1) {
                 translate(left = tile * farSpacing - farOffset) {
                     drawPath(
-                        rollingHill(0f, farSpacing, h * 0.56f, h * 0.085f, farWave, h),
+                        smoothHill(farSpacing, h * 0.56f, h * 0.085f, farSpacing / 3f, h),
                         Grove.FoliageRest.copy(alpha = 0.32f),
                     )
                 }
             }
 
-            // Mid Hills: Tiled for seamless join
+            // Mid Hills: Truly seamless tiling
             val midParallax = 0.32f
-            val midSpacing = w * 2f
+            val midSpacing = w * 1.8f
             val midOffset = (scrollPx * midParallax) % midSpacing
-            val midWave = midSpacing / 5f
             for (tile in -1..1) {
                 translate(left = tile * midSpacing - midOffset) {
                     drawPath(
-                        rollingHill(0f, midSpacing, h * 0.65f, h * 0.07f, midWave, h),
+                        smoothHill(midSpacing, h * 0.65f, h * 0.07f, midSpacing / 2f, h),
                         Grove.Foliage2.copy(alpha = 0.22f),
                     )
                 }
@@ -219,12 +220,7 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
             LazyRow(
                 state = listState,
                 modifier = Modifier.fillMaxSize().graphicsLayer { clip = false },
-                contentPadding = PaddingValues(
-                    start = contentPadding.calculateStartPadding(LayoutDirection.Ltr) + 12.dp,
-                    end = contentPadding.calculateEndPadding(LayoutDirection.Ltr) + 12.dp,
-                    top = 116.dp,
-                    bottom = contentPadding.calculateBottomPadding() + 16.dp
-                ),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 136.dp, top = 116.dp),
                 horizontalArrangement = Arrangement.spacedBy(0.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
@@ -234,6 +230,7 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                     Column(
                         modifier = Modifier
                             .width(156.dp)
+                            .wrapContentWidth(unbounded = true)
                             .zIndex(if (far) 0f else 1f)
                             .graphicsLayer {
                                 // Lift the entire column (tree + labels) for far trees
@@ -247,7 +244,7 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .wrapContentWidth(unbounded = true) // Allow far tree branches to bleed outside 156dp
+                                .wrapContentWidth(unbounded = true) // Allow tree branches to bleed outside 156dp
                                 .graphicsLayer {
                                     // Scale ONLY the tree graphic
                                     val s = if (far) 0.66f else 0.94f
@@ -255,18 +252,26 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                                     scaleY = s
                                     alpha = if (far) 0.88f else 1f
                                     transformOrigin = TransformOrigin(0.5f, 1f)
-                                    clip = false // Ensure far tree branches aren't clipped by this box
+                                    clip = false // Ensure branches aren't clipped by this box
                                 },
                             contentAlignment = Alignment.BottomCenter,
                         ) {
                             // Forest snapshots are just the tree — no falling
                             // leaves and no birds/squirrel/oranges.
-                            WateringTree(
-                                stage = week.stage,
-                                deathLevel = week.deathLevel,
-                                showFallingLeaves = false,
-                                showWildlife = false,
-                            )
+                            // We wrap in remember to avoid redundant Lottie re-composition
+                            // while scrolling a long list.
+                            val stage = week.stage
+                            val deathLevel = week.deathLevel
+                            remember(stage, deathLevel) {
+                                @Composable {
+                                    WateringTree(
+                                        stage = stage,
+                                        deathLevel = deathLevel,
+                                        showFallingLeaves = false,
+                                        showWildlife = false,
+                                    )
+                                }
+                            }.invoke()
                         }
 
                         // Pulled up to sit close under the trunk (the tree box has

@@ -85,16 +85,21 @@ class ThreadsViewModel(
             loading = true
             repository.getThreads(selfId).onSuccess { items ->
                 summaries = items
-                // Decode anchored-memory thumbnails for the list.
-                items.filter { it.memoryType == "photo" }.forEach { summary ->
-                    repository.getMedia(summary.anchor).onSuccess { bytes ->
-                        val bmp = withContext(Dispatchers.Default) {
-                            decodeSampledBitmap(bytes, 300, 300)?.asImageBitmap()
-                        }
-                        if (bmp != null) {
-                            summaries = summaries.map {
-                                if (it.anchor == summary.anchor) it.copy(image = bmp) else it
+                
+                // Decode anchored-memory thumbnails in parallel batches of 5
+                items.filter { it.memoryType == "photo" }.chunked(5).forEach { chunk ->
+                    val bitmaps = chunk.mapNotNull { summary ->
+                        repository.getMedia(summary.anchor).getOrNull()?.let { bytes ->
+                            val bmp = withContext(Dispatchers.Default) {
+                                decodeSampledBitmap(bytes, 300, 300)?.asImageBitmap()
                             }
+                            if (bmp != null) summary.anchor to bmp else null
+                        }
+                    }.toMap()
+
+                    if (bitmaps.isNotEmpty()) {
+                        summaries = summaries.map {
+                            bitmaps[it.anchor]?.let { bmp -> it.copy(image = bmp) } ?: it
                         }
                     }
                 }
@@ -136,14 +141,21 @@ class ThreadsViewModel(
                 // Opening (and watching) the thread marks all its partner messages
                 // as read, so the badge clears and only NEW arrivals count next time.
                 markRead(anchor, items.count { it.senderId != selfId })
-                // Decode photo-message thumbnails in the background.
-                items.filter { it.kind == "photo" && it.mediaObject != null }.forEach { msg ->
-                    repository.getMedia(msg.mediaObject!!).onSuccess { bytes ->
-                        val bmp = withContext(Dispatchers.Default) {
-                            decodeSampledBitmap(bytes, 400, 400)?.asImageBitmap()
+                
+                // Decode photo-message thumbnails in parallel batches of 5
+                items.filter { it.kind == "photo" && it.mediaObject != null }.chunked(5).forEach { chunk ->
+                    val bitmaps = chunk.mapNotNull { msg ->
+                        repository.getMedia(msg.mediaObject!!).getOrNull()?.let { bytes ->
+                            val bmp = withContext(Dispatchers.Default) {
+                                decodeSampledBitmap(bytes, 400, 400)?.asImageBitmap()
+                            }
+                            if (bmp != null) msg.id to bmp else null
                         }
-                        if (bmp != null) {
-                            messages = messages.map { if (it.id == msg.id) it.copy(image = bmp) else it }
+                    }.toMap()
+
+                    if (bitmaps.isNotEmpty()) {
+                        messages = messages.map {
+                            bitmaps[it.id]?.let { bmp -> it.copy(image = bmp) } ?: it
                         }
                     }
                 }

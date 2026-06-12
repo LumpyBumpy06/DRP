@@ -103,9 +103,9 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
     }
 
     Box(modifier = Modifier.fillMaxSize().groveBackground()) {
-        // imePadding is NOT used here because adjustResize in Manifest handles
-        // the resizing of the window. Adding it here would cause double-padding.
-        Column(modifier = Modifier.fillMaxSize()) {
+        // imePadding lifts the entire conversation (including the composer)
+        // above the keyboard.
+        Column(modifier = Modifier.fillMaxSize().imePadding()) {
             // ---- header ----
             Row(
                 modifier = Modifier

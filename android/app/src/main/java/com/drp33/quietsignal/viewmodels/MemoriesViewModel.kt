@@ -38,16 +38,21 @@ class MemoriesViewModel(
                     memories = items
                     loading = false
                     loadTags()
-                    // Decode each snap thumbnail in the background, filling tiles in as they arrive.
-                    items.filter { it.type == "photo" }.forEach { item ->
-                        repository.getMedia(item.objectName).onSuccess { bytes ->
-                            val bitmap = withContext(Dispatchers.Default) {
-                                decodeSampledBitmap(bytes, 400, 400)?.asImageBitmap()
-                            }
-                            if (bitmap != null) {
-                                memories = memories.map {
-                                    if (it.objectName == item.objectName) it.copy(image = bitmap) else it
+                    // Decode snapshots in parallel batches of 5 to avoid network/CPU saturation
+                    // while still providing a responsive "filling in" effect.
+                    items.filter { it.type == "photo" }.chunked(5).forEach { chunk ->
+                        val bitmaps = chunk.mapNotNull { item ->
+                            repository.getMedia(item.objectName).getOrNull()?.let { bytes ->
+                                val bmp = withContext(Dispatchers.Default) {
+                                    decodeSampledBitmap(bytes, 400, 400)?.asImageBitmap()
                                 }
+                                if (bmp != null) item.objectName to bmp else null
+                            }
+                        }.toMap()
+
+                        if (bitmaps.isNotEmpty()) {
+                            memories = memories.map {
+                                bitmaps[it.objectName]?.let { bmp -> it.copy(image = bmp) } ?: it
                             }
                         }
                     }

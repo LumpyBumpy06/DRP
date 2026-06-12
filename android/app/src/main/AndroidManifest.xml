@@ -29,7 +29,6 @@
             android:exported="true"
             android:label="@string/app_name"
             android:screenOrientation="portrait"
-            android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.QuietSignal"
             tools:ignore="LockedOrientationActivity">
             <intent-filter>
