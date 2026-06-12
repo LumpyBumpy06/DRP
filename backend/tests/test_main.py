@@ -4,7 +4,7 @@ import app.main as main_module
 from app.crud import get_linking_users
 from app.main import app
 from app.models import User, UserLink
-from app.services.tree import compute_tree_state
+from app.services.tree import DEATH_WINDOWS, compute_tree_state
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
 
@@ -163,6 +163,9 @@ def test_tree_grows_with_total_waterings_and_wilts() -> None:
     assert grown["totalWaterings"] == 3
     assert grown["deathLevel"] < 0.1
 
-    # Neglected for 6 day-windows (60s) -> fully wilted.
-    wilted = compute_tree_state([ago(60)], [], now, day)
+    # Neglected for the whole death window -> fully wilted; half the window -> half.
+    full_neglect = day * DEATH_WINDOWS
+    wilted = compute_tree_state([ago(full_neglect)], [], now, day)
     assert wilted["deathLevel"] == 1.0
+    half = compute_tree_state([ago(full_neglect // 2)], [], now, day)
+    assert abs(half["deathLevel"] - 0.5) < 0.01
