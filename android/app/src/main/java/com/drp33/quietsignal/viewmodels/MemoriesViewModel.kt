@@ -32,47 +32,21 @@ class MemoriesViewModel(
     var allTags by mutableStateOf<List<String>>(emptyList())
         private set
 
-    fun load() {
+    private val fetching = mutableSetOf<String>()
+
+    fun load(onlyMetadata: Boolean = false) {
+        // We still allow a refresh if not already loading, but we'll be smart about the images.
         if (loading) return
         viewModelScope.launch {
             loading = true
             repository.getMemories()
                 .onSuccess { items ->
-                    memories = items
+                    // Immediately restore any bitmaps we already have in the session cache.
+                    memories = items.map { 
+                        it.copy(image = MediaCache.get(it.objectName))
+                    }
                     loading = false
                     loadTags()
-                    // Decode snapshots in parallel batches of 5 to avoid network/CPU saturation
-                    // while still providing a responsive "filling in" effect.
-                    val allNewBitmaps = mutableMapOf<String, ImageBitmap>()
-                    items.filter { it.type == "photo" }.chunked(5).forEach { chunk ->
-                        val bitmaps = chunk.mapNotNull { item ->
-                            // 1. Check bitmap cache
-                            MediaCache.get(item.objectName)?.let { return@mapNotNull item.objectName to it }
-
-                            // 2. Check bytes cache, or fetch from network
-                            val bytes = MediaCache.getBytes(item.objectName)
-                                ?: repository.getMedia(item.objectName).getOrNull()?.also {
-                                    MediaCache.putBytes(item.objectName, it)
-                                }
-
-                            if (bytes != null) {
-                                val bmp = withContext(Dispatchers.Default) {
-                                    decodeSampledBitmap(bytes, 400, 400)?.asImageBitmap()
-                                }
-                                if (bmp != null) {
-                                    MediaCache.put(item.objectName, bmp)
-                                    item.objectName to bmp
-                                } else null
-                            } else null
-                        }.toMap()
-
-                        if (bitmaps.isNotEmpty()) {
-                            allNewBitmaps.putAll(bitmaps)
-                            memories = memories.map {
-                                allNewBitmaps[it.objectName]?.let { bmp -> it.copy(image = bmp) } ?: it
-                            }
-                        }
-                    }
                 }
                 .onFailure { loading = false }
         }
@@ -130,13 +104,57 @@ class MemoriesViewModel(
         }
     }
 
-    /** Fetch a memory's raw bytes (e.g. to play a voice memo). */
+    /** Fetch a memory's raw bytes (e.g. to play a voice memo) or decode a thumbnail. */
     fun loadMediaBytes(objectName: String, onBytes: (ByteArray) -> Unit) {
         MediaCache.getBytes(objectName)?.let { onBytes(it); return }
+        
+        if (fetching.contains(objectName)) return
+        fetching.add(objectName)
+
         viewModelScope.launch {
-            repository.getMedia(objectName).onSuccess { bytes ->
-                MediaCache.putBytes(objectName, bytes)
-                onBytes(bytes)
+            try {
+                repository.getMedia(objectName).onSuccess { bytes ->
+                    MediaCache.putBytes(objectName, bytes)
+                    onBytes(bytes)
+                }
+            } finally {
+                fetching.remove(objectName)
+            }
+        }
+    }
+
+    /** Specifically ensures a photo memory has its thumbnail bitmap loaded. */
+    fun loadThumbnail(item: MemoryItem) {
+        if (item.type != "photo" || item.image != null) return
+        
+        // Check session cache first (bitmaps or raw bytes).
+        val cachedBmp = MediaCache.get(item.objectName)
+        if (cachedBmp != null) {
+            memories = memories.map { if (it.objectName == item.objectName) it.copy(image = cachedBmp) else it }
+            return
+        }
+
+        if (fetching.contains(item.objectName)) return
+        fetching.add(item.objectName)
+
+        viewModelScope.launch {
+            try {
+                val bytes = MediaCache.getBytes(item.objectName)
+                    ?: repository.getMedia(item.objectName).getOrNull()?.also {
+                        MediaCache.putBytes(item.objectName, it)
+                    }
+
+                if (bytes != null) {
+                    val bmp = withContext(Dispatchers.Default) {
+                        decodeSampledBitmap(bytes, 400, 400)?.asImageBitmap()
+                    }
+                    if (bmp != null) {
+                        MediaCache.put(item.objectName, bmp)
+                        memories = memories.map { if (it.objectName == item.objectName) it.copy(image = bmp) else it }
+                    }
+                }
+            } finally {
+                fetching.remove(item.objectName)
             }
         }
     }

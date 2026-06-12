@@ -69,7 +69,7 @@ fun ElderlyScreen(
     val mood = treeMoodOf(tree.deathLevel)
 
     LaunchedEffect(Unit) {
-        memoriesVm.load()
+        memoriesVm.load(onlyMetadata = true)
         threadsVm.loadThreads()
     }
     val weekStart = (System.currentTimeMillis() / 1000 / WEEK_SECONDS) * WEEK_SECONDS

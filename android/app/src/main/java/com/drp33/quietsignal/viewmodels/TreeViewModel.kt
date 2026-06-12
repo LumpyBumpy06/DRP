@@ -24,11 +24,10 @@ class TreeViewModel(
         private set
 
     init {
-        refresh()
         viewModelScope.launch {
             while (true) {
                 refresh()
-                delay(3000)
+                delay(5000)
             }
         }
     }

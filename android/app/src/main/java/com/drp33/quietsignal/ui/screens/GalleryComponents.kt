@@ -381,6 +381,10 @@ private fun PhotoTile(item: MemoryItem, vm: MemoriesViewModel, onOpen: () -> Uni
     val ratio = if (img != null && img.height > 0) (img.width.toFloat() / img.height).coerceIn(0.62f, 1.45f) else 1f
     val others = item.tags.filterNot { it.equals(FAVOURITE_TAG, ignoreCase = true) }
 
+    LaunchedEffect(item.objectName) {
+        vm.loadThumbnail(item)
+    }
+
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Grove.Surface2),
