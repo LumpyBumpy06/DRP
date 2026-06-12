@@ -65,6 +65,7 @@ import com.drp33.quietsignal.ui.theme.Newsreader
 import com.drp33.quietsignal.ui.theme.NunitoSans
 import com.drp33.quietsignal.util.AudioPlayer
 import com.drp33.quietsignal.util.AudioRecorder
+import com.drp33.quietsignal.util.decodeSampledBitmap
 import com.drp33.quietsignal.util.vibrateDoubleTap
 import com.drp33.quietsignal.util.vibrateTick
 import com.drp33.quietsignal.viewmodels.ThreadsViewModel
@@ -85,7 +86,7 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
     LaunchedEffect(anchor) {
         if (vm.activeType == "photo") {
             vm.loadMediaBytes(anchor) { bytes ->
-                anchorImage = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                anchorImage = decodeSampledBitmap(bytes, 600, 600)?.asImageBitmap()
             }
         }
     }

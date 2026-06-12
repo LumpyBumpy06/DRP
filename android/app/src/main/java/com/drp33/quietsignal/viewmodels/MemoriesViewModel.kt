@@ -1,6 +1,5 @@
 package com.drp33.quietsignal.viewmodels
 
-import android.graphics.BitmapFactory
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -10,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.drp33.quietsignal.data.repo.CheckInRepository
 import com.drp33.quietsignal.model.ForestWeek
 import com.drp33.quietsignal.model.MemoryItem
+import com.drp33.quietsignal.util.decodeSampledBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,7 +42,7 @@ class MemoriesViewModel(
                     items.filter { it.type == "photo" }.forEach { item ->
                         repository.getMedia(item.objectName).onSuccess { bytes ->
                             val bitmap = withContext(Dispatchers.Default) {
-                                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                                decodeSampledBitmap(bytes, 400, 400)?.asImageBitmap()
                             }
                             if (bitmap != null) {
                                 memories = memories.map {

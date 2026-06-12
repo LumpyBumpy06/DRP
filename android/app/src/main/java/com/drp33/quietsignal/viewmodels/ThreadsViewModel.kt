@@ -1,6 +1,5 @@
 package com.drp33.quietsignal.viewmodels
 
-import android.graphics.BitmapFactory
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -13,6 +12,7 @@ import com.drp33.quietsignal.data.repo.CheckInRepository
 import com.drp33.quietsignal.model.PromptMemory
 import com.drp33.quietsignal.model.ThreadMessage
 import com.drp33.quietsignal.model.ThreadSummary
+import com.drp33.quietsignal.util.decodeSampledBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -89,7 +89,7 @@ class ThreadsViewModel(
                 items.filter { it.memoryType == "photo" }.forEach { summary ->
                     repository.getMedia(summary.anchor).onSuccess { bytes ->
                         val bmp = withContext(Dispatchers.Default) {
-                            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                            decodeSampledBitmap(bytes, 300, 300)?.asImageBitmap()
                         }
                         if (bmp != null) {
                             summaries = summaries.map {
@@ -140,7 +140,7 @@ class ThreadsViewModel(
                 items.filter { it.kind == "photo" && it.mediaObject != null }.forEach { msg ->
                     repository.getMedia(msg.mediaObject!!).onSuccess { bytes ->
                         val bmp = withContext(Dispatchers.Default) {
-                            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                            decodeSampledBitmap(bytes, 400, 400)?.asImageBitmap()
                         }
                         if (bmp != null) {
                             messages = messages.map { if (it.id == msg.id) it.copy(image = bmp) else it }
