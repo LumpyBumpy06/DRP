@@ -66,7 +66,7 @@ import java.util.Locale
  *  SHELL  —  "This week" / "Threads" / "Forest" tabs + nav bar  *
  * ============================================================= */
 
-enum class GroveTab { Week, Threads, Forest }
+enum class GroveTab { Week, Threads, Forest, Gallery }
 
 /** Warm Grove background gradient shared by all tabs. */
 fun Modifier.groveBackground(): Modifier = this.background(
@@ -93,7 +93,6 @@ fun MainShell(
     week: @Composable (contentPadding: PaddingValues) -> Unit,
 ) {
     var tab by rememberSaveable { mutableStateOf(GroveTab.Week) }
-    var showGallery by rememberSaveable { mutableStateOf(false) }
     // Clears the floating tab bar (which itself sits above the system nav bar).
     val pad = PaddingValues(bottom = 150.dp)
     val unread = threadsVm.unreadTotal
@@ -103,27 +102,21 @@ fun MainShell(
             GroveTab.Week -> week(pad)
             GroveTab.Threads -> ThreadsPane(vm = threadsVm, contentPadding = pad)
             GroveTab.Forest -> ForestPane(vm = forestVm, contentPadding = pad)
+            GroveTab.Gallery -> MemoriesScreen(
+                vm = forestVm,
+                currentUserId = threadsVm.selfId,
+                contentPadding = pad,
+                onStartThread = { item, caption ->
+                    threadsVm.openThread(item.objectName, item.type, item.sender, title = caption)
+                },
+            )
         }
         GroveBottomNav(
             tab = tab,
             unread = unread,
             onSelect = { tab = it },
-            onGallery = { showGallery = true },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
-
-        // The shared "Our memories" gallery — a full-screen layer over the tabs.
-        if (showGallery) {
-            MemoriesScreen(
-                vm = forestVm,
-                currentUserId = threadsVm.selfId,
-                onClose = { showGallery = false },
-                onStartThread = { item, caption ->
-                    threadsVm.openThread(item.objectName, item.type, item.sender, title = caption)
-                    showGallery = false
-                },
-            )
-        }
 
         // The conversation view sits above the tabs, gallery and nav bar.
         if (threadsVm.activeAnchor != null) {
@@ -176,7 +169,7 @@ private fun WantsToTalkAlert(onAcknowledge: () -> Unit) {
 }
 
 @Composable
-fun GroveBottomNav(tab: GroveTab, unread: Int, onSelect: (GroveTab) -> Unit, onGallery: () -> Unit, modifier: Modifier = Modifier) {
+fun GroveBottomNav(tab: GroveTab, unread: Int, onSelect: (GroveTab) -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .navigationBarsPadding()
@@ -193,7 +186,7 @@ fun GroveBottomNav(tab: GroveTab, unread: Int, onSelect: (GroveTab) -> Unit, onG
         NavItem("This week", "🌳", tab == GroveTab.Week, Modifier.weight(1f)) { onSelect(GroveTab.Week) }
         NavItem("Threads", "💬", tab == GroveTab.Threads, Modifier.weight(1f), badge = unread) { onSelect(GroveTab.Threads) }
         NavItem("Forest", "🌲", tab == GroveTab.Forest, Modifier.weight(1f)) { onSelect(GroveTab.Forest) }
-        NavItem("Gallery", "🖼", false, Modifier.weight(1f)) { onGallery() }
+        NavItem("Gallery", "🖼", tab == GroveTab.Gallery, Modifier.weight(1f)) { onSelect(GroveTab.Gallery) }
     }
 }
 

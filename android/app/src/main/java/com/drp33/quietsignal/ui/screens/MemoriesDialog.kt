@@ -3,13 +3,13 @@ package com.drp33.quietsignal.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,42 +26,45 @@ import com.drp33.quietsignal.ui.theme.NunitoSans
 import com.drp33.quietsignal.viewmodels.MemoriesViewModel
 
 /**
- * "Our memories" — the shared board of every photo and voice note, shown as a
- * full-screen Grove surface (not a popup): a warm gradient backdrop, a serif
- * title with a back chevron, a segmented All · Photos · Voice filter, tag-filter
- * chips, a quilted photo gallery and slim voice bars. Tap a moment to view it,
- * tag it, reshare it, or start a chat.
+ * "Our memories" — the shared board of every photo and voice note, shown as the
+ * Gallery tab inside [MainShell] (the bottom nav stays visible, like the other
+ * tabs): a warm gradient backdrop, a serif title, a segmented All · Photos ·
+ * Voice filter, tag-filter chips, a quilted photo gallery and slim voice bars.
+ * Tap a moment to view it, tag it, reshare it, or start a chat.
  */
 @Composable
 fun MemoriesScreen(
     vm: MemoriesViewModel,
     currentUserId: Int,
-    onClose: () -> Unit,
+    contentPadding: PaddingValues = PaddingValues(),
     onStartThread: ((MemoryItem, String) -> Unit)? = null,
 ) {
     LaunchedEffect(Unit) { vm.load() }
 
     Box(modifier = Modifier.fillMaxSize().groveBackground()) {
-        Column(modifier = Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 20.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(contentPadding)
+                .padding(horizontal = 20.dp),
+        ) {
             Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                GroveCircleButton(glyph = "‹", contentDescription = "Back", onClick = onClose)
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Our memories",
-                        fontFamily = Newsreader,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 27.sp,
-                        color = Grove.Ink,
-                    )
-                    Text(
-                        text = "Every moment, growing together.",
-                        fontFamily = NunitoSans,
-                        fontSize = 13.sp,
-                        color = Grove.InkSoft,
-                    )
-                }
+            // Header matching the other tabs (Threads/Forest) — no back button.
+            Column(modifier = Modifier.fillMaxWidth().padding(start = 2.dp)) {
+                Text(
+                    text = "Our memories",
+                    fontFamily = Newsreader,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 27.sp,
+                    color = Grove.Ink,
+                )
+                Text(
+                    text = "Every moment, growing together.",
+                    fontFamily = NunitoSans,
+                    fontSize = 13.sp,
+                    color = Grove.InkSoft,
+                )
             }
 
             Spacer(Modifier.height(16.dp))
