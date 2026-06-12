@@ -17,7 +17,10 @@ from datetime import UTC, datetime
 GROWTH_THRESHOLDS = [0, 1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 66]
 
 # No watering for this many "day" windows => fully dead (deathLevel == 1.0).
-DEATH_WINDOWS = 12
+# TEST VALUE: 6 (× the 10s "day" = 60s) so the tree visibly wilts well within the
+# 120s week — leaving time for the dying state and the "remember this?" prompt to
+# show before the week resets it.
+DEATH_WINDOWS = 6
 
 # Length of one "forest" week. Each elapsed week becomes a frozen tree.
 # TEST VALUE: 60s so new trees appear ~every minute (matches the compressed
