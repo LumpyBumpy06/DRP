@@ -22,11 +22,13 @@ from app.crud import (
     get_okay_timestamps,
     get_tags_for,
     get_tags_map,
+    get_thread_captions,
     get_thread_messages,
     is_okay_within_6h,
     raise_emergency,
     remove_tag_for,
     set_tags_for,
+    set_thread_caption,
     upsert_user_token,
 )
 from app.crud import (
@@ -37,7 +39,7 @@ from app.models import ThreadMessage, User
 from app.services.firebase import init_firebase
 from app.services.notifications import send_notification
 from app.services.storage import download_audio, latest_recent_object_name, list_objects, upload_audio
-from app.services.tree import compute_current_week_state, compute_tree_state
+from app.services.tree import WEEK_SECONDS, compute_current_week_state, compute_tree_state
 from app.settings import get_settings
 
 app = FastAPI()
@@ -366,8 +368,25 @@ def reshare_memory(user_id: int, object_name: str, session: Session = SessionDep
 # ---------- MEMORIES (everything ever sent) ----------
 
 
+# Thread-anchor prefix for prompt conversations. Each prompt gets its own
+# anchor ("prompt/<day-index>/<object_name>") so every new prompt starts a
+# FRESH chat, even when the same memory is resurfaced again later.
+PROMPT_ANCHOR_PREFIX = "prompt/"
+
+
+def _anchor_media_object(anchor: str) -> str:
+    """The storage object behind a thread anchor (strips the prompt wrapper)."""
+    if anchor.startswith(PROMPT_ANCHOR_PREFIX):
+        parts = anchor.split("/", 2)  # "prompt/<id>/<object_name>"
+        if len(parts) == 3:
+            return parts[2]
+    return anchor
+
+
 def _memory_meta(object_name: str) -> tuple[str, str]:
-    """(kind, sender display-name) for a stored object, mirroring /memories."""
+    """(kind, sender display-name) for a stored object, mirroring /memories.
+    Accepts thread anchors too (prompt anchors resolve to their memory)."""
+    object_name = _anchor_media_object(object_name)
     if object_name.startswith("photos/"):
         sender_id = _photo_sender_from(object_name)
         return "photo", (USER_NAMES.get(sender_id, "Someone") if sender_id is not None else "Someone")
@@ -491,12 +510,23 @@ def get_threads(user_id: int, session: Session = SessionDependency) -> dict:
     `incoming` counts messages from the partner, a soft unread hint for the
     badge (there are no read receipts in this demo).
     """
+    captions = get_thread_captions(session)
     summaries: dict[str, dict] = {}
     for message in get_all_thread_messages(session):
         kind, sender = _memory_meta(message.anchor)
         summary = summaries.setdefault(
             message.anchor,
-            {"anchor": message.anchor, "memoryType": kind, "memorySender": sender, "count": 0, "incoming": 0},
+            {
+                "anchor": message.anchor,
+                "memoryType": kind,
+                "memorySender": sender,
+                # The storage object behind the anchor (for thumbnails/playback).
+                "memoryObject": _anchor_media_object(message.anchor),
+                "isPrompt": message.anchor.startswith(PROMPT_ANCHOR_PREFIX),
+                "caption": captions.get(message.anchor, ""),
+                "count": 0,
+                "incoming": 0,
+            },
         )
         summary["count"] += 1
         if message.sender_id != user_id:
@@ -516,6 +546,13 @@ def get_threads(user_id: int, session: Session = SessionDependency) -> dict:
 def get_thread(anchor: str, session: Session = SessionDependency) -> dict:
     """Every message in one conversation, oldest first."""
     return {"messages": [_message_dict(m) for m in get_thread_messages(session, anchor)]}
+
+
+@app.post("/thread/caption")
+def post_thread_caption(anchor: str, caption: str, session: Session = SessionDependency) -> dict:
+    """Persist the user-given title of a conversation (shared, survives restarts)."""
+    set_thread_caption(session, anchor, caption)
+    return {"ok": True}
 
 
 @app.post("/thread/text")
@@ -576,9 +613,11 @@ def _notify_thread(session: Session, sender_id: int, glyph: str) -> None:
 
 @app.get("/prompt")
 def get_prompt() -> dict:
-    """Pick one memory to gently resurface — deterministic per day so BOTH
-    partners are offered the same one ("sends to both"). The client decides
-    whether to show it (only when prompts are on and the tree is quiet)."""
+    """Pick one memory to gently resurface — deterministic per "week"
+    (WEEK_SECONDS, the same window as the forest) so BOTH partners are offered
+    the same one ("sends to both"), and a NEW prompt (with its own fresh chat)
+    arrives each week. The client decides whether to show it (only when prompts
+    are on and the tree is quiet)."""
     try:
         objects = _board_objects()
     except Exception:
@@ -588,10 +627,10 @@ def get_prompt() -> dict:
     if not objects:
         return {"prompt": None}
 
-    # Resurface older moments: drop the few most-recent, then pick stably by day.
+    # Resurface older moments: drop the few most-recent, then pick stably per week.
     pool = objects[3:] or objects
-    day_index = int(datetime.now(UTC).timestamp() // 86400)
-    object_name, last_modified = pool[day_index % len(pool)]
+    prompt_index = int(datetime.now(UTC).timestamp() // WEEK_SECONDS)
+    object_name, last_modified = pool[prompt_index % len(pool)]
     kind, sender = _memory_meta(object_name)
     return {
         "prompt": {
@@ -599,5 +638,8 @@ def get_prompt() -> dict:
             "type": kind,
             "sender": sender,
             "epoch": int(last_modified.timestamp()),
+            # A per-prompt thread anchor: replies to today's prompt live in their
+            # own chat, separate from yesterday's (and from the memory's own thread).
+            "threadAnchor": f"{PROMPT_ANCHOR_PREFIX}{prompt_index}/{object_name}",
         }
     }

@@ -153,6 +153,9 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
                 anchor = it.anchor,
                 memoryType = it.memoryType,
                 memorySender = it.memorySender,
+                memoryObject = it.memoryObject.ifBlank { it.anchor },
+                isPrompt = it.isPrompt,
+                caption = it.caption,
                 count = it.count,
                 incoming = it.incoming,
                 lastKind = it.lastKind,
@@ -162,6 +165,10 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
                 lastEpoch = it.lastEpoch,
             )
         }
+    }
+
+    override suspend fun setThreadCaption(anchor: String, caption: String): Result<Unit> = runCatching {
+        api.postThreadCaption(anchor, caption)
     }
 
     override suspend fun getThread(anchor: String): Result<List<ThreadMessage>> = runCatching {
@@ -196,7 +203,13 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
 
     override suspend fun getPrompt(): Result<PromptMemory?> = runCatching {
         api.getPrompt().prompt?.let {
-            PromptMemory(objectName = it.objectName, type = it.type, sender = it.sender, epoch = it.epoch)
+            PromptMemory(
+                objectName = it.objectName,
+                type = it.type,
+                sender = it.sender,
+                epoch = it.epoch,
+                threadAnchor = it.threadAnchor.ifBlank { it.objectName },
+            )
         }
     }
 }

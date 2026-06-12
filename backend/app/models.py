@@ -62,6 +62,18 @@ class MemoryTag(SQLModel, table=True):
 # ---------- THREADS (conversations anchored to a memory) ----------
 
 
+class ThreadCaption(SQLModel, table=True):
+    """The user-given title of a conversation, keyed by its anchor.
+
+    Set when a thread is started from the gallery ("Start a conversation"
+    asks for a caption). Persisted so the title survives app restarts and is
+    shared by both partners.
+    """
+
+    anchor: str = Field(primary_key=True)
+    caption: str = ""
+
+
 class ThreadMessage(SQLModel, table=True):
     """One message inside a conversation that hangs off a memory.
 

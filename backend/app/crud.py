@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlmodel import Session, col, desc, select
 
-from app.models import EmergencyAlert, ForestTree, MemoryTag, OkayEvent, ThreadMessage, User, UserLink
+from app.models import EmergencyAlert, ForestTree, MemoryTag, OkayEvent, ThreadCaption, ThreadMessage, User, UserLink
 from app.services.tree import WEEK_SECONDS, compute_week_snapshot, week_start_of
 
 # One "day" in the current simulation. A check-in (or voice message) is only
@@ -216,6 +216,23 @@ def get_all_thread_messages(session: Session) -> list[ThreadMessage]:
     """Every thread message across all conversations, oldest first (for summaries)."""
     stmt = select(ThreadMessage).order_by(col(ThreadMessage.created_at))
     return list(session.exec(stmt).all())
+
+
+def set_thread_caption(session: Session, anchor: str, caption: str) -> None:
+    """Set (or update) the user-given title of a conversation."""
+    row = session.get(ThreadCaption, anchor) or ThreadCaption(anchor=anchor)
+    row.caption = caption.strip()
+    session.add(row)
+    session.commit()
+
+
+def get_thread_captions(session: Session) -> dict[str, str]:
+    """{anchor: caption} for every titled conversation."""
+    return {
+        row.anchor: row.caption
+        for row in session.exec(select(ThreadCaption)).all()
+        if row.caption
+    }
 
 
 # ---------- TAGS (labels shared across both partners) ----------

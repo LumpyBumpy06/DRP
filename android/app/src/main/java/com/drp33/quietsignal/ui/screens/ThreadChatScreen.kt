@@ -88,11 +88,15 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
     val anchor = vm.activeAnchor ?: return
     val selfId = vm.selfId
 
+    // The storage object behind the anchor — prompt anchors wrap the memory's
+    // object name, so media must be fetched through this, not the raw anchor.
+    val anchorMedia = vm.activeMediaObject ?: anchor
+
     // Decode the anchored memory's image (photo memories only) for the header + pin.
     var anchorImage by remember(anchor) { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(anchor) {
         if (vm.activeType == "photo") {
-            vm.loadMediaBytes(anchor) { bytes ->
+            vm.loadMediaBytes(anchorMedia) { bytes ->
                 anchorImage = decodeSampledBitmap(bytes, 600, 600)?.asImageBitmap()
             }
         }
@@ -115,7 +119,7 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
             anchorPlayer.pause()
             anchorPlaying = false
         } else {
-            vm.loadMediaBytes(anchor) { bytes ->
+            vm.loadMediaBytes(anchorMedia) { bytes ->
                 anchorPlayer.play(bytes) { anchorPlaying = false }
                 anchorPlaying = true
             }
@@ -179,7 +183,7 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
                             image = anchorImage,
                             playing = anchorPlaying,
                             onTap = {
-                                if (vm.activeType == "photo") openImage(anchor) else toggleAnchorAudio()
+                                if (vm.activeType == "photo") openImage(anchorMedia) else toggleAnchorAudio()
                             },
                         )
                         Spacer(Modifier.height(6.dp))

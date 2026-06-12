@@ -71,8 +71,11 @@ fun ThreadsPane(vm: ThreadsViewModel, contentPadding: PaddingValues = PaddingVal
 
         val prompt = vm.prompt
         val showPrompt = promptsEnabled && prompt != null
+        // The pinned row IS the current prompt's chat — hide its duplicate from
+        // the list below. Older prompts each had their own anchor, so their
+        // chats stay visible as (prompt-styled) rows that age down the list.
         val displayedSummaries = if (showPrompt) {
-            vm.summaries.filter { it.anchor != prompt.objectName }
+            vm.summaries.filter { it.anchor != prompt.threadAnchor }
         } else {
             vm.summaries
         }
@@ -84,7 +87,7 @@ fun ThreadsPane(vm: ThreadsViewModel, contentPadding: PaddingValues = PaddingVal
         ) {
             if (showPrompt) {
                 item {
-                    val summary = vm.summaries.find { it.anchor == prompt.objectName }
+                    val summary = vm.summaries.find { it.anchor == prompt.threadAnchor }
                     val unreadCount = summary?.let { vm.unreadFor(it) } ?: 0
 
                     val promptSubtitle = if (summary != null) {
@@ -103,7 +106,9 @@ fun ThreadsPane(vm: ThreadsViewModel, contentPadding: PaddingValues = PaddingVal
                         subtitle = promptSubtitle,
                         unread = unreadCount,
                     ) {
-                        vm.openThread(prompt.objectName, prompt.type, prompt.sender, isPrompt = true)
+                        // Each prompt has its OWN chat anchor — a fresh, empty
+                        // conversation per prompt, never reusing an old one.
+                        vm.openThread(prompt.threadAnchor, prompt.type, prompt.sender, isPrompt = true)
                     }
                 }
             }
@@ -113,8 +118,11 @@ fun ThreadsPane(vm: ThreadsViewModel, contentPadding: PaddingValues = PaddingVal
             }
 
             items(displayedSummaries, key = { it.anchor }) { summary ->
-                ThreadRow(summary = summary, selfId = vm.selfId, unread = vm.unreadFor(summary), title = vm.threadTitle(summary.anchor, summary.memorySender, summary.memoryType), onClick = {
-                    vm.openThread(summary.anchor, summary.memoryType, summary.memorySender)
+                val title =
+                    if (summary.isPrompt) "A memory worth revisiting"
+                    else vm.threadTitle(summary.anchor, summary.memorySender, summary.memoryType)
+                ThreadRow(summary = summary, selfId = vm.selfId, unread = vm.unreadFor(summary), title = title, onClick = {
+                    vm.openThread(summary.anchor, summary.memoryType, summary.memorySender, isPrompt = summary.isPrompt)
                 })
             }
         }
@@ -152,12 +160,19 @@ private fun PromptThreadRow(subtitle: String, unread: Int, onClick: () -> Unit) 
 
 @Composable
 private fun ThreadRow(summary: ThreadSummary, selfId: Int, unread: Int, title: String, onClick: () -> Unit) {
+    // Prompt conversations keep their warm accent look even after they've aged
+    // down into the regular list.
+    val rowBackground = if (summary.isPrompt) Grove.Accent.copy(alpha = 0.10f) else Grove.Surface
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .shadow(4.dp, RoundedCornerShape(18.dp), clip = false)
             .clip(RoundedCornerShape(18.dp))
-            .background(Grove.Surface)
+            .background(rowBackground)
+            .then(
+                if (summary.isPrompt) Modifier.border(1.dp, Grove.Accent.copy(alpha = 0.35f), RoundedCornerShape(18.dp))
+                else Modifier
+            )
             .clickable { onClick() }
             .padding(13.dp),
         verticalAlignment = Alignment.CenterVertically,

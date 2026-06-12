@@ -110,6 +110,13 @@ interface CheckInAPI {
     @GET("threads")
     suspend fun getThreads(@Query("user_id") userId: Int): ThreadsResponse
 
+    // Persist a conversation's user-given title (survives app restarts).
+    @POST("thread/caption")
+    suspend fun postThreadCaption(
+        @Query("anchor") anchor: String,
+        @Query("caption") caption: String,
+    )
+
     @GET("thread")
     suspend fun getThread(@Query("anchor") anchor: String): ThreadMessagesResponse
 

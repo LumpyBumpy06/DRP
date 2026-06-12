@@ -12,6 +12,9 @@ data class ThreadSummaryDto(
     val anchor: String = "",
     val memoryType: String = "",
     val memorySender: String = "",
+    val memoryObject: String = "",
+    val isPrompt: Boolean = false,
+    val caption: String = "",
     val count: Int = 0,
     val incoming: Int = 0,
     val lastKind: String = "",
@@ -52,4 +55,5 @@ data class PromptDto(
     val type: String = "",
     val sender: String = "",
     val epoch: Long = 0,
+    val threadAnchor: String = "",
 )

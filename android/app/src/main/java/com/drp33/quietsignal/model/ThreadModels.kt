@@ -11,6 +11,9 @@ data class ThreadSummary(
     val anchor: String,
     val memoryType: String,   // "photo" | "voice" — what the thread is about
     val memorySender: String,
+    val memoryObject: String, // the storage object behind the anchor (for media)
+    val isPrompt: Boolean,    // true for a prompt conversation (✨ styling)
+    val caption: String,      // user-given title, persisted on the server
     val count: Int,
     val incoming: Int,        // messages from the partner (soft unread hint)
     val lastKind: String,     // "text" | "voice" | "photo"
@@ -34,10 +37,18 @@ data class ThreadMessage(
     val image: ImageBitmap? = null,
 )
 
-/** A memory the tree gently resurfaces when things go quiet (the prompt). */
+/** A memory the tree gently resurfaces when things go quiet (the prompt).
+ * [threadAnchor] is the per-prompt chat anchor — each new prompt gets a FRESH
+ * conversation, separate from earlier prompts about the same memory. */
 data class PromptMemory(
     val objectName: String,
     val type: String,         // "photo" | "voice"
     val sender: String,
     val epoch: Long,
+    val threadAnchor: String,
 )
+
+/** The storage object a thread anchor points at (strips the prompt wrapper). */
+fun threadMediaObject(anchor: String): String =
+    if (anchor.startsWith("prompt/")) anchor.split("/", limit = 3).getOrNull(2) ?: anchor
+    else anchor

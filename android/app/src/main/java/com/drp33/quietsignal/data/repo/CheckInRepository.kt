@@ -29,6 +29,7 @@ interface CheckInRepository {
 
     // ---------- THREADS (conversations anchored to a memory) ----------
     suspend fun getThreads(userId: Int): Result<List<ThreadSummary>>
+    suspend fun setThreadCaption(anchor: String, caption: String): Result<Unit>
     suspend fun getThread(anchor: String): Result<List<ThreadMessage>>
     suspend fun postThreadText(anchor: String, userId: Int, text: String): Result<ThreadMessage>
     suspend fun postThreadVoice(anchor: String, userId: Int, audio: ByteArray): Result<ThreadMessage>

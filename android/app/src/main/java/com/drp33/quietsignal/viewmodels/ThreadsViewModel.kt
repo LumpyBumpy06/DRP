@@ -13,6 +13,7 @@ import com.drp33.quietsignal.data.repo.CheckInRepository
 import com.drp33.quietsignal.model.PromptMemory
 import com.drp33.quietsignal.model.ThreadMessage
 import com.drp33.quietsignal.model.ThreadSummary
+import com.drp33.quietsignal.model.threadMediaObject
 import com.drp33.quietsignal.util.MediaCache
 import com.drp33.quietsignal.util.decodeSampledBitmap
 import kotlinx.coroutines.Dispatchers
@@ -88,18 +89,22 @@ class ThreadsViewModel(
             loading = true
             repository.getThreads(selfId).onSuccess { items ->
                 summaries = items
-                
-                // Decode anchored-memory thumbnails in parallel batches of 5
+                // Hydrate titles from the server (captions survive restarts).
+                items.forEach { if (it.caption.isNotBlank()) captions[it.anchor] = it.caption }
+
+                // Decode anchored-memory thumbnails in parallel batches of 5.
+                // Media lives under memoryObject (prompt anchors wrap it).
                 val allNewBitmaps = mutableMapOf<String, ImageBitmap>()
                 items.filter { it.memoryType == "photo" }.chunked(5).forEach { chunk ->
                     val bitmaps = chunk.mapNotNull { summary ->
+                        val obj = summary.memoryObject
                         // 1. Check bitmap cache
-                        MediaCache.get(summary.anchor)?.let { return@mapNotNull summary.anchor to it }
+                        MediaCache.get(obj)?.let { return@mapNotNull summary.anchor to it }
 
                         // 2. Check bytes cache, or fetch from network
-                        val bytes = MediaCache.getBytes(summary.anchor)
-                            ?: repository.getMedia(summary.anchor).getOrNull()?.also {
-                                MediaCache.putBytes(summary.anchor, it)
+                        val bytes = MediaCache.getBytes(obj)
+                            ?: repository.getMedia(obj).getOrNull()?.also {
+                                MediaCache.putBytes(obj, it)
                             }
 
                         if (bytes != null) {
@@ -107,7 +112,7 @@ class ThreadsViewModel(
                                 decodeSampledBitmap(bytes, 300, 300)?.asImageBitmap()
                             }
                             if (bmp != null) {
-                                MediaCache.put(summary.anchor, bmp)
+                                MediaCache.put(obj, bmp)
                                 summary.anchor to bmp
                             } else null
                         } else null
@@ -132,9 +137,17 @@ class ThreadsViewModel(
         }
     }
 
+    /** The storage object behind the open thread's anchor (prompt anchors wrap
+     *  the memory's object name). Use this for the pinned media, not the anchor. */
+    val activeMediaObject: String? get() = activeAnchor?.let { threadMediaObject(it) }
+
     /** Open the conversation hanging off [anchor], decoding any photo messages. */
     fun openThread(anchor: String, type: String, sender: String, isPrompt: Boolean = false, title: String? = null) {
-        if (!title.isNullOrBlank()) captions[anchor] = title.trim()
+        if (!title.isNullOrBlank()) {
+            captions[anchor] = title.trim()
+            // Persist the title server-side so it survives app restarts.
+            viewModelScope.launch { repository.setThreadCaption(anchor, title.trim()) }
+        }
         activeAnchor = anchor
         activeType = type
         activeSender = sender
