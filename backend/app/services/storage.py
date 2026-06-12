@@ -57,12 +57,7 @@ def latest_recent_object_name(settings: Settings, prefix: str | list[str], max_a
     """
     client = get_storage(settings)
     prefixes = [prefix] if isinstance(prefix, str) else prefix
-    objects = [
-        o
-        for p in prefixes
-        for o in client.list_objects(settings.minio_bucket, prefix=p, recursive=True)
-        if o.object_name and o.last_modified
-    ]
+    objects = [o for p in prefixes for o in client.list_objects(settings.minio_bucket, prefix=p, recursive=True) if o.object_name and o.last_modified]
     if not objects:
         return None
 

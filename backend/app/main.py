@@ -266,9 +266,7 @@ def get_latest_voice(user_id: int) -> Response:
     A voice message expires with the check-in window, so once a "day"
     (CHECK_IN_WINDOW_SECONDS) has passed the listener can no longer play it.
     """
-    object_name = latest_recent_object_name(
-        settings, [f"{user_id}/", f"{RESHARE_PREFIX}{user_id}/"], VOICE_TTL_SECONDS
-    )
+    object_name = latest_recent_object_name(settings, [f"{user_id}/", f"{RESHARE_PREFIX}{user_id}/"], VOICE_TTL_SECONDS)
     if object_name is None:
         raise HTTPException(status_code=404, detail="No current voice message")
 
@@ -316,9 +314,7 @@ def _photo_sender_from(object_name: str) -> int | None:
 @app.get("/photo/latest")
 def get_latest_photo(user_id: int) -> Response:
     """Stream the latest snap from `user_id`, within the snap viewing window."""
-    object_name = latest_recent_object_name(
-        settings, [f"photos/{user_id}/", f"{RESHARE_PREFIX}photos/{user_id}/"], PHOTO_TTL_SECONDS
-    )
+    object_name = latest_recent_object_name(settings, [f"photos/{user_id}/", f"{RESHARE_PREFIX}photos/{user_id}/"], PHOTO_TTL_SECONDS)
     if object_name is None:
         raise HTTPException(status_code=404, detail="No current snap")
 
@@ -381,11 +377,7 @@ def _board_objects() -> list[tuple[str, datetime]]:
     """Every memory-board object (voice + snaps), newest first, excluding thread
     media and reshared copies."""
     objects = sorted(list_objects(settings), key=lambda o: o[1], reverse=True)
-    return [
-        (name, lm)
-        for name, lm in objects
-        if not name.startswith(THREAD_PREFIX) and not name.startswith(RESHARE_PREFIX)
-    ]
+    return [(name, lm) for name, lm in objects if not name.startswith(THREAD_PREFIX) and not name.startswith(RESHARE_PREFIX)]
 
 
 @app.get("/memories")

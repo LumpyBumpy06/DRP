@@ -71,9 +71,7 @@ def compute_tree_state(
     }
 
 
-def _events_in_week(
-    timestamps: list[datetime], week_start: float, end_exclusive: float
-) -> list[datetime]:
+def _events_in_week(timestamps: list[datetime], week_start: float, end_exclusive: float) -> list[datetime]:
     """Events in [week_start, end_exclusive) — half-open so a boundary event
     belongs to exactly one week and is never double-counted."""
     return [t for t in timestamps if week_start <= _epoch(t) < end_exclusive]
