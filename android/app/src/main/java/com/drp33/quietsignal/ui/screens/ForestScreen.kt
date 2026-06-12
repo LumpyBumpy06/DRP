@@ -47,6 +47,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
@@ -314,12 +316,19 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
     }
 
     montageWeek?.let { week ->
-        Montage(
-            week = week,
-            memories = memoriesByWeek[week.weekStart].orEmpty(),
-            vm = vm,
-            onClose = { montageWeek = null },
-        )
+        // Full-screen dialog so the montage covers everything — including the
+        // bottom tab bar. Only the ✕ (or back) closes it.
+        Dialog(
+            onDismissRequest = { montageWeek = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+        ) {
+            Montage(
+                week = week,
+                memories = memoriesByWeek[week.weekStart].orEmpty(),
+                vm = vm,
+                onClose = { montageWeek = null },
+            )
+        }
     }
 }
 

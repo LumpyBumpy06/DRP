@@ -64,15 +64,37 @@ class MemoriesViewModel(
     }
 
     /**
-     * Replace the tag set on one memory. Updates the board optimistically so the
-     * UI reacts at once, then persists to the server (shared with the partner)
-     * and refreshes the known-tag list so any newly-created tag appears in the
-     * filter chips.
+     * Add one tag to a memory. Optimistic locally, atomic on the server — the
+     * server only ever inserts this single tag, so a stale local list can never
+     * wipe out tags added earlier (or by the partner).
      */
-    fun setTags(objectName: String, tags: List<String>) {
-        memories = memories.map { if (it.objectName == objectName) it.copy(tags = tags) else it }
+    fun addTag(objectName: String, tag: String) {
+        memories = memories.map {
+            if (it.objectName == objectName && it.tags.none { t -> t.equals(tag, ignoreCase = true) }) {
+                it.copy(tags = it.tags + tag)
+            } else {
+                it
+            }
+        }
         viewModelScope.launch {
-            repository.setMemoryTags(objectName, tags).onSuccess { saved ->
+            repository.addMemoryTag(objectName, tag).onSuccess { saved ->
+                memories = memories.map { if (it.objectName == objectName) it.copy(tags = saved) else it }
+                loadTags()
+            }
+        }
+    }
+
+    /** Remove one tag from a memory — atomic on the server, like [addTag]. */
+    fun removeTag(objectName: String, tag: String) {
+        memories = memories.map {
+            if (it.objectName == objectName) {
+                it.copy(tags = it.tags.filterNot { t -> t.equals(tag, ignoreCase = true) })
+            } else {
+                it
+            }
+        }
+        viewModelScope.launch {
+            repository.removeMemoryTag(objectName, tag).onSuccess { saved ->
                 memories = memories.map { if (it.objectName == objectName) it.copy(tags = saved) else it }
                 loadTags()
             }

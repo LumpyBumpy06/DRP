@@ -9,6 +9,7 @@ from sqlmodel import Session
 from app.crud import (
     CHECK_IN_WINDOW_SECONDS,
     active_emergency_sender_for,
+    add_tag_for,
     add_thread_message,
     all_tag_names,
     clear_emergencies_for,
@@ -24,6 +25,7 @@ from app.crud import (
     get_thread_messages,
     is_okay_within_6h,
     raise_emergency,
+    remove_tag_for,
     set_tags_for,
     upsert_user_token,
 )
@@ -445,6 +447,19 @@ def set_memory_tags(
 ) -> dict:
     """Replace the full tag set on one memory (shared with the partner)."""
     return {"tags": set_tags_for(session, object_name, payload.tags)}
+
+
+@app.post("/memory/tags/add")
+def add_memory_tag(object_name: str, tag: str, session: Session = SessionDependency) -> dict:
+    """Add ONE tag to a memory. Atomic — can never clobber other tags, unlike
+    the replace-all endpoint, so concurrent edits and stale clients are safe."""
+    return {"tags": add_tag_for(session, object_name, tag)}
+
+
+@app.post("/memory/tags/remove")
+def remove_memory_tag(object_name: str, tag: str, session: Session = SessionDependency) -> dict:
+    """Remove ONE tag from a memory (case-insensitive). Atomic, like add."""
+    return {"tags": remove_tag_for(session, object_name, tag)}
 
 
 # ---------- THREADS (conversations anchored to a memory) ----------

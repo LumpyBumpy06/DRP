@@ -61,6 +61,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -464,12 +465,11 @@ private fun FavouriteHeart(on: Boolean, modifier: Modifier = Modifier, onToggle:
 }
 
 private fun toggleFavourite(item: MemoryItem, vm: MemoriesViewModel) {
-    val next = if (isFavourite(item)) {
-        item.tags.filterNot { it.equals(FAVOURITE_TAG, ignoreCase = true) }
+    if (isFavourite(item)) {
+        vm.removeTag(item.objectName, FAVOURITE_TAG)
     } else {
-        item.tags + FAVOURITE_TAG
+        vm.addTag(item.objectName, FAVOURITE_TAG)
     }
-    vm.setTags(item.objectName, next)
 }
 
 /* ----------------------------- voice bar (horizontal) ----------------------------- */
@@ -527,6 +527,7 @@ private fun VoiceBar(item: MemoryItem, vm: MemoriesViewModel, onOpen: () -> Unit
                     fontFamily = NunitoSans,
                     fontSize = 11.5.sp,
                     color = Grove.InkSoft,
+                    maxLines = 1,
                 )
                 if (durationMs > 0) {
                     Text(
@@ -534,11 +535,21 @@ private fun VoiceBar(item: MemoryItem, vm: MemoriesViewModel, onOpen: () -> Unit
                         fontFamily = NunitoSans,
                         fontSize = 11.5.sp,
                         color = Grove.InkFaint,
+                        maxLines = 1,
                     )
                 }
                 if (others.isNotEmpty()) {
-                    Text(text = "· ${others.first()}${if (others.size > 1) " +${others.size - 1}" else ""}",
-                        fontFamily = NunitoSans, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = Grove.Voice)
+                    // Single line, ellipsised — never wraps a tag mid-word.
+                    Text(
+                        text = "· ${others.first()}${if (others.size > 1) " +${others.size - 1}" else ""}",
+                        fontFamily = NunitoSans,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Grove.Voice,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
                 }
             }
         }
@@ -680,12 +691,9 @@ private fun MemoryDetailDialog(
                     known = known,
                     onToggle = { tag ->
                         val on = live.tags.any { it.equals(tag, ignoreCase = true) }
-                        val next = if (on) live.tags.filterNot { it.equals(tag, ignoreCase = true) } else live.tags + tag
-                        vm.setTags(live.objectName, next)
+                        if (on) vm.removeTag(live.objectName, tag) else vm.addTag(live.objectName, tag)
                     },
-                    onCreate = { tag ->
-                        if (live.tags.none { it.equals(tag, ignoreCase = true) }) vm.setTags(live.objectName, live.tags + tag)
-                    },
+                    onCreate = { tag -> vm.addTag(live.objectName, tag) },
                 )
 
                 if (showItemActions) {
@@ -810,10 +818,9 @@ private fun FullscreenPhotoViewer(
                             known = known,
                             onToggle = { tag ->
                                 val on = live.tags.any { it.equals(tag, ignoreCase = true) }
-                                val next = if (on) live.tags.filterNot { it.equals(tag, ignoreCase = true) } else live.tags + tag
-                                vm.setTags(live.objectName, next)
+                                if (on) vm.removeTag(live.objectName, tag) else vm.addTag(live.objectName, tag)
                             },
-                            onCreate = { tag -> if (live.tags.none { it.equals(tag, ignoreCase = true) }) vm.setTags(live.objectName, live.tags + tag) },
+                            onCreate = { tag -> vm.addTag(live.objectName, tag) },
                         )
                     }
                 }
@@ -861,14 +868,17 @@ private fun FullscreenPhotoViewer(
 @Composable
 private fun GlassBarButton(icon: String, label: String, modifier: Modifier = Modifier, selected: Boolean = false, onClick: () -> Unit) {
     Column(
+        // Fixed height so every button in the bar is the same size, whether its
+        // label fits on one line or two.
         modifier = modifier
+            .height(64.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(if (selected) Color(0x40FFFFFF) else Color(0x1FFFFFFF))
             .border(0.5.dp, Color(0x33FFFFFF), RoundedCornerShape(14.dp))
             .clickable { onClick() }
-            .padding(vertical = 10.dp, horizontal = 4.dp),
+            .padding(vertical = 6.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically),
     ) {
         Text(text = icon, fontSize = 16.sp, color = Color.White)
         Text(
