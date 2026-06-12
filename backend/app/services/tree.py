@@ -28,7 +28,7 @@ DEATH_WINDOWS = 3
 # Length of one "forest" week. Each elapsed week becomes a frozen tree.
 # TEST VALUE: 120s so new trees appear ~every 2 minutes. For production use
 # 7 * 24 * 3600. MUST match the client's WEEK_SECONDS.
-WEEK_SECONDS = 120
+WEEK_SECONDS = 600
 
 
 def _epoch(ts: datetime) -> float:

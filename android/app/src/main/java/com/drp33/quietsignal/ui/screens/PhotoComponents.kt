@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -132,12 +133,28 @@ fun CameraCaptureDialog(onCaptured: (ByteArray) -> Unit, onClose: () -> Unit) {
     val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
             val jpeg = runCatching {
-                context.contentResolver.openInputStream(uri)?.use { input ->
-                    val bitmap = BitmapFactory.decodeStream(input) ?: return@use null
-                    val stream = ByteArrayOutputStream()
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 85, stream)
-                    stream.toByteArray()
+                val raw = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching null
+                val bitmap = BitmapFactory.decodeByteArray(raw, 0, raw.size) ?: return@runCatching null
+                // Bake the EXIF orientation into the pixels — downstream decoders
+                // ignore EXIF, so an unrotated upload would display sideways.
+                val exifRotation = when (
+                    ExifInterface(raw.inputStream())
+                        .getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+                ) {
+                    ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                    ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                    ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                    else -> 0f
                 }
+                val upright = if (exifRotation != 0f) {
+                    val matrix = Matrix().apply { postRotate(exifRotation) }
+                    Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                } else {
+                    bitmap
+                }
+                val stream = ByteArrayOutputStream()
+                upright.compress(Bitmap.CompressFormat.JPEG, 85, stream)
+                stream.toByteArray()
             }.getOrNull()
             if (jpeg != null) onCaptured(jpeg)
         }
@@ -232,7 +249,14 @@ fun CameraCaptureDialog(onCaptured: (ByteArray) -> Unit, onClose: () -> Unit) {
                                         }
 
                                         capturedBitmap = rotatedBitmap
-                                        capturedBytes = bytes
+                                        // Upload the ROTATED pixels, not the raw capture: the raw
+                                        // JPEG carries its orientation only as EXIF metadata, which
+                                        // the decoders downstream (gallery, threads, partner's
+                                        // popup) ignore — so portrait shots would show landscape.
+                                        capturedBytes = ByteArrayOutputStream().let { stream ->
+                                            rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 90, stream)
+                                            stream.toByteArray()
+                                        }
                                     }
 
                                     override fun onError(exception: ImageCaptureException) {
