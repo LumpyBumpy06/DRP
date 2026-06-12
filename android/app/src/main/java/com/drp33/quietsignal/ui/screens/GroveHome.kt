@@ -286,7 +286,7 @@ fun safetyText(
     return when (mood) {
         TreeMood.THRIVING -> "You're all caught up — the grove is thriving 🌿"
         TreeMood.OKAY -> "A gentle week so far. A moment keeps it bright."
-        TreeMood.FADING -> "It's been quiet lately — share a moment to bring colour back."
+        TreeMood.FADING -> "It's been quiet. Share a moment to add colour."
     }
 }
 

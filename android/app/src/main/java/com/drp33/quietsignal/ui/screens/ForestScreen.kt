@@ -111,8 +111,9 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
     var galleryWeek by remember { mutableStateOf<ForestWeek?>(null) }
     var montageWeek by remember { mutableStateOf<ForestWeek?>(null) }
 
-    val currentWeekStart = (System.currentTimeMillis() / 1000 / WEEK_SECONDS) * WEEK_SECONDS
-    val weeks = vm.forestWeeks.filter { it.weekStart < currentWeekStart }
+    // The backend only ever returns FROZEN (elapsed) weeks — the live tree
+    // joins the forest automatically once its week ends.
+    val weeks = vm.forestWeeks
 
     // Scroll position (px) drives the parallax. Items are uniform width, so
     // index*width + offset is an exact scroll measure — and reading it from the
@@ -224,7 +225,7 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                             contentAlignment = Alignment.BottomCenter,
                         ) {
                             // Forest snapshots are just the tree — no falling
-                            // leaves and no birds/squirrel/oranges.
+                            // leaves and no birds.
                             WateringTree(
                                 stage = week.stage,
                                 deathLevel = week.deathLevel,
@@ -240,11 +241,17 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             Text(
-                                text = weekLabel(week.weekStart),
+                                text = "Week ${week.weekIndex}",
                                 fontFamily = Newsreader,
                                 fontWeight = FontWeight.Medium,
                                 color = Grove.Ink,
                                 fontSize = 14.sp,
+                            )
+                            Text(
+                                text = weekLabel(week.weekStart),
+                                fontFamily = NunitoSans,
+                                color = Grove.InkSoft,
+                                fontSize = 11.sp,
                             )
                             Text(
                                 text = "${mems.size} ${if (mems.size == 1) "moment" else "moments"}",

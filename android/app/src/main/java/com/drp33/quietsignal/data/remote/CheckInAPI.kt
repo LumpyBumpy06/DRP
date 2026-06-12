@@ -72,6 +72,14 @@ interface CheckInAPI {
     @GET("media")
     suspend fun getMedia(@Query("object_name") objectName: String): ResponseBody
 
+    // Re-deliver an existing memory to the partner (notification + popup only —
+    // the server does NOT add it to the gallery again).
+    @POST("reshare")
+    suspend fun postReshare(
+        @Query("user_id") userId: Int,
+        @Query("object_name") objectName: String,
+    )
+
     // ---------- TAGS (shared labels on a memory) ----------
 
     @GET("tags")

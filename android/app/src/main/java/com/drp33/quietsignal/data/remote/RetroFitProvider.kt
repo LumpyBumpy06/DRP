@@ -7,9 +7,9 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object RetroFitProvider {
-    private const val BASE_URL = "https://quietsignal.noxbound.com/"  // production (NO /forest yet — forest won't work here)
+//    private const val BASE_URL = "https://quietsignal.noxbound.com/"  // production (NO /forest yet — forest won't work here)
 //    private const val BASE_URL = "http://10.0.2.2:8000/"              // Android emulator: alias for the host machine's loopback
-//    private const val BASE_URL = "http://127.0.0.1:8000/"             // LOCAL via `adb reverse tcp:8000 tcp:8000` (works on physical device + emulator)
+    private const val BASE_URL = "http://127.0.0.1:8000/"             // LOCAL via `adb reverse tcp:8000 tcp:8000` (works on physical device + emulator)
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY

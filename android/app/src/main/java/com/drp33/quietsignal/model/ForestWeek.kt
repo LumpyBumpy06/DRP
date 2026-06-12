@@ -8,6 +8,7 @@ package com.drp33.quietsignal.model
  */
 data class ForestWeek(
     val weekStart: Long,
+    val weekIndex: Int,
     val stage: Int,
     val deathLevel: Float,
 )
