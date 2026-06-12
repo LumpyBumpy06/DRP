@@ -94,7 +94,7 @@ import java.util.Locale
 const val FAVOURITE_TAG = "Favourites"
 
 /** Tags we always offer in the editor, even before any exist on the server. */
-val SUGGESTED_TAGS = listOf(FAVOURITE_TAG, "Family", "Outdoors", "Funny", "Special")
+val SUGGESTED_TAGS = listOf(FAVOURITE_TAG, "Family", "Funny", "Special")
 
 private fun isFavourite(item: MemoryItem): Boolean = item.tags.any { it.equals(FAVOURITE_TAG, ignoreCase = true) }
 
@@ -483,6 +483,12 @@ private fun VoiceBar(item: MemoryItem, vm: MemoriesViewModel, onOpen: () -> Unit
     var positionMs by remember { mutableIntStateOf(0) }
     DisposableEffect(item.objectName) { onDispose { player.release() } }
     LaunchedEffect(playing) { while (playing) { positionMs = player.position(); delay(60) } }
+    // Probe the clip's length once so the bar can show its duration before playing.
+    LaunchedEffect(item.objectName) {
+        vm.loadMediaBytes(item.objectName) { bytes ->
+            if (durationMs == 0) durationMs = player.durationOf(bytes)
+        }
+    }
 
     val others = item.tags.filterNot { it.equals(FAVOURITE_TAG, ignoreCase = true) }
 
@@ -824,18 +830,18 @@ private fun FullscreenPhotoViewer(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                GlassBarButton(label = "🏷  Tags", selected = showTags, modifier = Modifier.weight(1f)) { showTags = !showTags }
-                GlassBarButton(label = "⤓  Save", modifier = Modifier.weight(1f)) {
+                GlassBarButton(icon = "🏷", label = "Tags", selected = showTags, modifier = Modifier.weight(1f)) { showTags = !showTags }
+                GlassBarButton(icon = "⤓", label = "Save", modifier = Modifier.weight(1f)) {
                     vm.loadMediaBytes(live.objectName) { bytes -> saveMemoryToDisk(context, bytes, live.type, live.objectName) }
                 }
                 if (showItemActions) {
-                    GlassBarButton(label = "↻  Reshare", modifier = Modifier.weight(1f)) {
+                    GlassBarButton(icon = "↻", label = "Reshare", modifier = Modifier.weight(1f)) {
                         vm.reshare(live, currentUserId) {
                             Toast.makeText(context, "Shared again 🌱", Toast.LENGTH_SHORT).show(); onClose()
                         }
                     }
                     if (onStartThread != null) {
-                        GlassBarButton(label = "💬  Start a chat", modifier = Modifier.weight(1f)) { showCaption = true }
+                        GlassBarButton(icon = "💬", label = "Start a conversation", modifier = Modifier.weight(1f)) { showCaption = true }
                     }
                 }
             }
@@ -850,26 +856,30 @@ private fun FullscreenPhotoViewer(
     }
 }
 
-/** A light, transparent action used along the fullscreen photo's bottom bar. */
+/** A light, transparent action (icon over a wrapping label) used along the
+ *  fullscreen photo's bottom bar — vertical so longer labels stay readable. */
 @Composable
-private fun GlassBarButton(label: String, modifier: Modifier = Modifier, selected: Boolean = false, onClick: () -> Unit) {
-    Box(
+private fun GlassBarButton(icon: String, label: String, modifier: Modifier = Modifier, selected: Boolean = false, onClick: () -> Unit) {
+    Column(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
             .background(if (selected) Color(0x40FFFFFF) else Color(0x1FFFFFFF))
             .border(0.5.dp, Color(0x33FFFFFF), RoundedCornerShape(14.dp))
             .clickable { onClick() }
-            .padding(vertical = 12.dp, horizontal = 6.dp),
-        contentAlignment = Alignment.Center,
+            .padding(vertical = 10.dp, horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
+        Text(text = icon, fontSize = 16.sp, color = Color.White)
         Text(
             text = label,
             fontFamily = NunitoSans,
-            fontSize = 13.sp,
+            fontSize = 11.sp,
+            lineHeight = 13.sp,
             fontWeight = FontWeight.SemiBold,
             color = Color.White,
             textAlign = TextAlign.Center,
-            maxLines = 1,
+            maxLines = 2,
         )
     }
 }

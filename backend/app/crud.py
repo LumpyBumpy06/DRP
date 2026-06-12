@@ -6,7 +6,7 @@ from app.models import EmergencyAlert, MemoryTag, OkayEvent, ThreadMessage, User
 
 # One "day" in the current simulation. A check-in (or voice message) is only
 # considered current for this long.
-CHECK_IN_WINDOW_SECONDS = 10
+CHECK_IN_WINDOW_SECONDS = 20
 
 # ---------- USERS ----------
 

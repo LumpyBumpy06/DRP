@@ -9,6 +9,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.drp33.quietsignal.data.RolePreferences
+import com.drp33.quietsignal.data.ThreadReadStore
 import com.drp33.quietsignal.data.remote.RetroFitProvider
 import com.drp33.quietsignal.data.repo.CheckInRepositoryImpl
 import com.drp33.quietsignal.model.UserRole
@@ -40,6 +41,8 @@ fun NavGraph() {
     val repository = remember {
         CheckInRepositoryImpl(RetroFitProvider.checkInAPI)
     }
+    // Persistent per-thread read state (survives sign-out + restarts).
+    val threadReadStore = remember { ThreadReadStore(context) }
 
     val elderlyViewModel: ElderlyViewModel = viewModel(factory = ElderlyViewModelFactory(repository))
     val adultViewModel: AdultViewModel = viewModel(factory = AdultViewModelFactory(repository))
@@ -97,7 +100,7 @@ fun NavGraph() {
                 viewModel(factory = PhotoMessagingViewModelFactory(repository, selfId = 1, peerId = 2))
             // Shared memory threads, written as Norman (id 1).
             val threadsVm: ThreadsViewModel =
-                viewModel(factory = ThreadsViewModelFactory(repository, selfId = 1))
+                viewModel(factory = ThreadsViewModelFactory(repository, selfId = 1, readStore = threadReadStore))
 
             LaunchedEffect(Unit) { elderlyViewModel.postFCMToken(1) }
 
@@ -124,7 +127,7 @@ fun NavGraph() {
                 viewModel(factory = PhotoMessagingViewModelFactory(repository, selfId = 2, peerId = 1))
             // Shared memory threads, written as Sadie (id 2).
             val threadsVm: ThreadsViewModel =
-                viewModel(factory = ThreadsViewModelFactory(repository, selfId = 2))
+                viewModel(factory = ThreadsViewModelFactory(repository, selfId = 2, readStore = threadReadStore))
 
             // Fetch initial state once, then rely on pushes.
             LaunchedEffect(Unit) {
@@ -133,7 +136,12 @@ fun NavGraph() {
                 adultViewModel.loadEmergencyStatus(2)
             }
 
-            MainShell(forestVm = memoriesViewModel, threadsVm = threadsVm) { pad ->
+            MainShell(
+                forestVm = memoriesViewModel,
+                threadsVm = threadsVm,
+                emergencyActive = adultViewModel.state.emergency,
+                onEmergencyAck = { adultViewModel.acknowledgeEmergency(2) },
+            ) { pad ->
                 AdultScreen(
                     viewModel = adultViewModel,
                     treeVm = treeViewModel,
@@ -143,7 +151,6 @@ fun NavGraph() {
                     threadsVm = threadsVm,
                     contentPadding = pad,
                     onSwitchRole = switchRole,
-                    onAllGood = { adultViewModel.acknowledgeEmergency(2) },
                 )
             }
         }

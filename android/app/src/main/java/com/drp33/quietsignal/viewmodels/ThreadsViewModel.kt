@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.drp33.quietsignal.data.ThreadReadStore
 import com.drp33.quietsignal.data.repo.CheckInRepository
 import com.drp33.quietsignal.model.PromptMemory
 import com.drp33.quietsignal.model.ThreadMessage
@@ -24,6 +25,7 @@ import kotlinx.coroutines.withContext
 class ThreadsViewModel(
     private val repository: CheckInRepository,
     val selfId: Int,
+    private val readStore: ThreadReadStore,
 ) : ViewModel() {
 
     var summaries by mutableStateOf<List<ThreadSummary>>(emptyList())
@@ -56,14 +58,23 @@ class ThreadsViewModel(
         captions[anchor]?.takeIf { it.isNotBlank() }
             ?: "${sender}'s ${if (type == "photo") "photo" else "voice note"}"
 
-    /** The latest message epoch we've seen for each anchor (the server has no
-     *  read-state, so we mark threads read locally once they're opened). */
-    private val seenEpoch = mutableStateMapOf<String, Long>()
+    /** How many of each thread's partner messages have already been seen. Backed
+     *  by [readStore] (persisted across sign-out) but mirrored here as Compose
+     *  state so the badges recompose when a thread is opened. */
+    private val seenCounts = mutableStateMapOf<String, Int>()
 
-    /** Unread count to show for a thread — hidden once it's been opened, and only
-     *  reappearing when a newer message lands. */
+    private fun seenCountFor(anchor: String): Int =
+        seenCounts.getOrPut(anchor) { readStore.seenCount(selfId, anchor) }
+
+    /** Mark a thread read: every partner message currently in it is now seen. */
+    private fun markRead(anchor: String, partnerMessages: Int) {
+        seenCounts[anchor] = partnerMessages
+        readStore.setSeenCount(selfId, anchor, partnerMessages)
+    }
+
+    /** Unread = partner messages received minus those already seen (never below 0). */
     fun unreadFor(summary: ThreadSummary): Int =
-        if ((seenEpoch[summary.anchor] ?: 0L) >= summary.lastEpoch) 0 else summary.incoming
+        (summary.incoming - seenCountFor(summary.anchor)).coerceAtLeast(0)
 
     /** Total unread across all threads (drives the Threads tab badge). */
     val unreadTotal: Int get() = summaries.sumOf { unreadFor(it) }
@@ -122,9 +133,9 @@ class ThreadsViewModel(
         viewModelScope.launch {
             repository.getThread(anchor).onSuccess { items ->
                 messages = items
-                // Opening (and watching) the thread marks everything in it as read.
-                val latest = items.maxOfOrNull { it.epoch } ?: 0L
-                seenEpoch[anchor] = maxOf(seenEpoch[anchor] ?: 0L, latest)
+                // Opening (and watching) the thread marks all its partner messages
+                // as read, so the badge clears and only NEW arrivals count next time.
+                markRead(anchor, items.count { it.senderId != selfId })
                 // Decode photo-message thumbnails in the background.
                 items.filter { it.kind == "photo" && it.mediaObject != null }.forEach { msg ->
                     repository.getMedia(msg.mediaObject!!).onSuccess { bytes ->

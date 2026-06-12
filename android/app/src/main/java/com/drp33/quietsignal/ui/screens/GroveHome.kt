@@ -23,6 +23,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -85,6 +88,8 @@ fun Modifier.groveBackground(): Modifier = this.background(
 fun MainShell(
     forestVm: MemoriesViewModel,
     threadsVm: ThreadsViewModel,
+    emergencyActive: Boolean = false,
+    onEmergencyAck: () -> Unit = {},
     week: @Composable (contentPadding: PaddingValues) -> Unit,
 ) {
     var tab by rememberSaveable { mutableStateOf(GroveTab.Week) }
@@ -107,14 +112,9 @@ fun MainShell(
             modifier = Modifier.align(Alignment.BottomCenter),
         )
 
-        // The conversation view sits above the tabs and nav bar.
-        if (threadsVm.activeAnchor != null) {
-            ThreadChatScreen(vm = threadsVm, onClose = { threadsVm.closeThread() })
-        }
-
-        // The shared "Our memories" gallery, opened from the bottom nav.
+        // The shared "Our memories" gallery — a full-screen layer over the tabs.
         if (showGallery) {
-            MemoriesDialog(
+            MemoriesScreen(
                 vm = forestVm,
                 currentUserId = threadsVm.selfId,
                 onClose = { showGallery = false },
@@ -124,7 +124,55 @@ fun MainShell(
                 },
             )
         }
+
+        // The conversation view sits above the tabs, gallery and nav bar.
+        if (threadsVm.activeAnchor != null) {
+            ThreadChatScreen(vm = threadsVm, onClose = { threadsVm.closeThread() })
+        }
+
+        // The "wants to talk" nudge shows over every tab, not just "This week".
+        if (emergencyActive) {
+            WantsToTalkAlert(onAcknowledge = onEmergencyAck)
+        }
     }
+}
+
+/**
+ * A gentle wellbeing prompt shown to Sadie when Norman taps "Want to talk". It's
+ * not an alarm — dismissed only by acknowledging, so it isn't missed. Lives at
+ * the shell level so it appears across This week / Threads / Forest / Gallery.
+ */
+@Composable
+private fun WantsToTalkAlert(onAcknowledge: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = { /* require an explicit acknowledgement */ },
+        containerColor = Grove.Surface,
+        icon = { Text(text = "💛", fontSize = 40.sp) },
+        title = {
+            Text(
+                text = "Norman would love to talk",
+                fontFamily = Newsreader,
+                fontWeight = FontWeight.Medium,
+                color = Grove.Ink,
+                fontSize = 21.sp,
+            )
+        },
+        text = {
+            Text(
+                text = "He's feeling a little lonely and would love to hear from you. Give him a call or send a moment when you can.",
+                fontFamily = NunitoSans,
+                color = Grove.InkSoft,
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = onAcknowledge,
+                colors = ButtonDefaults.buttonColors(containerColor = Grove.Accent),
+            ) {
+                Text(text = "I'll reach out", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        },
+    )
 }
 
 @Composable

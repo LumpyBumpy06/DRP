@@ -80,7 +80,10 @@ fun treeMoodOf(deathLevel: Float): TreeMood = when {
     else -> TreeMood.THRIVING
 }
 
-private val STAGE_ENDPOINTS = listOf(0.20f, 0.33f, 0.50f, 0.66f, 0.80f, 1.00f)
+private val STAGE_ENDPOINTS = listOf(
+    0.20f, 0.33f, 0.50f, 0.66f, 0.80f, 1.00f, // Stages 0-5 (growing)
+    1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f  // Stages 6-11 (fully grown + wildlife)
+)
 
 /** The fixed height of the tree content region (trunk + canopy band). Everything
  * else (hole, squirrel, leaf spawn bands) is sized relative to this, so resizing
@@ -472,7 +475,7 @@ fun WateringTree(
                 val death = currentDeath
                 val idx = currentIdx
                 val density = currentDensity
-                val params = STAGE_SPAWN_PARAMS[idx]
+                val params = STAGE_SPAWN_PARAMS[idx.coerceAtMost(STAGE_SPAWN_PARAMS.lastIndex)]
 
                 val canvasHeightPx = with(density) { TREE_CONTENT_HEIGHT.toPx() }
                 // Leaves rest at the trunk base. Calibrated from the rendered tree
