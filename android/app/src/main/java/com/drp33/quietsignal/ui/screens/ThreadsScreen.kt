@@ -71,6 +71,11 @@ fun ThreadsPane(vm: ThreadsViewModel, contentPadding: PaddingValues = PaddingVal
 
         val prompt = vm.prompt
         val showPrompt = promptsEnabled && prompt != null
+        val displayedSummaries = if (showPrompt) {
+            vm.summaries.filter { it.anchor != prompt.objectName }
+        } else {
+            vm.summaries
+        }
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -82,8 +87,20 @@ fun ThreadsPane(vm: ThreadsViewModel, contentPadding: PaddingValues = PaddingVal
                     val summary = vm.summaries.find { it.anchor == prompt.objectName }
                     val unreadCount = summary?.let { vm.unreadFor(it) } ?: 0
 
+                    val promptSubtitle = if (summary != null) {
+                        val who = if (summary.lastSenderId == vm.selfId) "You: " else "${summary.lastSender}: "
+                        val preview = when (summary.lastKind) {
+                            "photo" -> "📷 Photo"
+                            "voice" -> "🎙 Voice message"
+                            else -> summary.lastText
+                        }
+                        "$who$preview"
+                    } else {
+                        "Grove · ${if (prompt.type == "photo") "📷 Photo" else "🎙 Voice note"} from ${prompt.sender}"
+                    }
+
                     PromptThreadRow(
-                        subtitle = "Grove · ${if (prompt.type == "photo") "📷 Photo" else "🎙 Voice note"} from ${prompt.sender}",
+                        subtitle = promptSubtitle,
                         unread = unreadCount,
                     ) {
                         vm.openThread(prompt.objectName, prompt.type, prompt.sender, isPrompt = true)
@@ -91,11 +108,11 @@ fun ThreadsPane(vm: ThreadsViewModel, contentPadding: PaddingValues = PaddingVal
                 }
             }
 
-            if (vm.summaries.isEmpty() && !showPrompt) {
+            if (displayedSummaries.isEmpty() && !showPrompt) {
                 item { EmptyThreads() }
             }
 
-            items(vm.summaries, key = { it.anchor }) { summary ->
+            items(displayedSummaries, key = { it.anchor }) { summary ->
                 ThreadRow(summary = summary, selfId = vm.selfId, unread = vm.unreadFor(summary), title = vm.threadTitle(summary.anchor, summary.memorySender, summary.memoryType), onClick = {
                     vm.openThread(summary.anchor, summary.memoryType, summary.memorySender)
                 })
