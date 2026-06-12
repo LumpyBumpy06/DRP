@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.LongState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -49,6 +50,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.airbnb.lottie.LottieComposition
 import com.airbnb.lottie.LottieProperty
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
@@ -96,36 +98,23 @@ private val TREE_CONTENT_HEIGHT = 340.dp
 private val TREE_TOP_HEADROOM = 100.dp
 
 // ---- Bird stages (after the tree is fully grown) ---------------------------
-// Past stage 5 the tree stays full-size and gains birds: stage 6 = 1 bird up to
-// stage 9 = 4 birds (the highest stage). Each bird circles the canopy on its
-// own randomised orbit.
 private const val MAX_BIRDS = 4
-private val BIRD_BASE_SIZE = TREE_CONTENT_HEIGHT * 0.188f      // ≈ 64dp at 340
-private const val BIRD_ENTER_MS = 1200L   // fade/scale-in when a bird arrives
-private const val BIRD_DEPART_MS = 2400L  // fly-out (spiral outward + fade) on neglect
-private const val BIRD_EVENT_GAP_MS = 700L // min spacing so birds come/go one by one
+private val BIRD_BASE_SIZE = TREE_CONTENT_HEIGHT * 0.188f
+private const val BIRD_ENTER_MS = 1200L
+private const val BIRD_DEPART_MS = 2400L
+private const val BIRD_EVENT_GAP_MS = 700L
 
-// DEBUG: force this many birds at any stage so the animation can be eyeballed
-// without watering 21+ times. Set back to 0 (or remove) for real behaviour.
 private const val DEBUG_FORCE_BIRDS = 0
 
-/** Birds shown for a given growth stage, before neglect thins them out. */
 private fun birdsForStage(stage: Int): Int =
     if (DEBUG_FORCE_BIRDS > 0) DEBUG_FORCE_BIRDS.coerceIn(0, MAX_BIRDS)
     else (stage - FULL_GROWTH_STAGE).coerceIn(0, MAX_BIRDS)
 
-// ---- Falling-leaf tuning (tweak these freely) ------------------------------
-
-// Spawn rate in leaves/second. Base = when healthy; it grows as the tree wilts
-// (× deathLevel) and a little with size (× stage).
+// ---- Falling-leaf tuning ----
 private const val LEAF_RATE_HEALTHY = 0.3f
 private const val LEAF_RATE_DEATH = 2.5f
 private const val LEAF_RATE_STAGE = 0.08f
 private const val LEAF_RATE_MAX = 4.0f
-
-// The region leaves spawn FROM (across the bush). Y values are fractions of the
-// 300dp tree box (smaller = higher up); X half-width is how far either side of
-// centre a leaf can appear.
 
 private data class LeafSpawnParams(
     val yTop: Float,
@@ -133,10 +122,6 @@ private data class LeafSpawnParams(
     val halfWidth: Dp
 )
 
-// Leaves spawn FROM the canopy/bush band (fractions of content height) and fall to
-// the floor (the trunk base). The bushes sit high in the box, so these are well
-// above the floor; bigger stages have a taller, wider canopy. halfWidth spreads
-// leaves across the bushes (not just by the trunk).
 private val STAGE_SPAWN_PARAMS = listOf(
     LeafSpawnParams(0.43f, 0.47f, 2.dp), // Stage 0
     LeafSpawnParams(0.35f, 0.52f, 38.dp), // Stage 1
@@ -177,29 +162,18 @@ private val LEAF_BLOBS = listOf(
     LeafBlob("Layer 16 Outlines", "Group 2", Color(0.0588f, 0.3176f, 0.1922f)),
 )
 
-/**
- * A darker, duller version of a leaf colour for the neglected look. The tree
- * doesn't die — its leaves just lose their vibrancy and deepen toward shadow,
- * keeping each layer's relative brightness so the canopy still reads as 3D.
- */
 private fun fadedLeafColor(original: Color): Color = Color(
     red = (original.red * 0.4f).coerceIn(0f, 1f),
     green = (original.green * 0.4f).coerceIn(0f, 1f),
     blue = (original.blue * 0.4f).coerceIn(0f, 1f),
 )
 
-/**
- * A bird circling the tree in one of the bird stages. Position is derived purely
- * from elapsed time + these per-bird constants, so motion is smooth and cheap.
- * `departTimeMs` is set when the bird is told to leave (neglect/lower stage); it
- * then spirals outward and fades before being removed.
- */
 private data class Bird(
     val id: Long = Random.nextLong(),
     val radiusXPx: Float,
     val radiusYPx: Float,
     val centerYPx: Float,
-    val angularSpeed: Float, // rad/s; sign sets orbit direction
+    val angularSpeed: Float,
     val phase: Float,
     val scale: Float,
     val spawnTimeMs: Long,
@@ -212,12 +186,9 @@ private data class BirdRender(
     val scale: Float,
     val alpha: Float,
     val faceLeft: Boolean,
-    // True on the FAR half of the orbit (upper arc), where the bird should be
-    // drawn behind the tree so it reads as circling around rather than across.
     val behind: Boolean,
 )
 
-/** Where this bird is right now (relative to the canopy centre), and how it's facing. */
 private fun Bird.renderAt(nowMs: Long): BirdRender {
     val tSec = (nowMs - spawnTimeMs) / 1000f
     val angle = phase + angularSpeed * tSec
@@ -228,22 +199,18 @@ private fun Bird.renderAt(nowMs: Long): BirdRender {
 
     if (departTimeMs != null) {
         val p = ((nowMs - departTimeMs).toFloat() / BIRD_DEPART_MS).coerceIn(0f, 1f)
-        rx *= 1f + p * 2.6f // spiral outward
+        rx *= 1f + p * 2.6f
         ry *= 1f + p * 2.6f
-        alpha *= (1f - p)   // and fade out
+        alpha *= (1f - p)
     }
 
     val x = cos(angle) * rx
     val y = centerYPx + sin(angle) * ry
-    // Horizontal velocity = d/dt(cos) = -sin·speed; face the way it's moving.
     val faceLeft = (-sin(angle) * angularSpeed) >= 0f
-    // Upper arc (sin < 0, above the orbit centre) = far side → behind the tree.
-    // Departing birds always stay in front so they're seen flying away.
     val behind = departTimeMs == null && sin(angle) < 0f
     return BirdRender(xPx = x, yPx = y, scale = scale, alpha = alpha, faceLeft = faceLeft, behind = behind)
 }
 
-/** A fresh bird on a randomised orbit around the canopy (sizes/speeds/heights vary). */
 private fun randomBird(nowMs: Long, contentHeightPx: Float): Bird {
     val dir = if (Random.nextBoolean()) 1f else -1f
     return Bird(
@@ -259,20 +226,19 @@ private fun randomBird(nowMs: Long, contentHeightPx: Float): Bird {
 
 private data class FallingLeaf(
     val id: Long = Random.nextLong(),
-    val baseX: Float,      // horizontal centre the leaf sways around
-    val x: Float,          // current x = baseX + sine sway
-    val y: Float,
-    val angle: Float,      // sprite rotation (degrees), follows the sway
-    val fallSpeed: Float,  // px per second (gentle)
-    val swayAmp: Float,    // px
-    val swayFreq: Float,   // radians per second
+    val baseX: Float,
+    val spawnY: Float,
+    val fallSpeed: Float,
+    val swayAmp: Float,
+    val swayFreq: Float,
     val swayPhase: Float,
     val spawnTimeMs: Long,
     val ttlMs: Long,
     val fadeOutMs: Long,
     val sizePx: Float,
     val color: Color,
-    val onFloor: Boolean = false,
+    var floorY: Float? = null,
+    var landTimeMs: Long? = null,
 )
 
 @Composable
@@ -283,15 +249,14 @@ fun WateringTree(
     showFallingLeaves: Boolean = true,
     showWildlife: Boolean = true,
 ) {
-    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.tree))
-    val birdComposition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.bird))
+    val compositionResult = rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.tree))
+    val composition = compositionResult.value
+    val birdCompositionResult = rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.bird))
+    val birdComposition = birdCompositionResult.value
+    
     val death = deathLevel.coerceIn(0f, 1f)
-
     val idx = stage.coerceIn(0, STAGE_ENDPOINTS.lastIndex)
 
-    // Birds for this stage, thinned out by neglect: as the tree fades, birds
-    // leave one by one until none remain at full neglect.
-    // showWildlife = false (forest snapshots) → no birds, just the tree itself.
     val targetBirds = if (!showWildlife) 0 else
         (birdsForStage(stage) * (1f - death)).let { kotlin.math.round(it).toInt() }.coerceIn(0, MAX_BIRDS)
 
@@ -307,7 +272,6 @@ fun WateringTree(
             1 -> 1.9f
             2 -> 1.6f
             3 -> 1.3f
-            // Stage 4+ all get the zoomed-out view
             else -> 0.85f
         },
         animationSpec = tween(1500, easing = FastOutSlowInEasing),
@@ -339,13 +303,10 @@ fun WateringTree(
     val density = LocalDensity.current
     val leaves = remember { mutableStateListOf<FallingLeaf>() }
     val birds = remember { mutableStateListOf<Bird>() }
-    var currentFrameMs by remember { mutableLongStateOf(0L) }
+    val currentFrameMs = remember { mutableLongStateOf(0L) }
 
     val leafBitmap = ImageBitmap.imageResource(id = R.drawable.leaf)
 
-    // deathLevel changes on every /tree poll, so keying the spawn loop on it
-    // would restart the loop (resetting the accumulator) every few seconds and
-    // the leaves would never accumulate. Key on Unit and read the live values.
     val currentDeath by rememberUpdatedState(death)
     val currentIdx by rememberUpdatedState(idx)
     val currentDensity by rememberUpdatedState(density)
@@ -366,25 +327,21 @@ fun WateringTree(
                 val dt = ((frameNanos - lastFrameNanos) / 1_000_000_000f).coerceIn(0f, 0.033f)
                 lastFrameNanos = frameNanos
                 val nowMs = frameNanos / 1_000_000L
-                currentFrameMs = nowMs
+                currentFrameMs.longValue = nowMs
 
-                val death = currentDeath
-                val idx = currentIdx
-                val density = currentDensity
-                val params = STAGE_SPAWN_PARAMS[idx.coerceAtMost(STAGE_SPAWN_PARAMS.lastIndex)]
+                val dVal = currentDeath
+                val iVal = currentIdx
+                val densVal = currentDensity
+                val params = STAGE_SPAWN_PARAMS[iVal.coerceAtMost(STAGE_SPAWN_PARAMS.lastIndex)]
 
-                val canvasHeightPx = with(density) { TREE_CONTENT_HEIGHT.toPx() }
-                // Leaves rest at the trunk base. Calibrated from the rendered tree
-                // (the base sits ~0.82 of content; 0.75 lands a leaf sprite's bottom
-                // right at it rather than below the tree).
+                val canvasHeightPx = densVal.run { TREE_CONTENT_HEIGHT.toPx() }
                 val floorY = canvasHeightPx * 0.63f
-                val spawnHalfWidthPx = with(density) { params.halfWidth.toPx() }
+                val spawnHalfWidthPx = densVal.run { params.halfWidth.toPx() }
                 val spawnYTop = canvasHeightPx * params.yTop
                 val spawnYBottom = canvasHeightPx * params.yBottom
 
-                // --- Birds (one-by-one arrivals/departures around the canopy) ---
-                val targetBirds = currentTargetBirds
-                // Drop any bird that has finished flying out.
+                // --- Birds ---
+                val tBirdsVal = currentTargetBirds
                 for (i in birds.indices.reversed()) {
                     val b = birds[i]
                     if (b.departTimeMs != null && nowMs - b.departTimeMs > BIRD_DEPART_MS) {
@@ -393,11 +350,10 @@ fun WateringTree(
                 }
                 val orbiting = birds.count { it.departTimeMs == null }
                 if (nowMs - lastBirdEventMs >= BIRD_EVENT_GAP_MS) {
-                    if (orbiting < targetBirds) {
+                    if (orbiting < tBirdsVal) {
                         birds.add(randomBird(nowMs, canvasHeightPx))
                         lastBirdEventMs = nowMs
-                    } else if (orbiting > targetBirds) {
-                        // Send the newest still-orbiting bird away, one at a time.
+                    } else if (orbiting > tBirdsVal) {
                         val out = birds.indexOfLast { it.departTimeMs == null }
                         if (out >= 0) {
                             birds[out] = birds[out].copy(departTimeMs = nowMs)
@@ -406,86 +362,63 @@ fun WateringTree(
                     }
                 }
 
-                // Slow drift when healthy; speeds up as the tree fades.
-                val spawnRatePerSec =
-                    (LEAF_RATE_HEALTHY + death * LEAF_RATE_DEATH + idx * LEAF_RATE_STAGE)
-                        .coerceAtMost(LEAF_RATE_MAX)
-                spawnAccumulator += dt * spawnRatePerSec
+                // --- Leaves ---
+                if (!showFallingLeaves) {
+                    leaves.clear()
+                } else {
+                    val baseRate = LEAF_RATE_HEALTHY + (LEAF_RATE_DEATH - LEAF_RATE_HEALTHY) * dVal
+                    val stageBoost = iVal * LEAF_RATE_STAGE
+                    val rate = (baseRate + stageBoost).coerceAtMost(LEAF_RATE_MAX)
 
-                // Forest trees pass showFallingLeaves = false → never spawn leaves.
-                val maxLeaves = if (showFallingLeaves) 70 else 0
+                    spawnAccumulator += rate * dt
+                    val maxLeaves = 70
+                    while (spawnAccumulator >= 1f && leaves.size < maxLeaves) {
+                        spawnAccumulator -= 1f
+                        val baseX = (Random.nextFloat() - 0.5f) * 2f * spawnHalfWidthPx
+                        val spawnY = spawnYTop + Random.nextFloat() * (spawnYBottom - spawnYTop)
+                        
+                        val isHealthy = dVal < 0.4f
+                        val ttl = if (isHealthy) Random.nextLong(2000L, 4000L) else Random.nextLong(10_000L, 18_000L)
+                        val fadeOut = if (isHealthy) Random.nextLong(800L, 1500L) else Random.nextLong(1500L, 3000L)
 
-                while (spawnAccumulator >= 1f && leaves.size < maxLeaves) {
-                    spawnAccumulator -= 1f
+                        val baseGreen = LEAF_BLOBS.random().originalColor
+                        val leafColor = lerp(baseGreen, fadedLeafColor(baseGreen), dVal)
 
-                    // Spawn from anywhere across the bush (random x and y in the canopy band).
-                    val baseX = (Random.nextFloat() - 0.5f) * 2f * spawnHalfWidthPx
-                    val spawnY = spawnYTop + Random.nextFloat() * (spawnYBottom - spawnYTop)
-
-                    val isHealthy = death < 0.4f
-                    val ttl = if (isHealthy) {
-                        Random.nextLong(2000L, 4000L) // Fast disappear for healthy
-                    } else {
-                        Random.nextLong(10_000L, 18_000L) // Longer for wilting/dead
-                    }
-                    val fadeOut = if (isHealthy) {
-                        Random.nextLong(800L, 1500L)
-                    } else {
-                        Random.nextLong(1500L, 3000L)
-                    }
-
-                    val baseGreen = LEAF_BLOBS.random().originalColor
-                    val leafColor = lerp(baseGreen, fadedLeafColor(baseGreen), death)
-
-                    leaves.add(
-                        FallingLeaf(
-                            baseX = baseX,
-                            x = baseX,
-                            y = spawnY,
-                            angle = 0f,
-                            fallSpeed = listOf(50f, 70f, 90f, 110f, 130f).random(), // gentle px/sec
-                            swayAmp = Random.nextFloat() * 25f + 15f, // 15..40 px
-                            swayFreq = Random.nextFloat() * 1.5f + 1.5f, // 1.5..3.0 rad/s
-                            swayPhase = Random.nextFloat() * 6.2832f,
-                            spawnTimeMs = nowMs,
-                            ttlMs = ttl,
-                            fadeOutMs = fadeOut,
-                            sizePx = Random.nextFloat() * 8f + 18f,
-                            color = leafColor,
+                        leaves.add(
+                            FallingLeaf(
+                                baseX = baseX,
+                                spawnY = spawnY,
+                                fallSpeed = listOf(50f, 70f, 90f, 110f, 130f).random(),
+                                swayAmp = Random.nextFloat() * 25f + 15f,
+                                swayFreq = Random.nextFloat() * 1.5f + 1.5f,
+                                swayPhase = Random.nextFloat() * 6.2832f,
+                                spawnTimeMs = nowMs,
+                                ttlMs = ttl,
+                                fadeOutMs = fadeOut,
+                                sizePx = Random.nextFloat() * 8f + 18f,
+                                color = leafColor,
+                            )
                         )
-                    )
-                }
+                    }
 
-                for (i in leaves.indices.reversed()) {
-                    val leaf = leaves[i]
-                    val ageMs = nowMs - leaf.spawnTimeMs
-                    val nearDeath = death > 0.4f
+                    for (i in leaves.indices.reversed()) {
+                        val leaf = leaves[i]
+                        val ageMs = nowMs - leaf.spawnTimeMs
 
-                    if (leaf.onFloor) {
-                        // Keep some leaves around longer, then fade them out naturally.
-                        if (!nearDeath || ageMs > leaf.ttlMs) {
+                        if (leaf.landTimeMs != null) {
+                            if (dVal <= 0.4f || ageMs > leaf.ttlMs) {
+                                leaves.removeAt(i)
+                            }
+                        } else if (ageMs > leaf.ttlMs) {
                             leaves.removeAt(i)
+                        } else {
+                            val ageSec = ageMs / 1000f
+                            val currentY = leaf.spawnY + leaf.fallSpeed * ageSec
+                            if (currentY >= floorY) {
+                                leaf.floorY = floorY
+                                leaf.landTimeMs = nowMs
+                            }
                         }
-                        continue
-                    }
-
-                    // Gentle downward drift with a left/right sine sway.
-                    val ageSec = ageMs / 1000f
-                    val sway = sin(ageSec * leaf.swayFreq + leaf.swayPhase)
-                    val newX = leaf.baseX + sway * leaf.swayAmp
-                    var newY = leaf.y + leaf.fallSpeed * dt
-                    val drawAngle = sway * 28f // flutter: the leaf tilts with the sway
-
-                    if (newY >= floorY) {
-                        newY = floorY
-                        leaves[i] = leaf.copy(x = newX, y = newY, angle = drawAngle, onFloor = true)
-                    } else {
-                        leaves[i] = leaf.copy(x = newX, y = newY, angle = drawAngle)
-                    }
-
-                    // Safety cleanup for very old leaves that never settled.
-                    if (ageMs > leaf.ttlMs) {
-                        leaves.removeAt(i)
                     }
                 }
             }
@@ -553,41 +486,18 @@ fun WateringTree(
                 },
         )
 
-        // Birds circling the canopy in the bird stages. Positions are derived from
-        // the shared frame clock so they glide smoothly; each fades in on arrival
-        // and spirals out on departure.
         birds.forEach { bird ->
-            val r = bird.renderAt(currentFrameMs)
-            LottieAnimation(
-                composition = birdComposition,
-                iterations = LottieConstants.IterateForever,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .size(BIRD_BASE_SIZE)
-                    // Far arc → behind the tree (z below the tree Lottie's 0);
-                    // near arc → in front of everything.
-                    .zIndex(if (r.behind) -1f else 2f)
-                    .graphicsLayer {
-                        val headroomPx = TREE_TOP_HEADROOM.toPx()
-                        translationX = r.xPx
-                        translationY = headroomPx + r.yPx - size.height / 2f
-                        scaleX = r.scale * if (r.faceLeft) -1f else 1f
-                        scaleY = r.scale
-                        alpha = r.alpha
-                    },
-            )
+            BirdRenderer(bird, birdComposition, currentFrameMs)
         }
 
         Canvas(modifier = Modifier.fillMaxSize().zIndex(1.0f)) {
             val canvasWidth = size.width
             val centerX = canvasWidth / 2f
-            // Leaf positions are computed in content-region space (anchored to the
-            // bottom). The Box also has headroom above that region, so shift leaf
-            // drawing down by the headroom to keep them glued to the canopy.
             val headroomPx = TREE_TOP_HEADROOM.toPx()
 
             leaves.forEach { leaf ->
-                val ageMs = (currentFrameMs - leaf.spawnTimeMs).coerceAtLeast(0L)
+                val now = currentFrameMs.longValue
+                val ageMs = (now - leaf.spawnTimeMs).coerceAtLeast(0L)
                 val fadeStart = (leaf.ttlMs - leaf.fadeOutMs).coerceAtLeast(0L)
                 
                 val fadeT = if (ageMs < fadeStart) {
@@ -597,16 +507,27 @@ fun WateringTree(
                 }
 
                 val alpha = 1f - fadeT
-                // Shrink from original size down to 0 during fade
                 val currentSize = (leaf.sizePx * (1f - fadeT)).toInt().coerceAtLeast(0)
 
                 if (currentSize > 0) {
+                    val ageSec = ageMs / 1000f
+                    val sway = sin(ageSec * leaf.swayFreq + leaf.swayPhase)
+                    val leafX = leaf.baseX + sway * leaf.swayAmp
+                    
+                    val leafY = if (leaf.landTimeMs != null) {
+                        leaf.floorY ?: 0f
+                    } else {
+                        leaf.spawnY + leaf.fallSpeed * ageSec
+                    }
+                    
+                    val drawAngle = if (leaf.landTimeMs != null) 0f else sway * 28f
+
                     withTransform({
                         translate(
-                            left = centerX + leaf.x,
-                            top = headroomPx + leaf.y
+                            left = centerX + leafX,
+                            top = headroomPx + leafY
                         )
-                        rotate(degrees = leaf.angle, pivot = Offset(currentSize / 2f, currentSize / 2f))
+                        rotate(degrees = drawAngle, pivot = Offset(currentSize / 2f, currentSize / 2f))
                     }) {
                         drawImage(
                             image = leafBitmap,
@@ -619,6 +540,26 @@ fun WateringTree(
             }
         }
     }
+}
+
+@Composable
+private fun BirdRenderer(bird: Bird, birdComposition: LottieComposition?, currentFrameMs: LongState) {
+    val r = bird.renderAt(currentFrameMs.longValue)
+    LottieAnimation(
+        composition = birdComposition,
+        iterations = LottieConstants.IterateForever,
+        modifier = Modifier
+            .size(BIRD_BASE_SIZE)
+            .zIndex(if (r.behind) -1f else 2f)
+            .graphicsLayer {
+                val headroomPx = TREE_TOP_HEADROOM.toPx()
+                translationX = r.xPx
+                translationY = headroomPx + r.yPx - size.height / 2f
+                scaleX = r.scale * if (r.faceLeft) -1f else 1f
+                scaleY = r.scale
+                alpha = r.alpha
+            },
+    )
 }
 
 /** A round "water the tree" button mirroring the mic button. */
