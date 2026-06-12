@@ -689,7 +689,8 @@ fun WateringTree(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(TREE_CONTENT_HEIGHT + TREE_TOP_HEADROOM),
+            .height(TREE_CONTENT_HEIGHT + TREE_TOP_HEADROOM)
+            .graphicsLayer { clip = false },
         contentAlignment = Alignment.BottomCenter,
     ) {
         LottieAnimation(
