@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -82,18 +83,26 @@ class ThreadsViewModel(
 
     /** Refresh the conversation list (and the gentle prompt suggestion). */
     fun loadThreads() {
+        if (loading) return
         viewModelScope.launch {
             loading = true
             repository.getThreads(selfId).onSuccess { items ->
                 summaries = items
                 
                 // Decode anchored-memory thumbnails in parallel batches of 5
+                val allNewBitmaps = mutableMapOf<String, ImageBitmap>()
                 items.filter { it.memoryType == "photo" }.chunked(5).forEach { chunk ->
                     val bitmaps = chunk.mapNotNull { summary ->
-                        // Check cache first
+                        // 1. Check bitmap cache
                         MediaCache.get(summary.anchor)?.let { return@mapNotNull summary.anchor to it }
 
-                        repository.getMedia(summary.anchor).getOrNull()?.let { bytes ->
+                        // 2. Check bytes cache, or fetch from network
+                        val bytes = MediaCache.getBytes(summary.anchor)
+                            ?: repository.getMedia(summary.anchor).getOrNull()?.also {
+                                MediaCache.putBytes(summary.anchor, it)
+                            }
+
+                        if (bytes != null) {
                             val bmp = withContext(Dispatchers.Default) {
                                 decodeSampledBitmap(bytes, 300, 300)?.asImageBitmap()
                             }
@@ -101,12 +110,13 @@ class ThreadsViewModel(
                                 MediaCache.put(summary.anchor, bmp)
                                 summary.anchor to bmp
                             } else null
-                        }
+                        } else null
                     }.toMap()
 
                     if (bitmaps.isNotEmpty()) {
+                        allNewBitmaps.putAll(bitmaps)
                         summaries = summaries.map {
-                            bitmaps[it.anchor]?.let { bmp -> it.copy(image = bmp) } ?: it
+                            allNewBitmaps[it.anchor]?.let { bmp -> it.copy(image = bmp) } ?: it
                         }
                     }
                 }
@@ -150,12 +160,20 @@ class ThreadsViewModel(
                 markRead(anchor, items.count { it.senderId != selfId })
                 
                 // Decode photo-message thumbnails in parallel batches of 5
+                val allNewBitmaps = mutableMapOf<Long, ImageBitmap>()
                 items.filter { it.kind == "photo" && it.mediaObject != null }.chunked(5).forEach { chunk ->
                     val bitmaps = chunk.mapNotNull { msg ->
                         val objectName = msg.mediaObject!!
+                        // 1. Check bitmap cache (note: using id as key here for the UI list)
                         MediaCache.get(objectName)?.let { return@mapNotNull msg.id to it }
 
-                        repository.getMedia(objectName).getOrNull()?.let { bytes ->
+                        // 2. Check bytes cache, or fetch from network
+                        val bytes = MediaCache.getBytes(objectName)
+                            ?: repository.getMedia(objectName).getOrNull()?.also {
+                                MediaCache.putBytes(objectName, it)
+                            }
+
+                        if (bytes != null) {
                             val bmp = withContext(Dispatchers.Default) {
                                 decodeSampledBitmap(bytes, 400, 400)?.asImageBitmap()
                             }
@@ -163,12 +181,13 @@ class ThreadsViewModel(
                                 MediaCache.put(objectName, bmp)
                                 msg.id to bmp
                             } else null
-                        }
+                        } else null
                     }.toMap()
 
                     if (bitmaps.isNotEmpty()) {
+                        allNewBitmaps.putAll(bitmaps)
                         messages = messages.map {
-                            bitmaps[it.id]?.let { bmp -> it.copy(image = bmp) } ?: it
+                            allNewBitmaps[it.id]?.let { bmp -> it.copy(image = bmp) } ?: it
                         }
                     }
                 }
@@ -200,8 +219,12 @@ class ThreadsViewModel(
 
     /** Fetch raw bytes (e.g. to play a voice message). */
     fun loadMediaBytes(objectName: String, onBytes: (ByteArray) -> Unit) {
+        MediaCache.getBytes(objectName)?.let { onBytes(it); return }
         viewModelScope.launch {
-            repository.getMedia(objectName).onSuccess(onBytes)
+            repository.getMedia(objectName).onSuccess { bytes ->
+                MediaCache.putBytes(objectName, bytes)
+                onBytes(bytes)
+            }
         }
     }
 }

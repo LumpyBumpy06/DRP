@@ -1,36 +1,59 @@
 package com.drp33.quietsignal.data.remote
 
+import android.content.Context
+import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 object RetroFitProvider {
-    private const val BASE_URL = "https://quietsignal.noxbound.com/"  // production (NO /forest yet — forest won't work here)
-//    private const val BASE_URL = "http://10.0.2.2:8000/"              // Android emulator: alias for the host machine's loopback
-//    private const val BASE_URL = "http://127.0.0.1:8000/"             // LOCAL via `adb reverse tcp:8000 tcp:8000` (works on physical device + emulator)
+    private const val BASE_URL = "https://quietsignal.noxbound.com/"
 
-    private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.HEADERS
+    private var okHttpClient: OkHttpClient? = null
+
+    fun getClient(context: Context): OkHttpClient {
+        return okHttpClient ?: synchronized(this) {
+            val cacheSize = 50 * 1024 * 1024L // 50MB
+            val cache = Cache(File(context.cacheDir, "http_cache"), cacheSize)
+
+            val interceptor = HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.HEADERS
+            }
+
+            OkHttpClient.Builder()
+                .cache(cache)
+                .addInterceptor(interceptor)
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(15, TimeUnit.SECONDS)
+                .callTimeout(20, TimeUnit.SECONDS)
+                .build().also { okHttpClient = it }
+        }
     }
 
-    // Timeouts so a slow/unreachable endpoint fails fast instead of hanging the
-    // UI (e.g. the voice player stuck on "Loading…").
-    private val okHttpClient = OkHttpClient.Builder()
-        .addInterceptor(loggingInterceptor)
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .callTimeout(20, TimeUnit.SECONDS)
-        .build()
+    fun getCheckInAPI(context: Context): CheckInAPI {
+        return Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(getClient(context))
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(CheckInAPI::class.java)
+    }
 
-    private val retrofit = Retrofit.Builder()
-        .baseUrl(BASE_URL)
-        .client(okHttpClient)
-        .addConverterFactory(
-            GsonConverterFactory.create()
-        )
-        .build()
-
-    val checkInAPI: CheckInAPI = retrofit.create(CheckInAPI::class.java)
+    // Kept for backward compatibility if context-less access is needed, 
+    // but preferred usage is via getCheckInAPI(context).
+    val checkInAPI: CheckInAPI by lazy {
+        Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(
+                OkHttpClient.Builder()
+                    .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.HEADERS })
+                    .build()
+            )
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(CheckInAPI::class.java)
+    }
 }

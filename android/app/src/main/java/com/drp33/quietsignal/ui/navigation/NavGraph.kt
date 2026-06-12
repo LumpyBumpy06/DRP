@@ -39,7 +39,7 @@ fun NavGraph() {
     val navController = rememberNavController()
 
     val repository = remember {
-        CheckInRepositoryImpl(RetroFitProvider.checkInAPI)
+        CheckInRepositoryImpl(RetroFitProvider.getCheckInAPI(context))
     }
     // Persistent per-thread read state (survives sign-out + restarts).
     val threadReadStore = remember { ThreadReadStore(context) }

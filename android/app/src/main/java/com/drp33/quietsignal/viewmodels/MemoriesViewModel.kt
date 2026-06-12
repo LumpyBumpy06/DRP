@@ -3,6 +3,7 @@ package com.drp33.quietsignal.viewmodels
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -32,6 +33,7 @@ class MemoriesViewModel(
         private set
 
     fun load() {
+        if (loading) return
         viewModelScope.launch {
             loading = true
             repository.getMemories()
@@ -41,12 +43,19 @@ class MemoriesViewModel(
                     loadTags()
                     // Decode snapshots in parallel batches of 5 to avoid network/CPU saturation
                     // while still providing a responsive "filling in" effect.
+                    val allNewBitmaps = mutableMapOf<String, ImageBitmap>()
                     items.filter { it.type == "photo" }.chunked(5).forEach { chunk ->
                         val bitmaps = chunk.mapNotNull { item ->
-                            // Check cache first
+                            // 1. Check bitmap cache
                             MediaCache.get(item.objectName)?.let { return@mapNotNull item.objectName to it }
 
-                            repository.getMedia(item.objectName).getOrNull()?.let { bytes ->
+                            // 2. Check bytes cache, or fetch from network
+                            val bytes = MediaCache.getBytes(item.objectName)
+                                ?: repository.getMedia(item.objectName).getOrNull()?.also {
+                                    MediaCache.putBytes(item.objectName, it)
+                                }
+
+                            if (bytes != null) {
                                 val bmp = withContext(Dispatchers.Default) {
                                     decodeSampledBitmap(bytes, 400, 400)?.asImageBitmap()
                                 }
@@ -54,12 +63,13 @@ class MemoriesViewModel(
                                     MediaCache.put(item.objectName, bmp)
                                     item.objectName to bmp
                                 } else null
-                            }
+                            } else null
                         }.toMap()
 
                         if (bitmaps.isNotEmpty()) {
+                            allNewBitmaps.putAll(bitmaps)
                             memories = memories.map {
-                                bitmaps[it.objectName]?.let { bmp -> it.copy(image = bmp) } ?: it
+                                allNewBitmaps[it.objectName]?.let { bmp -> it.copy(image = bmp) } ?: it
                             }
                         }
                     }
@@ -122,8 +132,12 @@ class MemoriesViewModel(
 
     /** Fetch a memory's raw bytes (e.g. to play a voice memo). */
     fun loadMediaBytes(objectName: String, onBytes: (ByteArray) -> Unit) {
+        MediaCache.getBytes(objectName)?.let { onBytes(it); return }
         viewModelScope.launch {
-            repository.getMedia(objectName).onSuccess(onBytes)
+            repository.getMedia(objectName).onSuccess { bytes ->
+                MediaCache.putBytes(objectName, bytes)
+                onBytes(bytes)
+            }
         }
     }
 
