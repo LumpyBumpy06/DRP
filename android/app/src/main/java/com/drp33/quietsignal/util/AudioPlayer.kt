@@ -1,6 +1,7 @@
 package com.drp33.quietsignal.util
 
 import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.media.MediaPlayer
 import android.util.Log
 import java.io.File
@@ -35,6 +36,22 @@ class AudioPlayer(private val context: Context) {
             0
         }
     }
+
+    /** Reads a clip's duration (ms) without playing it — used to label voice bars. */
+    fun durationOf(bytes: ByteArray): Int =
+        try {
+            val file = File(context.cacheDir, "probe_${bytes.size}.m4a")
+            file.writeBytes(bytes)
+            val mmr = MediaMetadataRetriever()
+            mmr.setDataSource(file.absolutePath)
+            val ms = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toIntOrNull() ?: 0
+            mmr.release()
+            file.delete()
+            ms
+        } catch (e: Exception) {
+            Log.w("AudioPlayer", "Failed to read duration", e)
+            0
+        }
 
     fun pause() = ignoreState { player?.pause() }
 

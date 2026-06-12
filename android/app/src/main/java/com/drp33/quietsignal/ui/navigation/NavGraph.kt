@@ -133,7 +133,12 @@ fun NavGraph() {
                 adultViewModel.loadEmergencyStatus(2)
             }
 
-            MainShell(forestVm = memoriesViewModel, threadsVm = threadsVm) { pad ->
+            MainShell(
+                forestVm = memoriesViewModel,
+                threadsVm = threadsVm,
+                emergencyActive = adultViewModel.state.emergency,
+                onEmergencyAck = { adultViewModel.acknowledgeEmergency(2) },
+            ) { pad ->
                 AdultScreen(
                     viewModel = adultViewModel,
                     treeVm = treeViewModel,
@@ -143,7 +148,6 @@ fun NavGraph() {
                     threadsVm = threadsVm,
                     contentPadding = pad,
                     onSwitchRole = switchRole,
-                    onAllGood = { adultViewModel.acknowledgeEmergency(2) },
                 )
             }
         }

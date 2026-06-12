@@ -17,12 +17,12 @@ from datetime import UTC, datetime
 GROWTH_THRESHOLDS = [0, 1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 66]
 
 # No watering for this many "day" windows => fully dead (deathLevel == 1.0).
-DEATH_WINDOWS = 6
+DEATH_WINDOWS = 12
 
 # Length of one "forest" week. Each elapsed week becomes a frozen tree.
 # TEST VALUE: 60s so new trees appear ~every minute (matches the compressed
 # 10s "day"). For production use 7 * 24 * 3600. MUST match the client's WEEK_SECONDS.
-WEEK_SECONDS = 60
+WEEK_SECONDS = 120
 
 # Cap how many recent weeks the forest returns, so a long history (especially
 # with the short test week) doesn't produce hundreds of trees to render.
@@ -115,6 +115,10 @@ def compute_forest(
         # Each week is its own tree: only THIS week's waterings count toward it.
         n = [t for t in norman_ts if week_start_epoch <= _epoch(t) <= eval_epoch]
         s = [t for t in sadie_ts if week_start_epoch <= _epoch(t) <= eval_epoch]
+        # A week with no waterings never grew a tree — don't plant a phantom
+        # stage-0 sapling for it (otherwise idle weeks keep adding saplings).
+        if not n and not s:
+            continue
         state = compute_tree_state(n, s, eval_dt, day_seconds)
         weeks.append(
             {
