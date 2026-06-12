@@ -105,7 +105,7 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize().groveBackground()) {
         // imePadding lifts the entire conversation (including the composer)
         // above the keyboard.
-        Column(modifier = Modifier.fillMaxSize().imePadding()) {
+        Column(modifier = Modifier.fillMaxSize()) {
             // ---- header ----
             Row(
                 modifier = Modifier
@@ -310,7 +310,7 @@ private fun ChatComposer(onSendText: (String) -> Unit, onSendVoice: (ByteArray) 
         modifier = Modifier
             .fillMaxWidth()
             .background(Grove.Surface)
-            .navigationBarsPadding() // Only clear the system nav bar
+            .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
