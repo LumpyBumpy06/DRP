@@ -184,15 +184,15 @@ def get_latest_revive_event(session: Session, user_id: int) -> ReviveEvent | Non
 
 
 def get_latest_check_in_event(session: Session, user_id: int) -> OkayEvent | ReviveEvent | None:
-    okay = get_latest_okay_event(session, user_id)
-    revive = get_latest_revive_event(session, user_id)
-    if okay is None:
-        return revive
-    if revive is None:
-        return okay
-    okay_epoch = okay.timestamp.replace(tzinfo=UTC) if okay.timestamp.tzinfo is None else okay.timestamp
-    revive_epoch = revive.timestamp.replace(tzinfo=UTC) if revive.timestamp.tzinfo is None else revive.timestamp
-    return okay if okay_epoch >= revive_epoch else revive
+    okay_event: OkayEvent | ReviveEvent | None = get_latest_okay_event(session, user_id)
+    revive_event: OkayEvent | ReviveEvent | None = get_latest_revive_event(session, user_id)
+    if okay_event is None:
+        return revive_event
+    if revive_event is None:
+        return okay_event
+    okay_epoch = okay_event.timestamp.replace(tzinfo=UTC) if okay_event.timestamp.tzinfo is None else okay_event.timestamp
+    revive_epoch = revive_event.timestamp.replace(tzinfo=UTC) if revive_event.timestamp.tzinfo is None else revive_event.timestamp
+    return okay_event if okay_epoch >= revive_epoch else revive_event
 
 
 def get_revive_timestamps(session: Session, user_id: int) -> list[datetime]:
@@ -206,7 +206,7 @@ def get_okay_timestamps(session: Session, user_id: int) -> list[datetime]:
     return list(session.exec(stmt).all())
 
 
-def is_okay_within_6h(event: OkayEvent | None) -> bool:
+def is_okay_within_6h(event: OkayEvent | ReviveEvent | None) -> bool:
     if not event:
         return False
     event_timestamp = event.timestamp.replace(tzinfo=UTC)
