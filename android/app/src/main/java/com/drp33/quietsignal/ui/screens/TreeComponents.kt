@@ -124,12 +124,12 @@ private data class LeafSpawnParams(
 )
 
 private val STAGE_SPAWN_PARAMS = listOf(
-    LeafSpawnParams(0.43f, 0.47f, 2.dp), // Stage 0
+    LeafSpawnParams(0.43f, 0.47f, 1.dp), // Stage 0
     LeafSpawnParams(0.35f, 0.52f, 38.dp), // Stage 1
-    LeafSpawnParams(0.24f, 0.50f, 50.dp), // Stage 2
-    LeafSpawnParams(0.18f, 0.46f, 62.dp), // Stage 3
-    LeafSpawnParams(0.14f, 0.44f, 76.dp), // Stage 4
-    LeafSpawnParams(0.10f, 0.42f, 90.dp), // Stage 5
+    LeafSpawnParams(0.24f, 0.50f, 43.dp), // Stage 2
+    LeafSpawnParams(0.18f, 0.40f, 62.dp), // Stage 3
+    LeafSpawnParams(0.14f, 0.34f, 63.dp), // Stage 4
+    LeafSpawnParams(0.10f, 0.42f, 63.dp), // Stage 5
 )
 
 private data class LeafBlob(val layer: String, val group: String, val originalColor: Color)
@@ -240,6 +240,8 @@ private data class FallingLeaf(
     val color: Color,
     var floorY: Float? = null,
     var landTimeMs: Long? = null,
+    var landedX: Float? = null,
+    var landedRotation: Float? = null,
 )
 
 @Composable
@@ -418,6 +420,10 @@ fun WateringTree(
                             if (currentY >= floorY) {
                                 leaf.floorY = floorY
                                 leaf.landTimeMs = nowMs
+                                
+                                val swayAtLanding = sin(ageSec * leaf.swayFreq + leaf.swayPhase)
+                                leaf.landedX = leaf.baseX + swayAtLanding * leaf.swayAmp
+                                leaf.landedRotation = swayAtLanding * 28f
                             }
                         }
                     }
@@ -513,7 +519,12 @@ fun WateringTree(
                 if (currentSize > 0) {
                     val ageSec = ageMs / 1000f
                     val sway = sin(ageSec * leaf.swayFreq + leaf.swayPhase)
-                    val leafX = leaf.baseX + sway * leaf.swayAmp
+                    
+                    val leafX = if (leaf.landTimeMs != null) {
+                        leaf.landedX ?: leaf.baseX
+                    } else {
+                        leaf.baseX + sway * leaf.swayAmp
+                    }
                     
                     val leafY = if (leaf.landTimeMs != null) {
                         leaf.floorY ?: 0f
@@ -521,7 +532,11 @@ fun WateringTree(
                         leaf.spawnY + leaf.fallSpeed * ageSec
                     }
                     
-                    val drawAngle = if (leaf.landTimeMs != null) 0f else sway * 28f
+                    val drawAngle = if (leaf.landTimeMs != null) {
+                        leaf.landedRotation ?: 0f
+                    } else {
+                        sway * 28f
+                    }
 
                     withTransform({
                         translate(
