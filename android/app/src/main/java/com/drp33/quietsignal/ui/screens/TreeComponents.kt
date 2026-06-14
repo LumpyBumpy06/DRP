@@ -10,6 +10,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -543,13 +544,14 @@ fun WateringTree(
 }
 
 @Composable
-private fun BirdRenderer(bird: Bird, birdComposition: LottieComposition?, currentFrameMs: LongState) {
+private fun BoxScope.BirdRenderer(bird: Bird, birdComposition: LottieComposition?, currentFrameMs: LongState) {
     val r = bird.renderAt(currentFrameMs.longValue)
     LottieAnimation(
         composition = birdComposition,
         iterations = LottieConstants.IterateForever,
         modifier = Modifier
             .size(BIRD_BASE_SIZE)
+            .align(Alignment.TopCenter)
             .zIndex(if (r.behind) -1f else 2f)
             .graphicsLayer {
                 val headroomPx = TREE_TOP_HEADROOM.toPx()
