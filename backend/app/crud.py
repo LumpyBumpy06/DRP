@@ -261,11 +261,7 @@ def set_thread_caption(session: Session, anchor: str, caption: str) -> None:
 
 def get_thread_captions(session: Session) -> dict[str, str]:
     """{anchor: caption} for every titled conversation."""
-    return {
-        row.anchor: row.caption
-        for row in session.exec(select(ThreadCaption)).all()
-        if row.caption
-    }
+    return {row.anchor: row.caption for row in session.exec(select(ThreadCaption)).all() if row.caption}
 
 
 # ---------- TAGS (labels shared across both partners) ----------
