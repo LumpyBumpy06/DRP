@@ -29,6 +29,10 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
         api.postSendOkay(userId)
     }
 
+    override suspend fun postRevive(userId: Int): Result<Unit> = runCatching {
+        api.postRevive(userId)
+    }
+
     override suspend fun sendEmergency(userId: Int): Result<Unit> = runCatching {
         api.postEmergency(userId)
     }

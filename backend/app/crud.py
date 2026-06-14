@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlmodel import Session, col, desc, select
 
-from app.models import EmergencyAlert, ForestTree, MemoryTag, OkayEvent, ThreadCaption, ThreadMessage, User, UserLink
+from app.models import EmergencyAlert, ForestTree, MemoryTag, OkayEvent, ReviveEvent, ThreadCaption, ThreadMessage, User, UserLink
 from app.services.tree import WEEK_SECONDS, compute_week_snapshot, week_start_of
 
 # One "day" in the current simulation. A check-in (or voice message) is only
@@ -94,10 +94,20 @@ def create_okay_event(session: Session, user_id: int) -> OkayEvent:
     return event
 
 
+def create_revive_event(session: Session, user_id: int) -> ReviveEvent:
+    event = ReviveEvent(user_id=user_id)
+    session.add(event)
+    session.commit()
+    session.refresh(event)
+    return event
+
+
 def reset_tree(session: Session) -> int:
     """Delete every check-in AND every frozen forest tree — a full restart."""
     events = list(session.exec(select(OkayEvent)).all())
     for event in events:
+        session.delete(event)
+    for event in session.exec(select(ReviveEvent)).all():
         session.delete(event)
     for tree in session.exec(select(ForestTree)).all():
         session.delete(tree)
@@ -129,7 +139,8 @@ def freeze_elapsed_weeks(session: Session, now: datetime) -> None:
 
     norman = get_okay_timestamps(session, 1)
     sadie = get_okay_timestamps(session, 2)
-    combined = norman + sadie
+    revives = get_revive_timestamps(session, 1) + get_revive_timestamps(session, 2)
+    combined = norman + sadie + revives
     if not combined:
         return
 
@@ -147,7 +158,7 @@ def freeze_elapsed_weeks(session: Session, now: datetime) -> None:
             continue
         # Every elapsed week plants a tree — an idle week just plants a
         # fully-neglected sapling rather than nothing.
-        snapshot = compute_week_snapshot(norman, sadie, week_start, CHECK_IN_WINDOW_SECONDS)
+        snapshot = compute_week_snapshot(norman, sadie, week_start, CHECK_IN_WINDOW_SECONDS, revives)
         session.add(
             ForestTree(
                 week_start=week_start,
@@ -165,6 +176,28 @@ def freeze_elapsed_weeks(session: Session, now: datetime) -> None:
 def get_latest_okay_event(session: Session, user_id: int) -> OkayEvent | None:
     stmt = select(OkayEvent).where(OkayEvent.user_id == user_id).order_by(desc(OkayEvent.timestamp)).limit(1)
     return session.exec(stmt).first()
+
+
+def get_latest_revive_event(session: Session, user_id: int) -> ReviveEvent | None:
+    stmt = select(ReviveEvent).where(ReviveEvent.user_id == user_id).order_by(desc(ReviveEvent.timestamp)).limit(1)
+    return session.exec(stmt).first()
+
+
+def get_latest_check_in_event(session: Session, user_id: int):
+    okay = get_latest_okay_event(session, user_id)
+    revive = get_latest_revive_event(session, user_id)
+    if okay is None:
+        return revive
+    if revive is None:
+        return okay
+    okay_epoch = okay.timestamp.replace(tzinfo=UTC) if okay.timestamp.tzinfo is None else okay.timestamp
+    revive_epoch = revive.timestamp.replace(tzinfo=UTC) if revive.timestamp.tzinfo is None else revive.timestamp
+    return okay if okay_epoch >= revive_epoch else revive
+
+
+def get_revive_timestamps(session: Session, user_id: int) -> list[datetime]:
+    stmt = select(ReviveEvent.timestamp).where(ReviveEvent.user_id == user_id)
+    return list(session.exec(stmt).all())
 
 
 def get_okay_timestamps(session: Session, user_id: int) -> list[datetime]:

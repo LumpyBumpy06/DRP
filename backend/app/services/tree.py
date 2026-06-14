@@ -48,15 +48,18 @@ def compute_tree_state(
     sadie_ts: list[datetime],
     now: datetime,
     day_seconds: int,
+    revive_ts: list[datetime] | None = None,
 ) -> dict:
+    revive_ts = revive_ts or []
     all_ts = sorted(norman_ts + sadie_ts)
     total = len(all_ts)
 
     # Highest growth stage whose threshold the combined waterings have reached.
     stage = max(0, sum(1 for threshold in GROWTH_THRESHOLDS if total >= threshold) - 1)
 
-    if all_ts:
-        last = all_ts[-1]
+    last_activity = sorted(all_ts + revive_ts)
+    if last_activity:
+        last = last_activity[-1]
         if last.tzinfo is None:
             last = last.replace(tzinfo=UTC)
         seconds_since = (now - last).total_seconds()
@@ -82,6 +85,7 @@ def compute_current_week_state(
     sadie_ts: list[datetime],
     now: datetime,
     day_seconds: int,
+    revive_ts: list[datetime] | None = None,
 ) -> dict:
     """The live tree for the CURRENT week only.
 
@@ -94,7 +98,8 @@ def compute_current_week_state(
     week_end = week_start + WEEK_SECONDS
     n = _events_in_week(norman_ts, week_start, week_end)
     s = _events_in_week(sadie_ts, week_start, week_end)
-    return compute_tree_state(n, s, now, day_seconds)
+    r = _events_in_week(revive_ts or [], week_start, week_end)
+    return compute_tree_state(n, s, now, day_seconds, r)
 
 
 def compute_week_snapshot(
@@ -102,6 +107,7 @@ def compute_week_snapshot(
     sadie_ts: list[datetime],
     week_start: int,
     day_seconds: int,
+    revive_ts: list[datetime] | None = None,
 ) -> dict:
     """The frozen tree state for an ELAPSED week, evaluated at the week's end.
 
@@ -111,7 +117,8 @@ def compute_week_snapshot(
     week_end = float(week_start + WEEK_SECONDS)
     n = _events_in_week(norman_ts, float(week_start), week_end)
     s = _events_in_week(sadie_ts, float(week_start), week_end)
-    if not n and not s:
+    r = _events_in_week(revive_ts or [], float(week_start), week_end)
+    if not n and not s and not r:
         return {"stage": 0, "deathLevel": 1.0, "totalWaterings": 0}
     eval_dt = datetime.fromtimestamp(week_end, UTC)
-    return compute_tree_state(n, s, eval_dt, day_seconds)
+    return compute_tree_state(n, s, eval_dt, day_seconds, r)
