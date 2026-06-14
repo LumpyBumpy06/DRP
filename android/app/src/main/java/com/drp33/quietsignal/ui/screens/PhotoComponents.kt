@@ -46,6 +46,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -126,6 +127,7 @@ fun CameraCaptureDialog(onCaptured: (ByteArray) -> Unit, onClose: () -> Unit) {
     val previewView = remember { PreviewView(context) }
     val imageCapture = remember { ImageCapture.Builder().build() }
 
+    var lensFacing by remember { mutableIntStateOf(CameraSelector.LENS_FACING_BACK) }
     var capturedBytes by remember { mutableStateOf<ByteArray?>(null) }
     var capturedBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
@@ -160,17 +162,21 @@ fun CameraCaptureDialog(onCaptured: (ByteArray) -> Unit, onClose: () -> Unit) {
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(lensFacing) {
         val cameraProvider = cameraProviderFuture.get()
         val preview = Preview.Builder().build().also {
             it.setSurfaceProvider(previewView.surfaceProvider)
         }
 
+        val cameraSelector = CameraSelector.Builder()
+            .requireLensFacing(lensFacing)
+            .build()
+
         try {
             cameraProvider.unbindAll()
             cameraProvider.bindToLifecycle(
                 lifecycleOwner,
-                CameraSelector.DEFAULT_BACK_CAMERA,
+                cameraSelector,
                 preview,
                 imageCapture
             )
@@ -194,7 +200,12 @@ fun CameraCaptureDialog(onCaptured: (ByteArray) -> Unit, onClose: () -> Unit) {
             } else {
                 AndroidView(
                     factory = { previewView },
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize().graphicsLayer {
+                        // Mirror the preview if using the front camera
+                        if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
+                            scaleX = -1f
+                        }
+                    }
                 )
             }
 
@@ -224,6 +235,24 @@ fun CameraCaptureDialog(onCaptured: (ByteArray) -> Unit, onClose: () -> Unit) {
                             .background(Color.DarkGray.copy(alpha = 0.5f), CircleShape)
                     ) {
                         Text("🖼️", fontSize = 28.sp)
+                    }
+
+                    // Flip Camera Button (Bottom Right)
+                    IconButton(
+                        onClick = {
+                            lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) {
+                                CameraSelector.LENS_FACING_FRONT
+                            } else {
+                                CameraSelector.LENS_FACING_BACK
+                            }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = 32.dp)
+                            .size(64.dp)
+                            .background(Color.DarkGray.copy(alpha = 0.5f), CircleShape)
+                    ) {
+                        Text("🔄", fontSize = 28.sp)
                     }
 
                     // Shutter Button (Center)
