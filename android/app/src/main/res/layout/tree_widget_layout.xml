@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/tree_widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FBF2E6"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <TextView
+        android:id="@+id/widget_tree_emoji"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="🌳"
+        android:textSize="48sp" />
+
+    <TextView
+        android:id="@+id/widget_tree_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Thriving"
+        android:textColor="#2E7D32"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/widget_update_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Updated: --:--"
+        android:textColor="#757575"
+        android:textSize="11sp" />
+
+</LinearLayout>

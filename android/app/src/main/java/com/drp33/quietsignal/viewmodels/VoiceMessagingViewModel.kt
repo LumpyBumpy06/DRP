@@ -30,28 +30,30 @@ class VoiceMessagingViewModel(
 
     init {
         // Fetch any existing message right away.
-        checkLatest()
+        checkLatest(markNew = false)
 
         // React instantly when a push says the peer just sent a clip...
         viewModelScope.launch {
             NotificationBus.events.collect { event ->
                 if (event == "VOICE_MESSAGE") {
-                    // Count back-to-back arrivals so the listener can see how many
-                    // came in before they got a chance to open them.
-                    state = state.copy(hasNewMessage = true, unreadCount = state.unreadCount + 1)
-                    checkLatest()
+                    checkLatest(markNew = true)
                 }
             }
         }
     }
 
     /** Is there a current clip from the peer? Caches it for instant playback. */
-    private fun checkLatest() {
+    private fun checkLatest(markNew: Boolean = false) {
         viewModelScope.launch {
             repository.getLatestVoice(peerId)
                 .onSuccess { bytes ->
                     latestBytes = bytes
-                    state = state.copy(available = true)
+                    val nextUnread = if (markNew) state.unreadCount + 1 else state.unreadCount
+                    state = state.copy(
+                        available = true,
+                        hasNewMessage = if (markNew) true else state.hasNewMessage,
+                        unreadCount = nextUnread
+                    )
                 }
                 .onFailure {
                     // 404 = nothing there, or the message expired.
