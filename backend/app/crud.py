@@ -105,10 +105,16 @@ def create_revive_event(session: Session, user_id: int) -> ReviveEvent:
 def reset_tree(session: Session) -> int:
     """Delete every check-in AND every frozen forest tree — a full restart."""
     events = list(session.exec(select(OkayEvent)).all())
+    # for event in events:
+    #     session.delete(event)
+    # for event in session.exec(select(ReviveEvent)).all():
+    #     session.delete(event)
     for event in events:
         session.delete(event)
-    for event in session.exec(select(ReviveEvent)).all():
-        session.delete(event)
+
+    for revive in session.exec(select(ReviveEvent)).all():
+        session.delete(revive)
+
     for tree in session.exec(select(ForestTree)).all():
         session.delete(tree)
     session.commit()
@@ -184,8 +190,8 @@ def get_latest_revive_event(session: Session, user_id: int) -> ReviveEvent | Non
 
 
 def get_latest_check_in_event(session: Session, user_id: int) -> OkayEvent | ReviveEvent | None:
-    okay_event: OkayEvent | ReviveEvent | None = get_latest_okay_event(session, user_id)
-    revive_event: OkayEvent | ReviveEvent | None = get_latest_revive_event(session, user_id)
+    okay_event: OkayEvent | None = get_latest_okay_event(session, user_id)
+    revive_event: ReviveEvent | None = get_latest_revive_event(session, user_id)
     if okay_event is None:
         return revive_event
     if revive_event is None:
