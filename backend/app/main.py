@@ -14,12 +14,14 @@ from app.crud import (
     all_tag_names,
     clear_emergencies_for,
     create_okay_event,
+    create_revive_event,
     freeze_elapsed_weeks,
     get_all_thread_messages,
     get_forest_trees,
-    get_latest_okay_event,
+    get_latest_check_in_event,
     get_linked_users,
     get_okay_timestamps,
+    get_revive_timestamps,
     get_tags_for,
     get_tags_map,
     get_thread_captions,
@@ -103,7 +105,7 @@ def update_token(
 
 @app.get("/okay")
 def get_okay(user_id: int, session: Session = SessionDependency) -> dict[str, bool]:
-    event = get_latest_okay_event(session, user_id)
+    event = get_latest_check_in_event(session, user_id)
     return {"okay": is_okay_within_6h(event)}
 
 
@@ -114,7 +116,15 @@ def get_okay(user_id: int, session: Session = SessionDependency) -> dict[str, bo
 def tap_okay(user_id: int, session: Session = SessionDependency) -> dict:
     """Water the shared tree. Notifies the partner with a teamwork nudge."""
     event = create_okay_event(session, user_id)
-    _notify_watering(session, user_id, "CHECKED_IN")
+    _notify_tree_action(session, user_id, "CHECKED_IN", "watered")
+    return {"ok": True, "timestamp": event.timestamp.isoformat()}
+
+
+@app.post("/revive")
+def revive_tree(user_id: int, session: Session = SessionDependency) -> dict:
+    """Revive the shared tree without increasing its growth stage."""
+    event = create_revive_event(session, user_id)
+    _notify_tree_action(session, user_id, "CHECKED_IN", "revived")
     return {"ok": True, "timestamp": event.timestamp.isoformat()}
 
 
@@ -140,6 +150,7 @@ def get_tree(session: Session = SessionDependency) -> dict:
         get_okay_timestamps(session, 2),
         now,
         CHECK_IN_WINDOW_SECONDS,
+        get_revive_timestamps(session, 1) + get_revive_timestamps(session, 2),
     )
 
 
@@ -163,8 +174,8 @@ def get_forest(session: Session = SessionDependency) -> dict:
     }
 
 
-def _notify_watering(session: Session, sender_id: int, message_type: str) -> None:
-    """Tell the partner that `sender_id` just watered, nudging them to join in."""
+def _notify_tree_action(session: Session, sender_id: int, message_type: str, verb: str) -> None:
+    """Tell the partner that `sender_id` just acted on the tree."""
     state = compute_tree_state(
         get_okay_timestamps(session, 1),
         get_okay_timestamps(session, 2),
@@ -177,7 +188,7 @@ def _notify_watering(session: Session, sender_id: int, message_type: str) -> Non
         linked_user = session.get(User, linked_id)
         if linked_user and linked_user.token:
             peer_name = USER_NAMES.get(linked_id, "your partner")
-            message = f"🌱 {sender_name} watered the tree (stage {state['stage']}) — {peer_name}, keep it growing together!"
+            message = f"🌱 {sender_name} {verb} the tree (stage {state['stage']}) — {peer_name}, keep it growing together!"
             send_notification(linked_user.token, message, message_type=message_type)
 
 
@@ -251,7 +262,7 @@ async def receive_voice(file: UploadFile, session: Session = SessionDependency) 
     if sender_id is not None:
         # A voice message also "waters" the shared tree.
         create_okay_event(session, sender_id)
-        _notify_watering(session, sender_id, "VOICE_MESSAGE")
+        _notify_tree_action(session, sender_id, "VOICE_MESSAGE", "watered")
 
     return {"object": object_name, "bytes": len(data)}
 

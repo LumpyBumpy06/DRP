@@ -145,6 +145,42 @@ def test_reset_tree_clears_okay_events(monkeypatch) -> None:
     assert deleted == [True]
 
 
+def test_revive_endpoint_returns_ok(monkeypatch) -> None:
+    created: list[int] = []
+    notifications: list[tuple[str, str, str | None]] = []
+
+    class _Event:
+        timestamp = datetime(2026, 1, 1, tzinfo=UTC)
+
+    monkeypatch.setattr(main_module, "create_revive_event", lambda session, user_id: created.append(user_id) or _Event())
+    monkeypatch.setattr(main_module, "get_okay_timestamps", lambda session, user_id: [])
+    monkeypatch.setattr(main_module, "get_revive_timestamps", lambda session, user_id: [])
+    monkeypatch.setattr(main_module, "get_linked_users", lambda session, user_id: [2])
+    monkeypatch.setattr(
+        main_module,
+        "send_notification",
+        lambda token, message, message_type=None: notifications.append((token, message, message_type)),
+    )
+
+    app.dependency_overrides[main_module.SessionDep] = lambda: _FakeSession()
+    try:
+        response = client.post("/revive", params={"user_id": 1})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True, "timestamp": "2026-01-01T00:00:00+00:00"}
+    assert created == [1]
+    assert len(notifications) == 1
+
+
+def test_revive_keeps_stage_but_resets_death() -> None:
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    revived = compute_tree_state([now], [], now, 10, revive_ts=[now])
+    assert revived["stage"] == 1
+    assert revived["deathLevel"] == 0.0
+
+
 def test_tree_grows_with_total_waterings_and_wilts() -> None:
     now = datetime(2026, 1, 1, tzinfo=UTC)
     day = 10

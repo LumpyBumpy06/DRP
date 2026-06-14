@@ -19,6 +19,11 @@ class OkayEvent(SQLModel, table=True):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True, primary_key=True)
 
 
+class ReviveEvent(SQLModel, table=True):
+    user_id: int = Field(index=True, primary_key=True)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True, primary_key=True)
+
+
 class ForestTree(SQLModel, table=True):
     """One frozen weekly tree in the shared forest.
 

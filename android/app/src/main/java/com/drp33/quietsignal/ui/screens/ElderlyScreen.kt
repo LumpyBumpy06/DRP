@@ -130,7 +130,7 @@ fun ElderlyScreen(
             GroveInputRow(
                 onVoiceRecorded = { voiceVm.onRecorded(it, onUploaded = { treeVm.refresh(); memoriesVm.load() }) },
                 onPhotoCaptured = { photoVm.sendPhoto(it) { treeVm.refresh(); memoriesVm.load() } },
-                onWater = { treeVm.water(1) },
+                onHello = { treeVm.revive(1) },
             )
             Spacer(Modifier.height(8.dp))
         }

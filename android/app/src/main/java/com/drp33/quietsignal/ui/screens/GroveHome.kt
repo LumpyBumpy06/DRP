@@ -320,7 +320,7 @@ fun SafetyStrip(
 fun GroveInputRow(
     onVoiceRecorded: (ByteArray) -> Unit,
     onPhotoCaptured: (ByteArray) -> Unit,
-    onWater: () -> Unit,
+    onHello: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -330,7 +330,7 @@ fun GroveInputRow(
     ) {
         GroveVoiceTile(onVoiceRecorded)
         GrovePhotoTile(onPhotoCaptured)
-        GroveHelloTile(onWater)
+        GroveHelloTile(onHello)
     }
 }
 
@@ -441,10 +441,11 @@ private fun GrovePhotoTile(onCaptured: (ByteArray) -> Unit) {
 }
 
 @Composable
-private fun GroveHelloTile(onWater: () -> Unit) {
+private fun GroveHelloTile(onHello: () -> Unit) {
     val context = LocalContext.current
     GroveTile(label = "Hello", glyph = "👋", tint = Grove.Water, onClick = {
-        context.vibrateTick(); onWater()
+        context.vibrateTick()
+        onHello()
     })
 }
 

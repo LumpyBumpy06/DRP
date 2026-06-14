@@ -126,7 +126,7 @@ fun AdultScreen(
             GroveInputRow(
                 onVoiceRecorded = { voiceVm.onRecorded(it, onUploaded = { treeVm.refresh(); memoriesVm.load() }) },
                 onPhotoCaptured = { photoVm.sendPhoto(it) { treeVm.refresh(); memoriesVm.load() } },
-                onWater = { treeVm.water(2) },
+                onHello = { treeVm.revive(2) },
             )
             Spacer(Modifier.height(8.dp))
         }

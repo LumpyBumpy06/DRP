@@ -46,4 +46,13 @@ class TreeViewModel(
                 .onFailure { Log.e("Tree", "Watering failed", it) }
         }
     }
+
+    /** Revive the tree as [userId] without advancing growth, then refresh. */
+    fun revive(userId: Int) {
+        viewModelScope.launch {
+            repository.postRevive(userId)
+                .onSuccess { refresh() }
+                .onFailure { Log.e("Tree", "Revive failed", it) }
+        }
+    }
 }
