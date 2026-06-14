@@ -183,7 +183,7 @@ def get_latest_revive_event(session: Session, user_id: int) -> ReviveEvent | Non
     return session.exec(stmt).first()
 
 
-def get_latest_check_in_event(session: Session, user_id: int):
+def get_latest_check_in_event(session: Session, user_id: int) -> OkayEvent | ReviveEvent | None:
     okay = get_latest_okay_event(session, user_id)
     revive = get_latest_revive_event(session, user_id)
     if okay is None:
