@@ -347,8 +347,9 @@ def reshare_memory(user_id: int, object_name: str, session: Session = SessionDep
 
     Copies the stored object under the reshares/ prefix (so the partner's
     "latest snap/clip" popup picks it up) and pushes a notification. It does
-    NOT create a new gallery entry and does NOT water the tree — the original
-    memory stays where it is on the board.
+    NOT create a new gallery entry — the original memory stays where it is on
+    the board — but resharing is an act of staying in touch, so it waters the
+    shared tree just like sending a fresh snap or voice memo does.
     """
     data = download_audio(settings, object_name)
 
@@ -361,6 +362,9 @@ def reshare_memory(user_id: int, object_name: str, session: Session = SessionDep
         copy_name = f"{RESHARE_PREFIX}{user_id}/{stamp}.m4a"
         content_type = "audio/mp4"
     upload_audio(settings, data, copy_name, content_type=content_type)
+
+    # Resharing keeps the partners connected, so it grows the shared tree.
+    create_okay_event(session, user_id)
 
     sender_name = USER_NAMES.get(user_id, "Someone")
     kind_label = "snap" if is_photo else "voice memo"
@@ -587,9 +591,17 @@ def get_thread(anchor: str, session: Session = SessionDependency) -> dict:
 
 
 @app.post("/thread/caption")
-def post_thread_caption(anchor: str, caption: str, session: Session = SessionDependency) -> dict:
-    """Persist the user-given title of a conversation (shared, survives restarts)."""
+def post_thread_caption(anchor: str, caption: str, user_id: int = 0, session: Session = SessionDependency) -> dict:
+    """Persist the user-given title of a conversation (shared, survives restarts).
+
+    Starting a PROMPT conversation (titling the resurfaced memory) is a moment of
+    reconnection, so it waters the shared tree. Titling an ordinary gallery thread
+    does not — `user_id` is optional and only the prompt case grows the tree.
+    """
     set_thread_caption(session, anchor, caption)
+    if user_id and anchor.startswith(PROMPT_ANCHOR_PREFIX):
+        create_okay_event(session, user_id)
+        _notify_tree_action(session, user_id, "CHECKED_IN", "watered")
     return {"ok": True}
 
 

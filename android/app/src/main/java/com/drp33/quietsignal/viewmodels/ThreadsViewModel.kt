@@ -143,8 +143,10 @@ class ThreadsViewModel(
     fun openThread(anchor: String, type: String, sender: String, title: String? = null) {
         if (!title.isNullOrBlank()) {
             captions[anchor] = title.trim()
-            // Persist the title server-side so it survives app restarts.
-            viewModelScope.launch { repository.setThreadCaption(anchor, title.trim()) }
+            // Persist the title server-side so it survives app restarts. Passing
+            // selfId lets the server water the tree when this starts a prompt
+            // conversation (it ignores the id for ordinary gallery threads).
+            viewModelScope.launch { repository.setThreadCaption(anchor, title.trim(), selfId) }
         }
         activeAnchor = anchor
         activeType = type

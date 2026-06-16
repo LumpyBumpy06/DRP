@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -112,7 +113,7 @@ fun GroveSwitch(on: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = M
  * created — a prompt conversation only ever starts from this card.
  */
 @Composable
-fun PromptCard(title: String, subtitle: String, onClick: () -> Unit, modifier: Modifier = Modifier, enlarged: Boolean = false) {
+fun PromptCard(title: String, subtitle: String, onClick: () -> Unit, modifier: Modifier = Modifier, enlarged: Boolean = false, image: ImageBitmap? = null) {
     val scale by animateFloatAsState(targetValue = if (enlarged) 1.06f else 1f, label = "promptScale")
     Row(
         modifier = modifier
@@ -129,7 +130,20 @@ fun PromptCard(title: String, subtitle: String, onClick: () -> Unit, modifier: M
         Box(
             modifier = Modifier.size(40.dp).clip(RoundedCornerShape(11.dp)).background(Grove.Accent),
             contentAlignment = Alignment.Center,
-        ) { Text(text = "✨", fontSize = 18.sp) }
+        ) {
+            // Show the actual photo being resurfaced; fall back to the sparkle
+            // glyph only while it's still loading.
+            if (image != null) {
+                Image(
+                    bitmap = image,
+                    contentDescription = "The moment being resurfaced",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Text(text = "✨", fontSize = 18.sp)
+            }
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(text = title, fontFamily = NunitoSans, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Grove.Ink)
             Spacer(Modifier.height(1.dp))

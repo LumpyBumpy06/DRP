@@ -114,10 +114,13 @@ interface CheckInAPI {
     suspend fun getThreads(@Query("user_id") userId: Int): ThreadsResponse
 
     // Persist a conversation's user-given title (survives app restarts).
+    // `userId` lets the server water the tree when a prompt thread is started
+    // (0 = unknown/none, e.g. titling an ordinary gallery thread).
     @POST("thread/caption")
     suspend fun postThreadCaption(
         @Query("anchor") anchor: String,
         @Query("caption") caption: String,
+        @Query("user_id") userId: Int = 0,
     )
 
     @GET("thread")

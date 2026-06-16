@@ -171,8 +171,8 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
         }
     }
 
-    override suspend fun setThreadCaption(anchor: String, caption: String): Result<Unit> = runCatching {
-        api.postThreadCaption(anchor, caption)
+    override suspend fun setThreadCaption(anchor: String, caption: String, userId: Int): Result<Unit> = runCatching {
+        api.postThreadCaption(anchor, caption, userId)
     }
 
     override suspend fun getThread(anchor: String): Result<List<ThreadMessage>> = runCatching {

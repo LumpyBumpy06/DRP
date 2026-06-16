@@ -142,15 +142,20 @@ fun ElderlyScreen(
 
         // The gentle "remember this?" prompt floats just under the safety strip,
         // fully outside the column so it never disturbs the tree's layout.
+        // Preload the resurfaced photo so the card shows the picture itself
+        // (not a placeholder) and the caption dialog opens with it ready.
+        LaunchedEffect(prompt?.objectName) {
+            prompt?.let { threadsVm.loadPromptImage(it.objectName) { img -> promptImage = img } }
+        }
+
         if (showPrompt && prompt != null) {
             PromptCard(
                 title = "It's been quiet — remember this?",
                 subtitle = "A ${if (prompt.type == "photo") "photo" else "voice note"} from ${prompt.sender}",
+                image = promptImage,
                 enlarged = promptClicked,
                 onClick = {
                     promptClicked = true
-                    promptImage = null
-                    threadsVm.loadPromptImage(prompt.objectName) { promptImage = it }
                     showPromptCaption = true
                 },
                 modifier = Modifier
@@ -164,6 +169,8 @@ fun ElderlyScreen(
                     image = promptImage,
                     onConfirm = { caption ->
                         threadsVm.openThread(prompt.threadAnchor, prompt.type, prompt.sender, title = caption)
+                        // Starting the prompt waters the shared tree — refresh it.
+                        treeVm.refresh()
                         showPromptCaption = false
                         promptClicked = false
                     },
