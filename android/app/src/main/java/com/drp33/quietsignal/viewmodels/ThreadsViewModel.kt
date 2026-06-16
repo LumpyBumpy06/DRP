@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.drp33.quietsignal.data.ThreadReadStore
 import com.drp33.quietsignal.data.repo.CheckInRepository
+import com.drp33.quietsignal.model.NotificationBus
 import com.drp33.quietsignal.model.PromptMemory
 import com.drp33.quietsignal.model.ThreadMessage
 import com.drp33.quietsignal.model.ThreadSummary
@@ -47,6 +48,25 @@ class ThreadsViewModel(
         private set
     var messages by mutableStateOf<List<ThreadMessage>>(emptyList())
         private set
+
+    init {
+        // Event-driven sync (no polling): when the partner sends a message the
+        // server pushes THREAD_MESSAGE, which we react to here. The UI also calls
+        // syncNow() when the app returns to the foreground, covering any push that
+        // was missed while backgrounded.
+        viewModelScope.launch {
+            NotificationBus.events.collect { event ->
+                if (event == "THREAD_MESSAGE") syncNow()
+            }
+        }
+    }
+
+    /** Refresh whatever the user is currently looking at: the open chat's messages,
+     *  or otherwise the thread list (which drives the unread badge). Triggered by a
+     *  thread push and on app-foreground — not on a timer. */
+    fun syncNow() {
+        if (activeAnchor != null) reloadMessages() else loadThreads()
+    }
 
     /** User-given captions per anchor — the conversation's title, set when a
      *  thread is first started. Kept in memory so it shows throughout the app

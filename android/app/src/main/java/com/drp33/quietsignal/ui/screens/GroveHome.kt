@@ -49,6 +49,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.drp33.quietsignal.ui.theme.Grove
 import com.drp33.quietsignal.ui.theme.Newsreader
 import com.drp33.quietsignal.ui.theme.NunitoSans
@@ -100,6 +102,11 @@ fun MainShell(
     // Keep the thread list fresh on the Gallery tab so it knows which memories
     // already have a conversation ("Continue" vs "Start a conversation").
     LaunchedEffect(tab) { if (tab == GroveTab.Gallery) threadsVm.loadThreads() }
+
+    // Event-driven sync (no polling): refresh threads/the open chat whenever the
+    // app returns to the foreground. Live updates while in use arrive via the
+    // THREAD_MESSAGE push; this catches anything missed while backgrounded.
+    LifecycleEventEffect(Lifecycle.Event.ON_START) { threadsVm.syncNow() }
 
     Box(modifier = Modifier.fillMaxSize().groveBackground()) {
         when (tab) {
