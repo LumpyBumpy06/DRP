@@ -117,13 +117,15 @@ def create_okay_event(session: Session, user_id: int) -> OkayEvent:
 
 
 def seed_okay_events(session: Session, user_id: int, count: int) -> None:
-    """DEMO HELPER: insert `count` waterings for `user_id`, spaced 1s apart ending
-    now, so the shared tree jumps straight to a chosen growth stage. The 1s spacing
-    gives each row a distinct timestamp (required by the (user_id, timestamp) key)
-    while keeping them all recent, so the tree reads as freshly watered (alive)."""
+    """DEMO HELPER: insert `count` waterings for `user_id`, so the shared tree jumps
+    straight to a chosen growth stage. Events are spaced 1ms apart ending now: that
+    keeps each row's timestamp distinct (required by the (user_id, timestamp) key)
+    AND packed into a tiny window right at `now`, so they all fall inside the
+    current week (never the previous one — which would wrongly freeze a forest
+    tree) and the tree reads as freshly watered (alive)."""
     now = datetime.now(UTC)
     for i in range(count):
-        session.add(OkayEvent(user_id=user_id, timestamp=now - timedelta(seconds=i)))
+        session.add(OkayEvent(user_id=user_id, timestamp=now - timedelta(milliseconds=i)))
     session.commit()
 
 

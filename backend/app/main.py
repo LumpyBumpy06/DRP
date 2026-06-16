@@ -1,4 +1,5 @@
 import logging
+import random
 import uuid
 from datetime import UTC, datetime
 
@@ -44,7 +45,7 @@ from app.db import create_engine_from_settings, get_session, init_db
 from app.models import ThreadMessage, User
 from app.services.firebase import init_firebase
 from app.services.notifications import send_notification
-from app.services.storage import download_audio, latest_recent_object_name, list_objects, recent_object_names, upload_audio
+from app.services.storage import download_audio, latest_recent_object_name, list_objects, recent_object_names, remove_objects, upload_audio
 from app.services.tree import GROWTH_THRESHOLDS, WEEK_SECONDS, compute_current_week_state, compute_tree_state
 from app.settings import get_settings
 
@@ -140,19 +141,71 @@ def reset_tree(session: Session = SessionDependency) -> dict:
     return {"ok": True, "deleted": deleted}
 
 
+# Filename marker for demo-simulated snaps, so they can be cleaned up on the next
+# stage change without ever touching real photos.
+DEMO_PHOTO_MARKER = "demo-"
+
+
+def _is_demo_photo(object_name: str) -> bool:
+    return object_name.rsplit("/", 1)[-1].startswith(DEMO_PHOTO_MARKER)
+
+
+def _simulate_sent_photos(user_id: int, count: int) -> int:
+    """DEMO HELPER: make the board look like `count` snaps were just shared, so the
+    gallery + moment count fill up alongside the tree.
+
+    It clears any snaps simulated by a PREVIOUS stage change (so the board reflects
+    only the current stage, never accumulating) and never deletes real photos, then
+    re-uploads `count` copies of a few random existing snaps under fresh "demo-"
+    names. Returns how many snaps it created."""
+    try:
+        board = [name for name, _ in _board_objects() if name.startswith("photos/")]
+    except Exception:
+        logging.exception("Memory storage unavailable; cannot simulate photos")
+        return 0
+
+    previous_demo = [name for name in board if _is_demo_photo(name)]
+    # Prefer real photos as source images; fall back to whatever is there.
+    source_pool = [name for name in board if not _is_demo_photo(name)] or board
+
+    # Fetch a handful of distinct source images BEFORE clearing the old demo snaps.
+    blobs: list[bytes] = []
+    if count > 0 and source_pool:
+        for name in random.sample(source_pool, min(len(source_pool), 6)):
+            try:
+                blobs.append(download_audio(settings, name))
+            except Exception:
+                logging.exception("Failed to read source snap %s", name)
+
+    # Always clear last stage's simulated snaps, even when count == 0 (stage 0).
+    remove_objects(settings, previous_demo)
+
+    if not blobs:
+        return 0
+    created = 0
+    for i in range(count):
+        stamp = f"{datetime.now(UTC):%Y%m%dT%H%M%S}-{uuid.uuid4().hex}"
+        upload_audio(settings, blobs[i % len(blobs)], f"photos/{user_id}/{DEMO_PHOTO_MARKER}{stamp}.jpg", content_type="image/jpeg")
+        created += 1
+    return created
+
+
 @app.get("/debug/setStage")
 @app.post("/debug/setStage")
 def debug_set_stage(stage: int, user_id: int = 1, session: Session = SessionDependency) -> dict:
-    """DEMO HELPER: reset the tree, then seed exactly enough waterings to land the
-    shared tree on `stage` (0..9). Lets a demo show each growth stage instantly
-    instead of sending dozens of real moments."""
+    """DEMO HELPER: reset the tree, then SIMULATE sending exactly enough snaps to
+    land the shared tree on `stage` (0..9). Each simulated snap both waters the tree
+    (an OkayEvent) and lands on the memory board (a real photo object reusing a
+    random existing snap), so the tree, the moment count and the gallery all fill
+    up together — a faithful stand-in for actually sending that many pictures."""
     max_stage = len(GROWTH_THRESHOLDS) - 1
     stage = max(0, min(stage, max_stage))
     reset_tree_data(session)
-    waterings = GROWTH_THRESHOLDS[stage]
-    if waterings:
-        seed_okay_events(session, user_id, waterings)
-    return {"ok": True, "stage": stage, "waterings": waterings}
+    moments = GROWTH_THRESHOLDS[stage]
+    photos = _simulate_sent_photos(user_id, moments)
+    if moments:
+        seed_okay_events(session, user_id, moments)
+    return {"ok": True, "stage": stage, "moments": moments, "photos": photos}
 
 
 # ---------- TREE (shared "watering" state) ----------
@@ -709,24 +762,35 @@ def _notify_conversation_started(session: Session, sender_id: int) -> None:
 # ---------- PROMPT (a memory the tree resurfaces when things go quiet) ----------
 
 
+def _objects_with_conversations(session: Session) -> set[str]:
+    """Storage objects that already have a conversation — a titled gallery thread
+    or a previously-started prompt thread. Both resolve through the anchor to the
+    underlying memory, so a memory is "conversed" once any chat hangs off it."""
+    anchors = {row.anchor for row in get_thread_caption_rows(session)}
+    anchors |= {message.anchor for message in get_all_thread_messages(session)}
+    return {_anchor_media_object(anchor) for anchor in anchors}
+
+
 @app.get("/prompt")
-def get_prompt() -> dict:
+def get_prompt(session: Session = SessionDependency) -> dict:
     """Pick one PHOTO memory to gently resurface — deterministic per "week"
     (WEEK_SECONDS, the same window as the forest) so BOTH partners are offered
     the same one ("sends to both"), and a NEW prompt (with its own fresh chat)
     arrives each week. The client decides whether to show it (only when prompts
     are on and the tree is quiet).
 
-    Prompts are photos only: the user is shown the picture and asked to caption
-    it, so a voice memo (nothing to look at) is never resurfaced as a prompt."""
+    Prompts are photos only (there's a picture to look at) AND only memories that
+    DON'T already have a conversation — once you've started talking about a moment
+    it's no longer "unrevisited", so it's never resurfaced as a prompt again."""
     try:
         objects = _board_objects()
     except Exception:
         logging.exception("Memory storage unavailable; no prompt")
         return {"prompt": None}
 
-    # Only snaps make a good "remember this?" prompt — there's a picture to see.
-    photos = [(name, lm) for name, lm in objects if name.startswith("photos/")]
+    # Only snaps with no conversation yet make a good "remember this?" prompt.
+    conversed = _objects_with_conversations(session)
+    photos = [(name, lm) for name, lm in objects if name.startswith("photos/") and name not in conversed]
     if not photos:
         return {"prompt": None}
 

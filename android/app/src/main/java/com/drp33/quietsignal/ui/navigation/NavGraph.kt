@@ -94,8 +94,17 @@ fun NavGraph() {
                         }
                     }
                 },
-                // Demo helper: jump the shared tree to a stage before entering.
-                onSetStage = { stage -> scope.launch { repository.setTreeStage(stage) } },
+                // Demo helper: simulate sending enough snaps to reach a stage, then
+                // refresh the tree + the memory board so the new stage AND the new
+                // moments/gallery are ready the instant you open a role screen.
+                onSetStage = { stage ->
+                    scope.launch {
+                        repository.setTreeStage(stage).onSuccess {
+                            treeViewModel.refresh()
+                            memoriesViewModel.load()
+                        }
+                    }
+                },
             )
         }
 

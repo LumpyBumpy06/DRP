@@ -96,6 +96,19 @@ def list_objects(settings: Settings) -> list[tuple[str, datetime]]:
     return [(o.object_name, o.last_modified) for o in client.list_objects(settings.minio_bucket, recursive=True) if o.object_name and o.last_modified]
 
 
+def remove_objects(settings: Settings, object_names: list[str]) -> None:
+    """Delete the given objects, ignoring any that are already gone. Best-effort,
+    used to clean up demo-simulated snaps."""
+    if not object_names:
+        return
+    client = get_storage(settings)
+    for name in object_names:
+        try:
+            client.remove_object(settings.minio_bucket, name)
+        except Exception:  # noqa: BLE001 - best-effort cleanup
+            pass
+
+
 def download_audio(settings: Settings, object_name: str) -> bytes:
     client = get_storage(settings)
     response = client.get_object(settings.minio_bucket, object_name)

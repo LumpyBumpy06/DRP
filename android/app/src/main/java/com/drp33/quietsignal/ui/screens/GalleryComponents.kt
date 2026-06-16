@@ -716,24 +716,12 @@ private fun MemoryDetailDialog(
                         ) { Text(if (hasThread) "Continue conversation" else "Start a conversation", fontFamily = NunitoSans, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp) }
                         Spacer(Modifier.height(10.dp))
                     }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Button(
-                            onClick = {
-                                vm.reshare(live, currentUserId) {
-                                    Toast.makeText(context, "Shared again 🌱", Toast.LENGTH_SHORT).show(); onClose()
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Grove.Surface2, contentColor = Grove.Ink),
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier.weight(1f).height(48.dp),
-                        ) { Text("Reshare", fontFamily = NunitoSans, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
-                        Button(
-                            onClick = { vm.loadMediaBytes(live.objectName) { bytes -> saveMemoryToDisk(context, bytes, live.type, live.objectName) } },
-                            colors = ButtonDefaults.buttonColors(containerColor = Grove.Surface2, contentColor = Grove.Ink),
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier.weight(1f).height(48.dp),
-                        ) { Text("Save", fontFamily = NunitoSans, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
-                    }
+                    Button(
+                        onClick = { vm.loadMediaBytes(live.objectName) { bytes -> saveMemoryToDisk(context, bytes, live.type, live.objectName) } },
+                        colors = ButtonDefaults.buttonColors(containerColor = Grove.Surface2, contentColor = Grove.Ink),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                    ) { Text("Save", fontFamily = NunitoSans, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
                 }
 
                 Spacer(Modifier.height(8.dp))
@@ -836,7 +824,7 @@ private fun FullscreenPhotoViewer(
                 }
             }
 
-            // Bottom action bar: Tags · Reshare · Start a conversation.
+            // Bottom action bar: Tags · Save · Start a conversation.
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -851,19 +839,12 @@ private fun FullscreenPhotoViewer(
                 GlassBarButton(icon = "⤓", label = "Save", modifier = Modifier.weight(1f)) {
                     vm.loadMediaBytes(live.objectName) { bytes -> saveMemoryToDisk(context, bytes, live.type, live.objectName) }
                 }
-                if (showItemActions) {
-                    GlassBarButton(icon = "↻", label = "Reshare", modifier = Modifier.weight(1f)) {
-                        vm.reshare(live, currentUserId) {
-                            Toast.makeText(context, "Shared again 🌱", Toast.LENGTH_SHORT).show(); onClose()
-                        }
-                    }
-                    if (onStartThread != null) {
-                        GlassBarButton(
-                            icon = "💬",
-                            label = if (hasThread) "Continue conversation" else "Start a conversation",
-                            modifier = Modifier.weight(1f),
-                        ) { if (hasThread) { onStartThread(live, ""); onClose() } else showCaption = true }
-                    }
+                if (showItemActions && onStartThread != null) {
+                    GlassBarButton(
+                        icon = "💬",
+                        label = if (hasThread) "Continue conversation" else "Start a conversation",
+                        modifier = Modifier.weight(1f),
+                    ) { if (hasThread) { onStartThread(live, ""); onClose() } else showCaption = true }
                 }
             }
         }
