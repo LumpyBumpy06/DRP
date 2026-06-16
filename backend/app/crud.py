@@ -279,12 +279,20 @@ def get_all_thread_messages(session: Session) -> list[ThreadMessage]:
     return list(session.exec(stmt).all())
 
 
-def set_thread_caption(session: Session, anchor: str, caption: str) -> None:
-    """Set (or update) the user-given title of a conversation."""
-    row = session.get(ThreadCaption, anchor) or ThreadCaption(anchor=anchor)
+def set_thread_caption(session: Session, anchor: str, caption: str) -> bool:
+    """Set (or update) the user-given title of a conversation.
+
+    Returns True if this created the thread's title row for the first time (i.e.
+    the conversation was just started), False if it renamed an existing one.
+    """
+    row = session.get(ThreadCaption, anchor)
+    created = row is None
+    if row is None:
+        row = ThreadCaption(anchor=anchor)
     row.caption = caption.strip()
     session.add(row)
     session.commit()
+    return created
 
 
 def get_thread_captions(session: Session) -> dict[str, str]:

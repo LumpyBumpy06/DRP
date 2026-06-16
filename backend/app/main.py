@@ -596,14 +596,16 @@ def get_thread(anchor: str, session: Session = SessionDependency) -> dict:
 def post_thread_caption(anchor: str, caption: str, user_id: int = 0, session: Session = SessionDependency) -> dict:
     """Persist the user-given title of a conversation (shared, survives restarts).
 
-    Starting a PROMPT conversation (titling the resurfaced memory) is a moment of
-    reconnection, so it waters the shared tree. Titling an ordinary gallery thread
-    does not — `user_id` is optional and only the prompt case grows the tree.
+    On a genuine START (a known `user_id` titling a brand-new thread) we notify
+    the partner so their thread list syncs live, and — for a prompt — water the
+    shared tree. Renames (`user_id` = 0) and re-titling an existing thread do
+    neither, so this can't re-fire on every open.
     """
-    set_thread_caption(session, anchor, caption)
-    if user_id and anchor.startswith(PROMPT_ANCHOR_PREFIX):
-        create_okay_event(session, user_id)
-        _notify_tree_action(session, user_id, "CHECKED_IN", "watered")
+    created = set_thread_caption(session, anchor, caption)
+    if user_id and created:
+        if anchor.startswith(PROMPT_ANCHOR_PREFIX):
+            create_okay_event(session, user_id)  # starting a prompt waters the tree
+        _notify_conversation_started(session, user_id)
     return {"ok": True}
 
 
@@ -656,6 +658,20 @@ def _notify_thread(session: Session, sender_id: int, glyph: str) -> None:
             send_notification(
                 linked_user.token,
                 f"{glyph} {sender_name} replied in a memory thread",
+                message_type="THREAD_MESSAGE",
+            )
+
+
+def _notify_conversation_started(session: Session, sender_id: int) -> None:
+    """Tell the partner a NEW conversation was started, so their thread list syncs
+    live (the THREAD_MESSAGE type makes the client refresh) and they see the nudge."""
+    sender_name = USER_NAMES.get(sender_id, "Someone")
+    for linked_id in get_linked_users(session, sender_id):
+        linked_user = session.get(User, linked_id)
+        if linked_user and linked_user.token:
+            send_notification(
+                linked_user.token,
+                f"💬 {sender_name} started a conversation",
                 message_type="THREAD_MESSAGE",
             )
 
