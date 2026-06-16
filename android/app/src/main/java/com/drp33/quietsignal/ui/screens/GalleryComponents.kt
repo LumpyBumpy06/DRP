@@ -165,6 +165,7 @@ fun GalleryBody(
     vm: MemoriesViewModel,
     currentUserId: Int,
     onStartThread: ((MemoryItem, String) -> Unit)?,
+    threadExistsFor: (MemoryItem) -> Boolean = { false },
     groupByDate: Boolean,
     showItemActions: Boolean,
     modifier: Modifier = Modifier,
@@ -251,6 +252,7 @@ fun GalleryBody(
                 vm = vm,
                 currentUserId = currentUserId,
                 onStartThread = onStartThread,
+                hasThread = threadExistsFor(item),
                 showItemActions = showItemActions,
                 onClose = { openItem = null },
             )
@@ -260,6 +262,7 @@ fun GalleryBody(
                 vm = vm,
                 currentUserId = currentUserId,
                 onStartThread = onStartThread,
+                hasThread = threadExistsFor(item),
                 showItemActions = showItemActions,
                 onClose = { openItem = null },
             )
@@ -606,6 +609,7 @@ private fun MemoryDetailDialog(
     vm: MemoriesViewModel,
     currentUserId: Int,
     onStartThread: ((MemoryItem, String) -> Unit)?,
+    hasThread: Boolean,
     showItemActions: Boolean,
     onClose: () -> Unit,
 ) {
@@ -704,11 +708,12 @@ private fun MemoryDetailDialog(
                     Spacer(Modifier.height(18.dp))
                     if (onStartThread != null) {
                         Button(
-                            onClick = { showCaption = true },
+                            // An existing chat opens straight away; a new one asks for a title first.
+                            onClick = { if (hasThread) { onStartThread(live, ""); onClose() } else showCaption = true },
                             colors = ButtonDefaults.buttonColors(containerColor = Grove.Foliage),
                             shape = RoundedCornerShape(14.dp),
                             modifier = Modifier.fillMaxWidth().height(50.dp),
-                        ) { Text("Start a conversation", fontFamily = NunitoSans, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp) }
+                        ) { Text(if (hasThread) "Continue conversation" else "Start a conversation", fontFamily = NunitoSans, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp) }
                         Spacer(Modifier.height(10.dp))
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -761,6 +766,7 @@ private fun FullscreenPhotoViewer(
     vm: MemoriesViewModel,
     currentUserId: Int,
     onStartThread: ((MemoryItem, String) -> Unit)?,
+    hasThread: Boolean,
     showItemActions: Boolean,
     onClose: () -> Unit,
 ) {
@@ -852,7 +858,11 @@ private fun FullscreenPhotoViewer(
                         }
                     }
                     if (onStartThread != null) {
-                        GlassBarButton(icon = "💬", label = "Start a conversation", modifier = Modifier.weight(1f)) { showCaption = true }
+                        GlassBarButton(
+                            icon = "💬",
+                            label = if (hasThread) "Continue conversation" else "Start a conversation",
+                            modifier = Modifier.weight(1f),
+                        ) { if (hasThread) { onStartThread(live, ""); onClose() } else showCaption = true }
                     }
                 }
             }

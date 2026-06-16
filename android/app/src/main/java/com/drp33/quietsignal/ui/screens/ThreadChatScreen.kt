@@ -127,6 +127,7 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
 
     val listState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
+    var showRename by remember { mutableStateOf(false) }
     LaunchedEffect(vm.messages.size) {
         if (vm.messages.isNotEmpty()) listState.animateScrollToItem(vm.messages.size) // +1 header item
     }
@@ -147,13 +148,20 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
             ) {
                 GroveCircleButton(glyph = "‹", contentDescription = "Back", onClick = onClose)
                 AnchorThumb(type = vm.activeType, image = anchorImage, size = 42)
-                Column(Modifier.weight(1f)) {
+                // Tapping the title lets you rename the conversation.
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { showRename = true }
+                        .padding(vertical = 2.dp),
+                ) {
                     Text(
                         text = vm.threadTitle(anchor, vm.activeSender, vm.activeType),
                         fontFamily = NunitoSans, fontSize = 15.5.sp, fontWeight = FontWeight.Bold, color = Grove.Ink, maxLines = 1,
                     )
                     Text(
-                        text = "Conversation",
+                        text = "Tap to rename",
                         fontFamily = NunitoSans, fontSize = 12.sp, color = Grove.InkFaint, maxLines = 1,
                     )
                 }
@@ -200,6 +208,14 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
                 onSendPhoto = { vm.sendPhoto(it) },
             )
         }
+    }
+
+    if (showRename) {
+        RenameThreadDialog(
+            initial = vm.activeTitle(),
+            onConfirm = { newName -> vm.renameActiveThread(newName); showRename = false },
+            onDismiss = { showRename = false },
+        )
     }
 
     // Full-screen image viewer (anchor photo or a snap from the conversation).

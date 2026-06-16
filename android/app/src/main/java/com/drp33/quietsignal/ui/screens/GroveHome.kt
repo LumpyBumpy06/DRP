@@ -97,6 +97,10 @@ fun MainShell(
     val pad = PaddingValues(bottom = 150.dp)
     val unread = threadsVm.unreadTotal
 
+    // Keep the thread list fresh on the Gallery tab so it knows which memories
+    // already have a conversation ("Continue" vs "Start a conversation").
+    LaunchedEffect(tab) { if (tab == GroveTab.Gallery) threadsVm.loadThreads() }
+
     Box(modifier = Modifier.fillMaxSize().groveBackground()) {
         when (tab) {
             GroveTab.Week -> week(pad)
@@ -109,6 +113,7 @@ fun MainShell(
                 onStartThread = { item, caption ->
                     threadsVm.openThread(item.objectName, item.type, item.sender, title = caption)
                 },
+                threadExistsFor = { item -> threadsVm.hasThread(item.objectName) },
             )
         }
         GroveBottomNav(

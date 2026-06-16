@@ -80,6 +80,10 @@ class ThreadsViewModel(
     /** Total unread across all threads (drives the Threads tab badge). */
     val unreadTotal: Int get() = summaries.sumOf { unreadFor(it) }
 
+    /** Whether a conversation already exists for this memory (its object name is
+     *  the thread anchor). Lets the gallery say "Continue" and skip the caption. */
+    fun hasThread(anchor: String): Boolean = summaries.any { it.anchor == anchor }
+
     /** Refresh the conversation list (and the gentle prompt suggestion). */
     fun loadThreads() {
         if (loading) return
@@ -159,6 +163,20 @@ class ThreadsViewModel(
         activeAnchor = null
         messages = emptyList()
         loadThreads() // refresh list + badges
+    }
+
+    /** The open thread's current title (caption if set, else the gentle default). */
+    fun activeTitle(): String =
+        activeAnchor?.let { threadTitle(it, activeSender, activeType) } ?: ""
+
+    /** Rename the open conversation. Updates the shared caption locally and on the
+     *  server. Renaming never waters the tree (userId omitted), so re-titling a
+     *  prompt thread can't be used to grow it. */
+    fun renameActiveThread(title: String) {
+        val anchor = activeAnchor ?: return
+        if (title.isBlank()) return
+        captions[anchor] = title.trim()
+        viewModelScope.launch { repository.setThreadCaption(anchor, title.trim()) }
     }
 
     private fun reloadMessages() {

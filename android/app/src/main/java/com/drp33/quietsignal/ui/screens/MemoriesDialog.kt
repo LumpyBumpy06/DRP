@@ -38,6 +38,7 @@ fun MemoriesScreen(
     currentUserId: Int,
     contentPadding: PaddingValues = PaddingValues(),
     onStartThread: ((MemoryItem, String) -> Unit)? = null,
+    threadExistsFor: (MemoryItem) -> Boolean = { false },
 ) {
     LaunchedEffect(Unit) { vm.load() }
 
@@ -79,6 +80,7 @@ fun MemoriesScreen(
                     vm = vm,
                     currentUserId = currentUserId,
                     onStartThread = onStartThread,
+                    threadExistsFor = threadExistsFor,
                     groupByDate = true,
                     showItemActions = true,
                     modifier = Modifier.fillMaxSize(),

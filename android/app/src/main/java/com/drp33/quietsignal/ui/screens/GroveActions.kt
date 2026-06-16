@@ -218,6 +218,49 @@ fun PromptCaptionDialog(image: ImageBitmap?, onConfirm: (String) -> Unit, onDism
     }
 }
 
+/**
+ * Rename an existing conversation. Same centred popup as the caption dialog, but
+ * prefilled with [initial] (the current title) and with rename-flavoured copy.
+ */
+@Composable
+fun RenameThreadDialog(initial: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf(initial) }
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Grove.Surface),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(modifier = Modifier.padding(22.dp)) {
+                Text("Rename conversation", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 21.sp, color = Grove.Ink)
+                Spacer(Modifier.height(4.dp))
+                Text("Give this conversation a new title.", fontFamily = NunitoSans, fontSize = 13.sp, color = Grove.InkSoft)
+                Spacer(Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    placeholder = { Text("Conversation title…", fontFamily = NunitoSans, color = Grove.InkFaint) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(18.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
+                        Text("Cancel", fontFamily = NunitoSans, fontWeight = FontWeight.Bold, color = Grove.InkSoft, fontSize = 15.sp)
+                    }
+                    Button(
+                        onClick = { onConfirm(name.trim()) },
+                        enabled = name.isNotBlank(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Grove.Foliage, disabledContainerColor = Grove.FoliageRest),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.weight(1f).height(50.dp),
+                    ) { Text("Save", fontFamily = NunitoSans, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp) }
+                }
+            }
+        }
+    }
+}
+
 /** A simple static voice-waveform strip (deterministic bar heights). */
 @Composable
 fun ChatWaveform(color: Color, modifier: Modifier = Modifier, bars: Int = 22, maxHeight: Int = 24) {
