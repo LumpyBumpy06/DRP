@@ -27,10 +27,14 @@ GROWTH_THRESHOLDS = [0, 1, 3, 6, 10, 15, 16, 17, 18, 19]
 # for hours). Lower this if you want to demo the wilting/dying state itself.
 DEATH_WINDOWS = 1000
 
-# Length of one "forest" week. Each elapsed week becomes a frozen tree.
-# TEST VALUE: 120s so new trees appear ~every 2 minutes. For production use
-# 7 * 24 * 3600. MUST match the client's WEEK_SECONDS.
-WEEK_SECONDS = 600
+# Length of one "forest" week. Each elapsed week becomes a frozen tree and the
+# live tree restarts at stage 0.
+# DEMO VALUE: deliberately huge (~100 years) so a week never elapses during a
+# demo — the live tree only ever accumulates waterings (it can only GROW, never
+# auto-reset), and nothing is auto-frozen into the forest. The only way to shrink
+# the tree is the /debug/setStage endpoint. MUST match the client's WEEK_SECONDS.
+# For real weekly behaviour use 7 * 24 * 3600.
+WEEK_SECONDS = 3_153_600_000
 
 
 def _epoch(ts: datetime) -> float:

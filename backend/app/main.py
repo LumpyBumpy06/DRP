@@ -141,45 +141,56 @@ def reset_tree(session: Session = SessionDependency) -> dict:
     return {"ok": True, "deleted": deleted}
 
 
-# Filename marker for demo-simulated snaps, so they can be cleaned up on the next
-# stage change without ever touching real photos.
+# Storage prefix for the demo's SOURCE images. Kept out of the memory board (so it
+# never counts as a moment) and out of "latest snap" lookups — it's just a private
+# pool the demo copies from, seeded once from whatever photos are already on board.
+DEMO_SOURCE_PREFIX = "demo-sources/"
+# Filename marker for demo-simulated snaps on the board.
 DEMO_PHOTO_MARKER = "demo-"
 
 
-def _is_demo_photo(object_name: str) -> bool:
-    return object_name.rsplit("/", 1)[-1].startswith(DEMO_PHOTO_MARKER)
+def _demo_source_names() -> list[str]:
+    return [name for name, _ in list_objects(settings) if name.startswith(DEMO_SOURCE_PREFIX)]
 
 
 def _simulate_sent_photos(user_id: int, count: int) -> int:
-    """DEMO HELPER: make the board look like `count` snaps were just shared, so the
-    gallery + moment count fill up alongside the tree.
+    """DEMO HELPER: rebuild the memory board to EXACTLY `count` snaps, so the moment
+    count always equals the demo stage — and Stage 0 empties the board to 0.
 
-    It clears any snaps simulated by a PREVIOUS stage change (so the board reflects
-    only the current stage, never accumulating) and never deletes real photos, then
-    re-uploads `count` copies of a few random existing snaps under fresh "demo-"
-    names. Returns how many snaps it created."""
+    Source images live in a separate, non-counted pool (demo-sources/), seeded once
+    from whatever photos are already on the board, so the board can be wiped and
+    rebuilt each time without losing the pictures to copy from. Returns how many
+    snaps it created."""
     try:
-        board = [name for name, _ in _board_objects() if name.startswith("photos/")]
+        board = _board_objects()
     except Exception:
         logging.exception("Memory storage unavailable; cannot simulate photos")
         return 0
 
-    previous_demo = [name for name in board if _is_demo_photo(name)]
-    # Prefer real photos as source images; fall back to whatever is there.
-    source_pool = [name for name in board if not _is_demo_photo(name)] or board
+    # 1. Ensure a persistent source pool exists (seed from current board photos).
+    sources = _demo_source_names()
+    if not sources:
+        for name, _ in board:
+            if name.startswith("photos/"):
+                try:
+                    upload_audio(settings, download_audio(settings, name), f"{DEMO_SOURCE_PREFIX}{uuid.uuid4().hex}.jpg", content_type="image/jpeg")
+                except Exception:
+                    logging.exception("Failed to seed demo source from %s", name)
+        sources = _demo_source_names()
 
-    # Fetch a handful of distinct source images BEFORE clearing the old demo snaps.
+    # 2. Grab a few source images (before we wipe the board).
     blobs: list[bytes] = []
-    if count > 0 and source_pool:
-        for name in random.sample(source_pool, min(len(source_pool), 6)):
+    if count > 0 and sources:
+        for name in random.sample(sources, min(len(sources), 6)):
             try:
                 blobs.append(download_audio(settings, name))
             except Exception:
-                logging.exception("Failed to read source snap %s", name)
+                logging.exception("Failed to read demo source %s", name)
 
-    # Always clear last stage's simulated snaps, even when count == 0 (stage 0).
-    remove_objects(settings, previous_demo)
+    # 3. Wipe the WHOLE board so the moment count resets to 0 (Stage 0 stops here).
+    remove_objects(settings, [name for name, _ in board])
 
+    # 4. Recreate exactly `count` snaps from the source pool.
     if not blobs:
         return 0
     created = 0
@@ -499,7 +510,11 @@ def _board_objects() -> list[tuple[str, datetime]]:
     """Every memory-board object (voice + snaps), newest first, excluding thread
     media and reshared copies."""
     objects = sorted(list_objects(settings), key=lambda o: o[1], reverse=True)
-    return [(name, lm) for name, lm in objects if not name.startswith(THREAD_PREFIX) and not name.startswith(RESHARE_PREFIX)]
+    return [
+        (name, lm)
+        for name, lm in objects
+        if not name.startswith(THREAD_PREFIX) and not name.startswith(RESHARE_PREFIX) and not name.startswith(DEMO_SOURCE_PREFIX)
+    ]
 
 
 @app.get("/memories")

@@ -14,5 +14,6 @@ data class ForestWeek(
 )
 
 /** One week, in seconds — MUST match the backend's WEEK_SECONDS.
- * TEST VALUE: 60s so new trees appear ~every minute. Production: 7L * 24 * 3600. */
-const val WEEK_SECONDS: Long = 600
+ * DEMO VALUE: huge (~100 years) so a week never elapses during a demo — the tree
+ * only grows and is never auto-frozen into the forest. Production: 7L * 24 * 3600. */
+const val WEEK_SECONDS: Long = 3_153_600_000
