@@ -1,9 +1,12 @@
 import json
+import logging
 
 import firebase_admin
 from firebase_admin import credentials, messaging
 
 from app.settings import Settings
+
+logger = logging.getLogger(__name__)
 
 _firebase_initialized = False
 
@@ -17,6 +20,12 @@ def init_firebase(settings: Settings) -> None:
 
     elif settings.firebase_credentials_json:
         cred = credentials.Certificate(json.loads(settings.firebase_credentials_json))
+
+    elif settings.firebase_optional:
+        # Local dev without credentials: skip init. send_notification already
+        # swallows the resulting send_push errors, so push simply no-ops.
+        logger.warning("Firebase credentials missing; push disabled (FIREBASE_OPTIONAL=true).")
+        return
 
     else:
         raise RuntimeError("Missing Firebase credentials")

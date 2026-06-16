@@ -77,6 +77,10 @@ class ThreadCaption(SQLModel, table=True):
 
     anchor: str = Field(primary_key=True)
     caption: str = ""
+    # When the title was first set. Lets a titled-but-empty thread sort by its
+    # creation time (like a real message would), instead of being pinned to the
+    # top of the list forever.
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class ThreadMessage(SQLModel, table=True):

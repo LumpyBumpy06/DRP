@@ -2,7 +2,6 @@ package com.drp33.quietsignal.ui.screens
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,22 +24,17 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.drp33.quietsignal.data.SettingsPreferences
 import com.drp33.quietsignal.model.ThreadSummary
 import com.drp33.quietsignal.ui.theme.Grove
 import com.drp33.quietsignal.ui.theme.Newsreader
@@ -49,15 +43,11 @@ import com.drp33.quietsignal.viewmodels.ThreadsViewModel
 
 /**
  * The Threads tab — a WhatsApp-style list of every conversation, each hanging
- * off a photo or voice memo. A pinned "memory worth revisiting" prompt sits on
- * top when prompts are on. Tapping a row opens [ThreadChatScreen] (hosted by
+ * off a photo or voice memo. Tapping a row opens [ThreadChatScreen] (hosted by
  * [MainShell]).
  */
 @Composable
 fun ThreadsPane(vm: ThreadsViewModel, contentPadding: PaddingValues = PaddingValues()) {
-    val context = LocalContext.current
-    val promptsEnabled = remember { SettingsPreferences.promptsEnabled(context) }
-
     LaunchedEffect(Unit) { vm.loadThreads() }
 
     Column(
@@ -69,60 +59,19 @@ fun ThreadsPane(vm: ThreadsViewModel, contentPadding: PaddingValues = PaddingVal
             Text("Conversations growing around your moments.", fontFamily = NunitoSans, fontSize = 13.sp, color = Grove.InkSoft)
         }
 
-        val prompt = vm.prompt
-        val showPrompt = promptsEnabled && prompt != null
-        // The pinned row IS the current prompt's chat — hide its duplicate from
-        // the list below. Older prompts each had their own anchor, so their
-        // chats stay visible as (prompt-styled) rows that age down the list.
-        val displayedSummaries = if (showPrompt) {
-            vm.summaries.filter { it.anchor != prompt.threadAnchor }
-        } else {
-            vm.summaries
-        }
-
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 2.dp),
             verticalArrangement = Arrangement.spacedBy(9.dp),
         ) {
-            if (showPrompt) {
-                item {
-                    val summary = vm.summaries.find { it.anchor == prompt.threadAnchor }
-                    val unreadCount = summary?.let { vm.unreadFor(it) } ?: 0
-
-                    val promptSubtitle = if (summary != null) {
-                        val who = if (summary.lastSenderId == vm.selfId) "You: " else "${summary.lastSender}: "
-                        val preview = when (summary.lastKind) {
-                            "photo" -> "📷 Photo"
-                            "voice" -> "🎙 Voice message"
-                            else -> summary.lastText
-                        }
-                        "$who$preview"
-                    } else {
-                        "Grove · ${if (prompt.type == "photo") "📷 Photo" else "🎙 Voice note"} from ${prompt.sender}"
-                    }
-
-                    PromptThreadRow(
-                        subtitle = promptSubtitle,
-                        unread = unreadCount,
-                    ) {
-                        // Each prompt has its OWN chat anchor — a fresh, empty
-                        // conversation per prompt, never reusing an old one.
-                        vm.openThread(prompt.threadAnchor, prompt.type, prompt.sender, isPrompt = true)
-                    }
-                }
-            }
-
-            if (displayedSummaries.isEmpty() && !showPrompt) {
+            if (vm.summaries.isEmpty()) {
                 item { EmptyThreads() }
             }
 
-            items(displayedSummaries, key = { it.anchor }) { summary ->
-                val title =
-                    if (summary.isPrompt) "A memory worth revisiting"
-                    else vm.threadTitle(summary.anchor, summary.memorySender, summary.memoryType)
+            items(vm.summaries, key = { it.anchor }) { summary ->
+                val title = vm.threadTitle(summary.anchor, summary.memorySender, summary.memoryType)
                 ThreadRow(summary = summary, selfId = vm.selfId, unread = vm.unreadFor(summary), title = title, onClick = {
-                    vm.openThread(summary.anchor, summary.memoryType, summary.memorySender, isPrompt = summary.isPrompt)
+                    vm.openThread(summary.anchor, summary.memoryType, summary.memorySender)
                 })
             }
         }
@@ -130,49 +79,13 @@ fun ThreadsPane(vm: ThreadsViewModel, contentPadding: PaddingValues = PaddingVal
 }
 
 @Composable
-private fun PromptThreadRow(subtitle: String, unread: Int, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(Grove.Accent.copy(alpha = 0.10f))
-            .border(1.dp, Grove.Accent.copy(alpha = 0.35f), RoundedCornerShape(18.dp))
-            .clickable { onClick() }
-            .padding(13.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(13.dp),
-    ) {
-        Box(Modifier.size(54.dp).clip(RoundedCornerShape(14.dp)).background(Grove.Accent), contentAlignment = Alignment.Center) {
-            Text("✨", fontSize = 22.sp)
-        }
-        Column(Modifier.weight(1f)) {
-            Text("A memory worth revisiting", fontFamily = NunitoSans, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Grove.Ink, maxLines = 1)
-            Spacer(Modifier.height(2.dp))
-            Text(subtitle, fontFamily = NunitoSans, fontSize = 13.sp, color = Grove.InkSoft, maxLines = 1)
-        }
-        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("PROMPT", fontFamily = NunitoSans, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp, color = Grove.Accent)
-            if (unread > 0) Badge(count = unread, color = Grove.Accent)
-            else Spacer(Modifier.size(20.dp))
-        }
-    }
-}
-
-@Composable
 private fun ThreadRow(summary: ThreadSummary, selfId: Int, unread: Int, title: String, onClick: () -> Unit) {
-    // Prompt conversations keep their warm accent look even after they've aged
-    // down into the regular list.
-    val rowBackground = if (summary.isPrompt) Grove.Accent.copy(alpha = 0.10f) else Grove.Surface
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .shadow(4.dp, RoundedCornerShape(18.dp), clip = false)
             .clip(RoundedCornerShape(18.dp))
-            .background(rowBackground)
-            .then(
-                if (summary.isPrompt) Modifier.border(1.dp, Grove.Accent.copy(alpha = 0.35f), RoundedCornerShape(18.dp))
-                else Modifier
-            )
+            .background(Grove.Surface)
             .clickable { onClick() }
             .padding(13.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -201,13 +114,19 @@ private fun ThreadRow(summary: ThreadSummary, selfId: Int, unread: Int, title: S
                 fontFamily = NunitoSans, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Grove.Ink, maxLines = 1,
             )
             Spacer(Modifier.height(2.dp))
-            val who = if (summary.lastSenderId == selfId) "You: " else "${summary.lastSender}: "
-            val preview = when (summary.lastKind) {
-                "photo" -> "📷 Photo"
-                "voice" -> "🎙 Voice message"
-                else -> summary.lastText
+            val preview = if (summary.count == 0) {
+                // A titled-but-empty thread: created from a caption, no messages yet.
+                "Tap to start the conversation"
+            } else {
+                val who = if (summary.lastSenderId == selfId) "You: " else "${summary.lastSender}: "
+                val body = when (summary.lastKind) {
+                    "photo" -> "📷 Photo"
+                    "voice" -> "🎙 Voice message"
+                    else -> summary.lastText
+                }
+                "$who$body"
             }
-            Text("$who$preview", fontFamily = NunitoSans, fontSize = 13.sp, color = Grove.InkSoft, maxLines = 1)
+            Text(preview, fontFamily = NunitoSans, fontSize = 13.sp, color = Grove.InkSoft, maxLines = 1)
         }
 
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {

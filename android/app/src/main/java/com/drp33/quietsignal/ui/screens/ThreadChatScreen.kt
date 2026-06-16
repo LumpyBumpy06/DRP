@@ -7,7 +7,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -147,15 +146,14 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(11.dp),
             ) {
                 GroveCircleButton(glyph = "‹", contentDescription = "Back", onClick = onClose)
-                AnchorThumb(type = vm.activeType, image = anchorImage, prompt = vm.activeIsPrompt, size = 42)
+                AnchorThumb(type = vm.activeType, image = anchorImage, size = 42)
                 Column(Modifier.weight(1f)) {
                     Text(
-                        text = if (vm.activeIsPrompt) "A memory worth revisiting"
-                        else vm.threadTitle(anchor, vm.activeSender, vm.activeType),
+                        text = vm.threadTitle(anchor, vm.activeSender, vm.activeType),
                         fontFamily = NunitoSans, fontSize = 15.5.sp, fontWeight = FontWeight.Bold, color = Grove.Ink, maxLines = 1,
                     )
                     Text(
-                        text = if (vm.activeIsPrompt) "Grove resurfaced this for you both" else "Conversation",
+                        text = "Conversation",
                         fontFamily = NunitoSans, fontSize = 12.sp, color = Grove.InkFaint, maxLines = 1,
                     )
                 }
@@ -173,10 +171,6 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
             ) {
                 item {
                     Column {
-                        if (vm.activeIsPrompt) {
-                            PromptBanner()
-                            Spacer(Modifier.height(8.dp))
-                        }
                         AnchorPin(
                             type = vm.activeType,
                             title = vm.threadTitle(anchor, vm.activeSender, vm.activeType),
@@ -239,40 +233,16 @@ fun ThreadChatScreen(vm: ThreadsViewModel, onClose: () -> Unit) {
 }
 
 @Composable
-private fun PromptBanner() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(Grove.Accent.copy(alpha = 0.12f))
-            .border(1.dp, Grove.Accent.copy(alpha = 0.30f), RoundedCornerShape(14.dp))
-            .padding(horizontal = 14.dp, vertical = 11.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("✨", fontSize = 14.sp)
-        Text(
-            text = "It's been quiet lately — Grove picked out a moment you might want to talk about.",
-            fontFamily = NunitoSans, fontSize = 13.sp, color = Grove.InkSoft, lineHeight = 18.sp,
-        )
-    }
-}
-
-@Composable
-private fun AnchorThumb(type: String, image: ImageBitmap?, prompt: Boolean, size: Int) {
+private fun AnchorThumb(type: String, image: ImageBitmap?, size: Int) {
     Box(
         modifier = Modifier.size(size.dp).clip(RoundedCornerShape(12.dp))
             .background(
-                when {
-                    prompt -> Grove.Accent
-                    type == "photo" -> Grove.Photo.copy(alpha = 0.22f)
-                    else -> Grove.Voice.copy(alpha = 0.20f)
-                }
+                if (type == "photo") Grove.Photo.copy(alpha = 0.22f)
+                else Grove.Voice.copy(alpha = 0.20f)
             ),
         contentAlignment = Alignment.Center,
     ) {
-        if (prompt) Text("✨", fontSize = 18.sp)
-        else if (type == "photo" && image != null) Image(bitmap = image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        if (type == "photo" && image != null) Image(bitmap = image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         else Text(if (type == "photo") "📸" else "🎙", fontSize = 18.sp)
     }
 }

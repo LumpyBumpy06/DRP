@@ -24,6 +24,7 @@ from app.crud import (
     get_revive_timestamps,
     get_tags_for,
     get_tags_map,
+    get_thread_caption_rows,
     get_thread_captions,
     get_thread_messages,
     is_okay_within_6h,
@@ -549,6 +550,32 @@ def get_threads(user_id: int, session: Session = SessionDependency) -> dict:
         summary["lastSender"] = USER_NAMES.get(message.sender_id, "Someone")
         summary["lastEpoch"] = int(message.created_at.replace(tzinfo=UTC).timestamp())
 
+    # A conversation exists the moment it's titled — a caption alone creates the
+    # thread, even before the first message is sent. Surface those empty threads
+    # too, sorted by WHEN they were named (created_at) so they age down the list
+    # like any other thread instead of being pinned to the top.
+    for row in get_thread_caption_rows(session):
+        if row.anchor in summaries:
+            continue
+        kind, sender = _memory_meta(row.anchor)
+        created = row.created_at
+        last_epoch = int(created.replace(tzinfo=UTC).timestamp()) if created is not None else 0
+        summaries[row.anchor] = {
+            "anchor": row.anchor,
+            "memoryType": kind,
+            "memorySender": sender,
+            "memoryObject": _anchor_media_object(row.anchor),
+            "isPrompt": row.anchor.startswith(PROMPT_ANCHOR_PREFIX),
+            "caption": row.caption,
+            "count": 0,
+            "incoming": 0,
+            "lastKind": "text",
+            "lastText": "",
+            "lastSenderId": 0,
+            "lastSender": "",
+            "lastEpoch": last_epoch,
+        }
+
     threads = sorted(summaries.values(), key=lambda s: s.get("lastEpoch", 0), reverse=True)
     return {"threads": threads}
 
@@ -624,22 +651,27 @@ def _notify_thread(session: Session, sender_id: int, glyph: str) -> None:
 
 @app.get("/prompt")
 def get_prompt() -> dict:
-    """Pick one memory to gently resurface — deterministic per "week"
+    """Pick one PHOTO memory to gently resurface — deterministic per "week"
     (WEEK_SECONDS, the same window as the forest) so BOTH partners are offered
     the same one ("sends to both"), and a NEW prompt (with its own fresh chat)
     arrives each week. The client decides whether to show it (only when prompts
-    are on and the tree is quiet)."""
+    are on and the tree is quiet).
+
+    Prompts are photos only: the user is shown the picture and asked to caption
+    it, so a voice memo (nothing to look at) is never resurfaced as a prompt."""
     try:
         objects = _board_objects()
     except Exception:
         logging.exception("Memory storage unavailable; no prompt")
         return {"prompt": None}
 
-    if not objects:
+    # Only snaps make a good "remember this?" prompt — there's a picture to see.
+    photos = [(name, lm) for name, lm in objects if name.startswith("photos/")]
+    if not photos:
         return {"prompt": None}
 
     # Resurface older moments: drop the few most-recent, then pick stably per week.
-    pool = objects[3:] or objects
+    pool = photos[3:] or photos
     prompt_index = int(datetime.now(UTC).timestamp() // WEEK_SECONDS)
     object_name, last_modified = pool[prompt_index % len(pool)]
     kind, sender = _memory_meta(object_name)

@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     firebase_credentials_file: str | None = None
     # Kubernetes
     firebase_credentials_json: str | None = None
+    # Local dev escape hatch: when true, boot even without Firebase credentials
+    # (push notifications become no-ops). Production leaves this false so a
+    # missing credential is still a hard startup failure.
+    firebase_optional: bool = False
 
     # ---------- BLOCK STORAGE (MinIO / S3) ----------
 

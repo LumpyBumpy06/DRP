@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -78,6 +79,10 @@ fun AdultScreen(
     val showPrompt = promptsOn && mood == TreeMood.FADING && prompt != null
     // Window-y of the safety strip's bottom — the floating prompt hangs just below it.
     var promptAnchorPx by remember { mutableFloatStateOf(0f) }
+    // A prompt thread is only created once the card is tapped AND a caption given.
+    var promptClicked by remember { mutableStateOf(false) }
+    var showPromptCaption by remember { mutableStateOf(false) }
+    var promptImage by remember { mutableStateOf<ImageBitmap?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -137,12 +142,30 @@ fun AdultScreen(
             PromptCard(
                 title = "It's been quiet — remember this?",
                 subtitle = "A ${if (prompt.type == "photo") "photo" else "voice note"} from ${prompt.sender}",
-                onClick = { threadsVm.openThread(prompt.objectName, prompt.type, prompt.sender, isPrompt = true) },
+                enlarged = promptClicked,
+                onClick = {
+                    promptClicked = true
+                    promptImage = null
+                    threadsVm.loadPromptImage(prompt.objectName) { promptImage = it }
+                    showPromptCaption = true
+                },
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .offset { IntOffset(0, promptAnchorPx.roundToInt() + 8.dp.roundToPx()) }
                     .padding(horizontal = 20.dp),
             )
+
+            if (showPromptCaption) {
+                PromptCaptionDialog(
+                    image = promptImage,
+                    onConfirm = { caption ->
+                        threadsVm.openThread(prompt.threadAnchor, prompt.type, prompt.sender, title = caption)
+                        showPromptCaption = false
+                        promptClicked = false
+                    },
+                    onDismiss = { showPromptCaption = false; promptClicked = false },
+                )
+            }
         }
 
         // Incoming messages from Norman pop up in the centre of the screen.

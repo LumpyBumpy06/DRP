@@ -270,6 +270,12 @@ def get_thread_captions(session: Session) -> dict[str, str]:
     return {row.anchor: row.caption for row in session.exec(select(ThreadCaption)).all() if row.caption}
 
 
+def get_thread_caption_rows(session: Session) -> list[ThreadCaption]:
+    """Full caption rows (anchor, caption, created_at) for every titled thread —
+    used to surface caption-only threads and sort them by when they were named."""
+    return [row for row in session.exec(select(ThreadCaption)).all() if row.caption]
+
+
 # ---------- TAGS (labels shared across both partners) ----------
 
 

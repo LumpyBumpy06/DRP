@@ -45,8 +45,6 @@ class ThreadsViewModel(
         private set
     var activeSender by mutableStateOf("")
         private set
-    var activeIsPrompt by mutableStateOf(false)
-        private set
     var messages by mutableStateOf<List<ThreadMessage>>(emptyList())
         private set
 
@@ -142,7 +140,7 @@ class ThreadsViewModel(
     val activeMediaObject: String? get() = activeAnchor?.let { threadMediaObject(it) }
 
     /** Open the conversation hanging off [anchor], decoding any photo messages. */
-    fun openThread(anchor: String, type: String, sender: String, isPrompt: Boolean = false, title: String? = null) {
+    fun openThread(anchor: String, type: String, sender: String, title: String? = null) {
         if (!title.isNullOrBlank()) {
             captions[anchor] = title.trim()
             // Persist the title server-side so it survives app restarts.
@@ -151,7 +149,6 @@ class ThreadsViewModel(
         activeAnchor = anchor
         activeType = type
         activeSender = sender
-        activeIsPrompt = isPrompt
         messages = emptyList()
         reloadMessages()
     }
@@ -159,7 +156,6 @@ class ThreadsViewModel(
     fun closeThread() {
         activeAnchor = null
         messages = emptyList()
-        activeIsPrompt = false
         loadThreads() // refresh list + badges
     }
 
@@ -227,6 +223,24 @@ class ThreadsViewModel(
         val anchor = activeAnchor ?: return
         viewModelScope.launch {
             repository.postThreadPhoto(anchor, selfId, jpeg).onSuccess { reloadMessages() }
+        }
+    }
+
+    /** Decode a memory's photo to a bitmap (for the prompt caption preview), so
+     *  the user can see the picture they're about to caption. Cached like the
+     *  thread thumbnails. */
+    fun loadPromptImage(objectName: String, onLoaded: (ImageBitmap?) -> Unit) {
+        MediaCache.get(objectName)?.let { onLoaded(it); return }
+        viewModelScope.launch {
+            val bytes = MediaCache.getBytes(objectName)
+                ?: repository.getMedia(objectName).getOrNull()?.also { MediaCache.putBytes(objectName, it) }
+            if (bytes == null) {
+                onLoaded(null)
+                return@launch
+            }
+            val bmp = withContext(Dispatchers.Default) { decodeSampledBitmap(bytes, 800, 800)?.asImageBitmap() }
+            if (bmp != null) MediaCache.put(objectName, bmp)
+            onLoaded(bmp)
         }
     }
 

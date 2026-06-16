@@ -1,2 +1,7 @@
 .idea
 .venv
+
+# Local env + dev artifacts
+.env
+backend/.env
+backend/*.db
