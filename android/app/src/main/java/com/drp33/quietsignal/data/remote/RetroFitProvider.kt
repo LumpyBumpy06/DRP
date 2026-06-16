@@ -45,7 +45,6 @@ object RetroFitProvider {
             .create(CheckInAPI::class.java)
     }
 
-    // new
     // Kept for backward compatibility if context-less access is needed, 
     // but preferred usage is via getCheckInAPI(context).
     val checkInAPI: CheckInAPI by lazy {

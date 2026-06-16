@@ -49,10 +49,6 @@ interface CheckInAPI {
     @GET("photo/recent")
     suspend fun getRecentPhotos(@Query("user_id") userId: Int): ObjectsResponse
 
-    // DEMO HELPER: jump the shared tree to a growth stage (0..9).
-    @POST("debug/setStage")
-    suspend fun setTreeStage(@Query("stage") stage: Int)
-
     @POST("okay")
 //    suspend fun postSendOkay(@Body request: OkayRequest)
     suspend fun postSendOkay(@Query("user_id") userId: Int)

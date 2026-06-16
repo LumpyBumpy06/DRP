@@ -76,10 +76,6 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
         api.getRecentPhotos(userId).objects
     }
 
-    override suspend fun setTreeStage(stage: Int): Result<Unit> = runCatching {
-        api.setTreeStage(stage)
-    }
-
     override suspend fun postPhoto(clientId: Int, jpeg: ByteArray): Result<Unit> = runCatching {
         val body = jpeg.toRequestBody("image/jpeg".toMediaType())
         val part = MultipartBody.Part.createFormData(

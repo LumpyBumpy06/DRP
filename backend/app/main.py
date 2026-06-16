@@ -32,7 +32,6 @@ from app.crud import (
     mark_prompt_announced,
     raise_emergency,
     remove_tag_for,
-    seed_okay_events,
     set_tags_for,
     set_thread_caption,
     upsert_user_token,
@@ -45,7 +44,7 @@ from app.models import ThreadMessage, User
 from app.services.firebase import init_firebase
 from app.services.notifications import send_notification
 from app.services.storage import download_audio, latest_recent_object_name, list_objects, recent_object_names, upload_audio
-from app.services.tree import GROWTH_THRESHOLDS, WEEK_SECONDS, compute_current_week_state, compute_tree_state
+from app.services.tree import WEEK_SECONDS, compute_current_week_state, compute_tree_state
 from app.settings import get_settings
 
 app = FastAPI()
@@ -138,21 +137,6 @@ def reset_tree(session: Session = SessionDependency) -> dict:
     """Delete every check-in from the database and reset the shared tree state."""
     deleted = reset_tree_data(session)
     return {"ok": True, "deleted": deleted}
-
-
-@app.get("/debug/setStage")
-@app.post("/debug/setStage")
-def debug_set_stage(stage: int, user_id: int = 1, session: Session = SessionDependency) -> dict:
-    """DEMO HELPER: reset the tree, then seed exactly enough waterings to land the
-    shared tree on `stage` (0..9). Lets a demo show each growth stage instantly
-    instead of sending dozens of real moments."""
-    max_stage = len(GROWTH_THRESHOLDS) - 1
-    stage = max(0, min(stage, max_stage))
-    reset_tree_data(session)
-    waterings = GROWTH_THRESHOLDS[stage]
-    if waterings:
-        seed_okay_events(session, user_id, waterings)
-    return {"ok": True, "stage": stage, "waterings": waterings}
 
 
 # ---------- TREE (shared "watering" state) ----------
