@@ -71,7 +71,7 @@ fun WeekGalleryDialog(
                                 color = Grove.Ink,
                             )
                             Text(
-                                text = "${memories.size} ${if (memories.size == 1) "moment" else "moments"} this week",
+                                text = "${memories.size} ${if (memories.size == 1) "moment" else "moments"} this month",
                                 fontFamily = NunitoSans,
                                 fontSize = 13.sp,
                                 color = Grove.InkSoft,

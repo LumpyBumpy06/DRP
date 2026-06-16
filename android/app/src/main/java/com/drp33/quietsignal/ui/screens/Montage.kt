@@ -212,7 +212,7 @@ private fun TitleSlide(week: ForestWeek, count: Int) {
         WateringTree(stage = week.stage, deathLevel = week.deathLevel)
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Your week together",
+            text = "Your month together",
             color = MaterialTheme.colorScheme.onSurface,
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
@@ -354,7 +354,7 @@ private fun EndSlide() {
             Text(text = "🌳", fontSize = 72.sp)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "This week is planted",
+                text = "This month is planted",
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,

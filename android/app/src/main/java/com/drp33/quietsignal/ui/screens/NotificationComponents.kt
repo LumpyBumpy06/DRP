@@ -141,33 +141,33 @@ private fun PhotoPopup(peerName: String, vm: PhotoMessagingViewModel, visible: B
 }
 
 /**
- * Full-screen snap viewer. Opens on the LATEST snap and lets the viewer page back
- * through older ones (swipe, or the on-screen ‹ / › arrows). [images] is newest
- * first, so index 0 is the latest and a larger index is older.
+ * Full-screen snap viewer. Ordered oldest → newest (like a normal gallery) and
+ * opens on the newest. ‹ / swipe-right step back in time; › / swipe-left go
+ * forward. [images] arrives newest-first, so we reverse it for display.
  */
 @Composable
 private fun PhotoViewerDialog(images: List<ImageBitmap>, peerName: String, onClose: () -> Unit) {
-    // Reset to the latest if the set of snaps changes while open (e.g. a new one
-    // arrives or an old one expires), so the index can't point out of bounds.
-    var index by remember(images.size) { mutableIntStateOf(0) }
+    val ordered = remember(images) { images.asReversed() } // oldest → newest
+    // Start on the newest; reset if the set changes while open (new arrival / expiry).
+    var index by remember(ordered.size) { mutableIntStateOf(ordered.lastIndex.coerceAtLeast(0)) }
     var drag by remember { mutableFloatStateOf(0f) }
-    val canOlder = index < images.size - 1
-    val canNewer = index > 0
+    val canOlder = index > 0
+    val canNewer = index < ordered.lastIndex
 
     Dialog(onDismissRequest = onClose) {
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Image(
-                bitmap = images[index],
+                bitmap = ordered[index],
                 contentDescription = "Snap from $peerName",
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .pointerInput(images.size) {
+                    .pointerInput(ordered.size) {
                         detectHorizontalDragGestures(
                             onDragEnd = {
-                                // Swipe left → older; swipe right → newer.
-                                if (drag < -60f && canOlder) index++
-                                else if (drag > 60f && canNewer) index--
+                                // Swipe right → older; swipe left → newer.
+                                if (drag > 60f && canOlder) index--
+                                else if (drag < -60f && canNewer) index++
                                 drag = 0f
                             },
                             onHorizontalDrag = { _, amount -> drag += amount },
@@ -175,8 +175,8 @@ private fun PhotoViewerDialog(images: List<ImageBitmap>, peerName: String, onClo
                     },
             )
 
-            // Page counter ("1 of 3" — 1 is the latest).
-            if (images.size > 1) {
+            // Page counter ("3 of 3" is the newest).
+            if (ordered.size > 1) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -185,12 +185,12 @@ private fun PhotoViewerDialog(images: List<ImageBitmap>, peerName: String, onClo
                         .background(Color.Black.copy(alpha = 0.55f))
                         .padding(horizontal = 12.dp, vertical = 5.dp),
                 ) {
-                    Text("${index + 1} of ${images.size}", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("${index + 1} of ${ordered.size}", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
-            if (canOlder) ViewerArrow(glyph = "‹", modifier = Modifier.align(Alignment.CenterStart)) { index++ }
-            if (canNewer) ViewerArrow(glyph = "›", modifier = Modifier.align(Alignment.CenterEnd)) { index-- }
+            if (canOlder) ViewerArrow(glyph = "‹", modifier = Modifier.align(Alignment.CenterStart)) { index-- }
+            if (canNewer) ViewerArrow(glyph = "›", modifier = Modifier.align(Alignment.CenterEnd)) { index++ }
         }
     }
 }
@@ -219,8 +219,8 @@ private fun VoicePopup(peerName: String, vm: VoiceMessagingViewModel, visible: B
     var isPlaying by remember { mutableStateOf(false) }
     var durationMs by remember { mutableIntStateOf(0) }
     var positionMs by remember { mutableIntStateOf(0) }
-    // Which clip is playing (0 = latest; larger = older).
-    var clipIndex by remember { mutableIntStateOf(0) }
+    // Position in oldest → newest order (like a gallery): 0 = oldest, last = newest.
+    var clipUiIndex by remember { mutableIntStateOf(0) }
     val clipCount = vm.state.clips.size
 
     DisposableEffect(Unit) { onDispose { player.release() } }
@@ -232,11 +232,12 @@ private fun VoicePopup(peerName: String, vm: VoiceMessagingViewModel, visible: B
         }
     }
 
-    // Load + play the clip at [index]; stops whatever was playing first.
-    fun playIndex(index: Int) {
+    // Play the clip at oldest→newest position [ui]; stops whatever was playing.
+    // The VM stores clips newest-first, so map the position back to its index.
+    fun playUi(ui: Int) {
         player.pause()
-        clipIndex = index
-        vm.playClip(index) { bytes ->
+        clipUiIndex = ui
+        vm.playClip(clipCount - 1 - ui) { bytes ->
             durationMs = player.play(bytes) {
                 isPlaying = false
                 positionMs = 0
@@ -259,7 +260,7 @@ private fun VoicePopup(peerName: String, vm: VoiceMessagingViewModel, visible: B
             onPrimary = {
                 open = true
                 vm.markSeen()
-                playIndex(0) // start on the latest
+                playUi(clipCount - 1) // start on the newest
             },
             onDismiss = { vm.markSeen() },
             leading = { Text(text = "🎙️", fontSize = 44.sp) },
@@ -297,7 +298,8 @@ private fun VoicePopup(peerName: String, vm: VoiceMessagingViewModel, visible: B
                     },
                 )
 
-                // Step through clips that arrived back-to-back (newest first).
+                // Step through clips that arrived back-to-back (oldest → newest):
+                // ‹ goes back in time, › forward — matching the photo viewer.
                 if (clipCount > 1) {
                     Spacer(Modifier.height(12.dp))
                     Row(
@@ -308,9 +310,9 @@ private fun VoicePopup(peerName: String, vm: VoiceMessagingViewModel, visible: B
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        ViewerArrow(glyph = "‹", enabled = clipIndex < clipCount - 1) { playIndex(clipIndex + 1) }
-                        Text("Clip ${clipIndex + 1} of $clipCount", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        ViewerArrow(glyph = "›", enabled = clipIndex > 0) { playIndex(clipIndex - 1) }
+                        ViewerArrow(glyph = "‹", enabled = clipUiIndex > 0) { playUi(clipUiIndex - 1) }
+                        Text("Clip ${clipUiIndex + 1} of $clipCount", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        ViewerArrow(glyph = "›", enabled = clipUiIndex < clipCount - 1) { playUi(clipUiIndex + 1) }
                     }
                 }
             }

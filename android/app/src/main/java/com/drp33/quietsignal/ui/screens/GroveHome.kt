@@ -198,7 +198,7 @@ fun GroveBottomNav(tab: GroveTab, unread: Int, onSelect: (GroveTab) -> Unit, mod
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        NavItem("This week", "🌳", tab == GroveTab.Week, Modifier.weight(1f)) { onSelect(GroveTab.Week) }
+        NavItem("This month", "🌳", tab == GroveTab.Week, Modifier.weight(1f)) { onSelect(GroveTab.Week) }
         NavItem("Threads", "💬", tab == GroveTab.Threads, Modifier.weight(1f), badge = unread) { onSelect(GroveTab.Threads) }
         NavItem("Forest", "🌲", tab == GroveTab.Forest, Modifier.weight(1f)) { onSelect(GroveTab.Forest) }
         NavItem("Gallery", "🖼", tab == GroveTab.Gallery, Modifier.weight(1f)) { onSelect(GroveTab.Gallery) }
@@ -267,7 +267,7 @@ fun GroveHeader(title: String, subtitle: String, momentCount: Int, modifier: Mod
         }
         Spacer(Modifier.size(12.dp))
         Column(horizontalAlignment = Alignment.End) {
-            Text(text = "THIS WEEK", fontFamily = NunitoSans, fontSize = 11.sp, letterSpacing = 1.2.sp, color = Grove.InkFaint)
+            Text(text = "THIS MONTH", fontFamily = NunitoSans, fontSize = 11.sp, letterSpacing = 1.2.sp, color = Grove.InkFaint)
             Text(
                 text = "$momentCount ${if (momentCount == 1) "moment" else "moments"}",
                 fontFamily = NunitoSans, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Grove.Ink,

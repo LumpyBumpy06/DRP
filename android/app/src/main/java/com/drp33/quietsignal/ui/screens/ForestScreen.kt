@@ -211,7 +211,7 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
 
         if (weeks.isEmpty()) {
             Text(
-                text = "🌱 Your forest is just beginning.\nShare moments to grow this week's tree.",
+                text = "🌱 Your forest is just beginning.\nShare moments to grow this month's tree.",
                 color = Grove.InkSoft,
                 fontFamily = NunitoSans,
                 textAlign = TextAlign.Center,
@@ -284,7 +284,7 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             Text(
-                                text = "Week ${week.weekIndex}",
+                                text = "Month ${week.weekIndex}",
                                 fontFamily = Newsreader,
                                 fontWeight = FontWeight.Medium,
                                 color = Grove.Ink,
@@ -335,11 +335,11 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
         ) {
             Text(text = "Your forest", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 26.sp, color = Grove.Ink)
             Text(
-                text = "${weeks.size} ${if (weeks.size == 1) "week" else "weeks"}, planted together",
+                text = "${weeks.size} ${if (weeks.size == 1) "month" else "months"}, planted together",
                 fontFamily = NunitoSans, fontSize = 13.sp, color = Grove.InkSoft,
             )
             Text(
-                text = "swipe to wander → · tap a tree to relive its week",
+                text = "swipe to wander → · tap a tree to relive its month",
                 fontFamily = NunitoSans, fontSize = 11.sp, color = Grove.InkFaint,
                 modifier = Modifier.padding(top = 2.dp),
             )

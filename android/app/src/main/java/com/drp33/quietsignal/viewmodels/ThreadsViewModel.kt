@@ -196,19 +196,6 @@ class ThreadsViewModel(
         loadThreads() // refresh list + badges
     }
 
-    /** The open thread's current title (caption if set, else the gentle default). */
-    fun activeTitle(): String =
-        activeAnchor?.let { threadTitle(it, activeSender, activeType) } ?: ""
-
-    /** Rename the open conversation. Updates the shared caption locally and on the
-     *  server. Renaming never waters the tree (userId omitted), so re-titling a
-     *  prompt thread can't be used to grow it. */
-    fun renameActiveThread(title: String) {
-        val anchor = activeAnchor ?: return
-        if (title.isBlank()) return
-        captions[anchor] = title.trim()
-        viewModelScope.launch { repository.setThreadCaption(anchor, title.trim()) }
-    }
 
     private fun reloadMessages() {
         val anchor = activeAnchor ?: return
