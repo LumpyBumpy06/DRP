@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.drp33.quietsignal.data.repo.CheckInRepository
 import com.drp33.quietsignal.model.ForestWeek
 import com.drp33.quietsignal.model.MemoryItem
+import com.drp33.quietsignal.model.NotificationBus
 import com.drp33.quietsignal.util.MediaCache
 import com.drp33.quietsignal.util.decodeSampledBitmap
 import kotlinx.coroutines.Dispatchers
@@ -34,21 +35,43 @@ class MemoriesViewModel(
 
     private val fetching = mutableSetOf<String>()
 
+    init {
+        // Keep the board — and the "moments this week" count — in sync when the
+        // partner adds a moment, without polling. A new snap/voice memo pushes
+        // PHOTO_MESSAGE / VOICE_MESSAGE; reload the board when one arrives.
+        viewModelScope.launch {
+            NotificationBus.events.collect { event ->
+                if (event == "PHOTO_MESSAGE" || event == "VOICE_MESSAGE") load()
+            }
+        }
+    }
+
+    // If a refresh is requested while one is already running (e.g. a push arrives
+    // mid-load), remember it and run one more pass when the current load finishes —
+    // so a moment can never be silently missed.
+    private var reloadQueued = false
+
     fun load(onlyMetadata: Boolean = false) {
-        // We still allow a refresh if not already loading, but we'll be smart about the images.
-        if (loading) return
+        if (loading) {
+            reloadQueued = true
+            return
+        }
         viewModelScope.launch {
             loading = true
             repository.getMemories()
                 .onSuccess { items ->
                     // Immediately restore any bitmaps we already have in the session cache.
-                    memories = items.map { 
+                    memories = items.map {
                         it.copy(image = MediaCache.get(it.objectName))
                     }
-                    loading = false
                     loadTags()
                 }
-                .onFailure { loading = false }
+            loading = false
+            // A refresh landed while we were loading — run it now so we don't miss it.
+            if (reloadQueued) {
+                reloadQueued = false
+                load(onlyMetadata)
+            }
         }
     }
 

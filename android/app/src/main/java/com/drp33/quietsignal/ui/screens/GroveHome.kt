@@ -103,10 +103,13 @@ fun MainShell(
     // already have a conversation ("Continue" vs "Start a conversation").
     LaunchedEffect(tab) { if (tab == GroveTab.Gallery) threadsVm.loadThreads() }
 
-    // Event-driven sync (no polling): refresh threads/the open chat whenever the
-    // app returns to the foreground. Live updates while in use arrive via the
-    // THREAD_MESSAGE push; this catches anything missed while backgrounded.
-    LifecycleEventEffect(Lifecycle.Event.ON_START) { threadsVm.syncNow() }
+    // Event-driven sync (no polling): refresh threads + the memory board (moment
+    // count) whenever the app returns to the foreground. Live updates while in use
+    // arrive via push; this catches anything missed while backgrounded.
+    LifecycleEventEffect(Lifecycle.Event.ON_START) {
+        threadsVm.syncNow()
+        forestVm.load()
+    }
 
     Box(modifier = Modifier.fillMaxSize().groveBackground()) {
         when (tab) {
