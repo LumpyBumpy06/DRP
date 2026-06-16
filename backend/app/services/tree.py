@@ -20,10 +20,12 @@ from datetime import UTC, datetime
 GROWTH_THRESHOLDS = [0, 1, 3, 6, 10, 15, 16, 17, 18, 19]
 
 # No watering for this many "day" windows => fully dead (deathLevel == 1.0).
-# TEST VALUE: with the 20s check-in window this is 3 windows = 60s, so the tree
-# visibly wilts well within the 120s week — leaving time for the dying state to
-# show before the week rolls over.
-DEATH_WINDOWS = 3
+# DEMO VALUE: kept large so a tree you set with the demo stage buttons stays
+# healthy throughout a session instead of wilting ~60s after the last watering.
+# With the 20s check-in window, 1000 windows ≈ 5.5h to fully wilt, so deathLevel
+# stays ~0 across a 10-minute month (a tree only "dies" if genuinely neglected
+# for hours). Lower this if you want to demo the wilting/dying state itself.
+DEATH_WINDOWS = 1000
 
 # Length of one "forest" week. Each elapsed week becomes a frozen tree.
 # TEST VALUE: 120s so new trees appear ~every 2 minutes. For production use
