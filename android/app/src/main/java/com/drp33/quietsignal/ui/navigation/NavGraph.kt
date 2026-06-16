@@ -3,7 +3,9 @@ package com.drp33.quietsignal.ui.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -74,22 +76,27 @@ fun NavGraph() {
     ) {
 
         composable(Routes.ROLE_SELECT) {
-            RoleSelectScreen { role ->
-                when (role) {
-                    UserRole.SADIE -> {
-                        RolePreferences.save(context, UserRole.SADIE)
-                        navController.navigate(Routes.ADULT) {
-                            popUpTo(Routes.ROLE_SELECT) { inclusive = true }
+            val scope = rememberCoroutineScope()
+            RoleSelectScreen(
+                onSelect = { role ->
+                    when (role) {
+                        UserRole.SADIE -> {
+                            RolePreferences.save(context, UserRole.SADIE)
+                            navController.navigate(Routes.ADULT) {
+                                popUpTo(Routes.ROLE_SELECT) { inclusive = true }
+                            }
+                        }
+                        UserRole.NORMAN -> {
+                            RolePreferences.save(context, UserRole.NORMAN)
+                            navController.navigate(Routes.ELDERLY) {
+                                popUpTo(Routes.ROLE_SELECT) { inclusive = true }
+                            }
                         }
                     }
-                    UserRole.NORMAN -> {
-                        RolePreferences.save(context, UserRole.NORMAN)
-                        navController.navigate(Routes.ELDERLY) {
-                            popUpTo(Routes.ROLE_SELECT) { inclusive = true }
-                        }
-                    }
-                }
-            }
+                },
+                // Demo helper: jump the shared tree to a stage before entering.
+                onSetStage = { stage -> scope.launch { repository.setTreeStage(stage) } },
+            )
         }
 
         composable(Routes.ELDERLY) {
