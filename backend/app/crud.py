@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlmodel import Session, col, desc, select
 
-from app.models import EmergencyAlert, ForestTree, MemoryTag, OkayEvent, ReviveEvent, ThreadCaption, ThreadMessage, User, UserLink
+from app.models import EmergencyAlert, ForestTree, MemoryTag, OkayEvent, PromptAnnouncement, ReviveEvent, ThreadCaption, ThreadMessage, User, UserLink
 from app.services.tree import WEEK_SECONDS, compute_week_snapshot, week_start_of
 
 # One "day" in the current simulation. A check-in (or voice message) is only
@@ -24,6 +24,28 @@ def upsert_user_token(session: Session, user_id: int, token: str) -> User:
     session.commit()
     session.refresh(user)
     return user
+
+
+def get_user_tokens(session: Session) -> list[str]:
+    """Every known device token (both partners) — for broadcasting to all sides."""
+    return [user.token for user in session.exec(select(User)).all() if user.token]
+
+
+# ---------- PROMPT ANNOUNCEMENTS ----------
+
+
+def mark_prompt_announced(session: Session, prompt_key: str) -> bool:
+    """Claim the one-time announcement for `prompt_key`.
+
+    Returns True if this call is the first to announce it (so the caller should
+    send the push), or False if it was already announced (so the caller stays
+    silent). Idempotent under repeated polling from either side.
+    """
+    if session.get(PromptAnnouncement, prompt_key) is not None:
+        return False
+    session.add(PromptAnnouncement(prompt_key=prompt_key))
+    session.commit()
+    return True
 
 
 # ---------- LINKS ----------

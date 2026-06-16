@@ -83,6 +83,16 @@ class ThreadCaption(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class PromptAnnouncement(SQLModel, table=True):
+    """Records that a given weekly prompt has already had its "revisit this
+    memory" nudge pushed to both partners. Keyed by the prompt's thread anchor so
+    each weekly prompt notifies exactly once, no matter who opens the app first
+    or how many times the client polls."""
+
+    prompt_key: str = Field(primary_key=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 class ThreadMessage(SQLModel, table=True):
     """One message inside a conversation that hangs off a memory.
 

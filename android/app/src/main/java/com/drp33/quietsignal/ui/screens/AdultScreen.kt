@@ -144,6 +144,11 @@ fun AdultScreen(
             prompt?.let { threadsVm.loadPromptImage(it.objectName) { img -> promptImage = img } }
         }
 
+        // When the prompt card actually appears, nudge both partners once.
+        LaunchedEffect(showPrompt, prompt?.threadAnchor) {
+            if (showPrompt && prompt != null) threadsVm.announcePrompt(prompt.threadAnchor)
+        }
+
         if (showPrompt && prompt != null) {
             PromptCard(
                 title = "It's been quiet — remember this?",

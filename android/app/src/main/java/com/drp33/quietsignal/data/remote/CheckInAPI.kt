@@ -149,4 +149,9 @@ interface CheckInAPI {
 
     @GET("prompt")
     suspend fun getPrompt(): PromptResponse
+
+    // Announce that the prompt card is being shown, so the server nudges both
+    // partners once (deduped per prompt by its thread anchor).
+    @POST("prompt/announce")
+    suspend fun postPromptAnnounce(@Query("prompt_key") promptKey: String)
 }

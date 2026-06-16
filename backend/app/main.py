@@ -27,7 +27,9 @@ from app.crud import (
     get_thread_caption_rows,
     get_thread_captions,
     get_thread_messages,
+    get_user_tokens,
     is_okay_within_6h,
+    mark_prompt_announced,
     raise_emergency,
     remove_tag_for,
     set_tags_for,
@@ -698,3 +700,26 @@ def get_prompt() -> dict:
             "threadAnchor": f"{PROMPT_ANCHOR_PREFIX}{prompt_index}/{object_name}",
         }
     }
+
+
+@app.post("/prompt/announce")
+def announce_prompt(prompt_key: str, session: Session = SessionDependency) -> dict:
+    """Push a gentle "revisit this memory" nudge to BOTH partners the first time a
+    weekly prompt is shown on either side.
+
+    The client calls this when it actually displays the prompt card. We dedupe on
+    `prompt_key` (the prompt's thread anchor) so the notification fires exactly
+    once per weekly prompt, regardless of who opens the app first or how often the
+    client polls.
+    """
+    if not mark_prompt_announced(session, prompt_key):
+        return {"announced": False}
+
+    for token in get_user_tokens(session):
+        send_notification(
+            token,
+            "🌿 A memory worth revisiting is waiting in your garden",
+            message_type="PROMPT",
+        )
+
+    return {"announced": True}

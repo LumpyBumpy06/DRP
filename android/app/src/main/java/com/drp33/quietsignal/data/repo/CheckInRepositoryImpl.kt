@@ -216,4 +216,8 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
             )
         }
     }
+
+    override suspend fun announcePrompt(promptKey: String): Result<Unit> = runCatching {
+        api.postPromptAnnounce(promptKey)
+    }
 }

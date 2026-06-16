@@ -38,4 +38,5 @@ interface CheckInRepository {
 
     // ---------- PROMPT (resurfaced memory) ----------
     suspend fun getPrompt(): Result<PromptMemory?>
+    suspend fun announcePrompt(promptKey: String): Result<Unit>
 }

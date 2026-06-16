@@ -139,6 +139,17 @@ class ThreadsViewModel(
         }
     }
 
+    // Prompt anchors we've already asked the server to announce, so showing the
+    // card repeatedly doesn't re-hit the network (the server dedupes too).
+    private val announcedPrompts = mutableSetOf<String>()
+
+    /** Tell the server the prompt card is on screen, so it nudges both partners
+     *  once. Safe to call on every display — guarded here and on the server. */
+    fun announcePrompt(promptKey: String) {
+        if (!announcedPrompts.add(promptKey)) return
+        viewModelScope.launch { repository.announcePrompt(promptKey) }
+    }
+
     /** The storage object behind the open thread's anchor (prompt anchors wrap
      *  the memory's object name). Use this for the pinned media, not the anchor. */
     val activeMediaObject: String? get() = activeAnchor?.let { threadMediaObject(it) }
