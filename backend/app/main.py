@@ -43,7 +43,7 @@ from app.db import create_engine_from_settings, get_session, init_db
 from app.models import ThreadMessage, User
 from app.services.firebase import init_firebase
 from app.services.notifications import send_notification
-from app.services.storage import download_audio, latest_recent_object_name, list_objects, upload_audio
+from app.services.storage import download_audio, latest_recent_object_name, list_objects, recent_object_names, upload_audio
 from app.services.tree import WEEK_SECONDS, compute_current_week_state, compute_tree_state
 from app.settings import get_settings
 
@@ -292,6 +292,13 @@ def get_latest_voice(user_id: int) -> Response:
     return Response(content=data, media_type="audio/mp4")
 
 
+@app.get("/voice/recent")
+def get_recent_voices(user_id: int) -> dict:
+    """Object names of every currently-playable clip from `user_id`, newest first,
+    so the viewer can step back through clips that arrived back-to-back."""
+    return {"objects": recent_object_names(settings, [f"{user_id}/", f"{RESHARE_PREFIX}{user_id}/"], VOICE_TTL_SECONDS)}
+
+
 # ---------- PHOTO (snaps) ----------
 
 
@@ -338,6 +345,13 @@ def get_latest_photo(user_id: int) -> Response:
 
     data = download_audio(settings, object_name)
     return Response(content=data, media_type="image/jpeg")
+
+
+@app.get("/photo/recent")
+def get_recent_photos(user_id: int) -> dict:
+    """Object names of every currently-viewable snap from `user_id`, newest first,
+    so the viewer can swipe back through snaps that arrived back-to-back."""
+    return {"objects": recent_object_names(settings, [f"photos/{user_id}/", f"{RESHARE_PREFIX}photos/{user_id}/"], PHOTO_TTL_SECONDS)}
 
 
 # ---------- RESHARE (re-deliver an existing memory) ----------

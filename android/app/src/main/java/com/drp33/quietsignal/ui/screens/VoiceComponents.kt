@@ -210,7 +210,8 @@ fun IncomingVoiceSection(
 
             Button(
                 onClick = {
-                    vm.playLatest { bytes ->
+                    vm.markSeen()
+                    vm.playClip(0) { bytes ->
                         durationMs = player.play(bytes) {
                             // On finish, drop back to the button so replaying re-fetches
                             // and the server re-enforces the expiry window.

@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.drp33.quietsignal.data.repo.CheckInRepository
 import com.drp33.quietsignal.model.NotificationBus
 import com.drp33.quietsignal.model.PhotoMessagingState
+import com.drp33.quietsignal.util.MediaCache
 import com.drp33.quietsignal.util.decodeSampledBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -17,7 +18,8 @@ import kotlinx.coroutines.withContext
 
 /**
  * Two-way photo "snaps", shared by both roles. Sends from [selfId]'s camera and
- * shows [peerId]'s latest snap. Mirrors [VoiceMessagingViewModel].
+ * shows [peerId]'s recent snaps (newest first, so the viewer can swipe back
+ * through ones that arrived back-to-back). Mirrors [VoiceMessagingViewModel].
  */
 class PhotoMessagingViewModel(
     private val repository: CheckInRepository,
@@ -29,11 +31,11 @@ class PhotoMessagingViewModel(
         private set
 
     init {
-        // Pull any snap already waiting, and refresh whenever the peer sends one.
-        loadLatest(markNew = false)
+        // Pull any snaps already waiting, and refresh whenever the peer sends one.
+        loadRecent(markNew = false)
         viewModelScope.launch {
             NotificationBus.events.collect { event ->
-                if (event == "PHOTO_MESSAGE") loadLatest(markNew = true)
+                if (event == "PHOTO_MESSAGE") loadRecent(markNew = true)
             }
         }
     }
@@ -55,38 +57,47 @@ class PhotoMessagingViewModel(
     }
 
     /**
-     * Fetch the peer's latest snap (server enforces expiry) and decode it for display.
-     * [markNew] flags it as a fresh arrival so the UI can pop a notification banner;
-     * the silent startup load passes false.
+     * Fetch the peer's recent snaps (server enforces expiry), newest first, and
+     * decode them all for the viewer. The count is the number waiting — derived
+     * from the server list, so a missed push self-corrects on the next refresh.
+     * [markNew] pops the notification banner; the silent startup load passes false.
      */
-    fun loadLatest(markNew: Boolean = false) {
+    fun loadRecent(markNew: Boolean = false) {
         viewModelScope.launch {
-            repository.getLatestPhoto(peerId)
-                .onSuccess { bytes ->
-                    val bitmap = withContext(Dispatchers.Default) {
-                        decodeSampledBitmap(bytes, 800, 800)?.asImageBitmap()
-                    }
-                    if (bitmap != null) {
-                        // Count back-to-back snaps so the viewer sees how many
-                        // arrived before they opened them.
-                        val nextUnread = if (markNew) state.unreadCount + 1 else state.unreadCount
-                        state = state.copy(image = bitmap, isNew = markNew, unreadCount = nextUnread)
+            repository.getRecentPhotos(peerId)
+                .onSuccess { names ->
+                    val bitmaps = names.mapNotNull { name -> decodeSnap(name) }
+                    state = if (bitmaps.isEmpty()) {
+                        // Nothing currently viewable (all expired) — dismiss.
+                        state.copy(images = emptyList(), isNew = false)
+                    } else {
+                        state.copy(images = bitmaps, isNew = markNew || state.isNew)
                     }
                 }
                 .onFailure {
-                    // 404 = nothing recent; just leave the current state as-is.
-                    Log.d("Photo", "No current snap from $peerId")
+                    Log.d("Photo", "No current snaps from $peerId")
                 }
         }
     }
 
-    /** Mark the current snap as seen so its notification dismisses. */
-    fun markSeen() {
-        state = state.copy(isNew = false, unreadCount = 0)
+    /** Fetch + decode one snap by object name, reusing the shared media cache. */
+    private suspend fun decodeSnap(objectName: String): androidx.compose.ui.graphics.ImageBitmap? {
+        MediaCache.get(objectName)?.let { return it }
+        val bytes = MediaCache.getBytes(objectName)
+            ?: repository.getMedia(objectName).getOrNull()?.also { MediaCache.putBytes(objectName, it) }
+            ?: return null
+        val bmp = withContext(Dispatchers.Default) { decodeSampledBitmap(bytes, 800, 800)?.asImageBitmap() }
+        if (bmp != null) MediaCache.put(objectName, bmp)
+        return bmp
     }
 
-    /** Dismiss the displayed snap. */
+    /** Mark the snaps as seen so the notification dismisses. */
+    fun markSeen() {
+        state = state.copy(isNew = false, images = emptyList())
+    }
+
+    /** Dismiss the displayed snaps. */
     fun clear() {
-        state = state.copy(image = null, isNew = false)
+        state = state.copy(images = emptyList(), isNew = false)
     }
 }

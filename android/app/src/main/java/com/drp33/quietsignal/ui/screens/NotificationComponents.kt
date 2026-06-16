@@ -9,10 +9,12 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +42,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -126,17 +131,82 @@ private fun PhotoPopup(peerName: String, vm: PhotoMessagingViewModel, visible: B
         )
     }
 
-    if (expanded && image != null) {
-        Dialog(onDismissRequest = { expanded = false; vm.markSeen() }) {
+    if (expanded && vm.state.images.isNotEmpty()) {
+        PhotoViewerDialog(
+            images = vm.state.images,
+            peerName = peerName,
+            onClose = { expanded = false; vm.markSeen() },
+        )
+    }
+}
+
+/**
+ * Full-screen snap viewer. Opens on the LATEST snap and lets the viewer page back
+ * through older ones (swipe, or the on-screen ‹ / › arrows). [images] is newest
+ * first, so index 0 is the latest and a larger index is older.
+ */
+@Composable
+private fun PhotoViewerDialog(images: List<ImageBitmap>, peerName: String, onClose: () -> Unit) {
+    // Reset to the latest if the set of snaps changes while open (e.g. a new one
+    // arrives or an old one expires), so the index can't point out of bounds.
+    var index by remember(images.size) { mutableIntStateOf(0) }
+    var drag by remember { mutableFloatStateOf(0f) }
+    val canOlder = index < images.size - 1
+    val canNewer = index > 0
+
+    Dialog(onDismissRequest = onClose) {
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Image(
-                bitmap = image,
+                bitmap = images[index],
                 contentDescription = "Snap from $peerName",
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .clickable { expanded = false; vm.markSeen() },
+                    .pointerInput(images.size) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                // Swipe left → older; swipe right → newer.
+                                if (drag < -60f && canOlder) index++
+                                else if (drag > 60f && canNewer) index--
+                                drag = 0f
+                            },
+                            onHorizontalDrag = { _, amount -> drag += amount },
+                        )
+                    },
             )
+
+            // Page counter ("1 of 3" — 1 is the latest).
+            if (images.size > 1) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 12.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.Black.copy(alpha = 0.55f))
+                        .padding(horizontal = 12.dp, vertical = 5.dp),
+                ) {
+                    Text("${index + 1} of ${images.size}", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            if (canOlder) ViewerArrow(glyph = "‹", modifier = Modifier.align(Alignment.CenterStart)) { index++ }
+            if (canNewer) ViewerArrow(glyph = "›", modifier = Modifier.align(Alignment.CenterEnd)) { index-- }
         }
+    }
+}
+
+@Composable
+private fun ViewerArrow(glyph: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+    Box(
+        modifier = modifier
+            .padding(8.dp)
+            .size(44.dp)
+            .clip(RoundedCornerShape(50))
+            .background(Color.Black.copy(alpha = if (enabled) 0.55f else 0.2f))
+            .clickable(enabled = enabled) { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(glyph, color = Color.White.copy(alpha = if (enabled) 1f else 0.4f), fontSize = 26.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -149,6 +219,9 @@ private fun VoicePopup(peerName: String, vm: VoiceMessagingViewModel, visible: B
     var isPlaying by remember { mutableStateOf(false) }
     var durationMs by remember { mutableIntStateOf(0) }
     var positionMs by remember { mutableIntStateOf(0) }
+    // Which clip is playing (0 = latest; larger = older).
+    var clipIndex by remember { mutableIntStateOf(0) }
+    val clipCount = vm.state.clips.size
 
     DisposableEffect(Unit) { onDispose { player.release() } }
 
@@ -156,6 +229,20 @@ private fun VoicePopup(peerName: String, vm: VoiceMessagingViewModel, visible: B
         while (isPlaying) {
             positionMs = player.position()
             delay(50)
+        }
+    }
+
+    // Load + play the clip at [index]; stops whatever was playing first.
+    fun playIndex(index: Int) {
+        player.pause()
+        clipIndex = index
+        vm.playClip(index) { bytes ->
+            durationMs = player.play(bytes) {
+                isPlaying = false
+                positionMs = 0
+            }
+            positionMs = 0
+            isPlaying = true
         }
     }
 
@@ -171,16 +258,10 @@ private fun VoicePopup(peerName: String, vm: VoiceMessagingViewModel, visible: B
             primaryLabel = "▶  Listen",
             onPrimary = {
                 open = true
-                vm.playLatest { bytes ->
-                    durationMs = player.play(bytes) {
-                        isPlaying = false
-                        positionMs = 0
-                    }
-                    positionMs = 0
-                    isPlaying = true
-                }
+                vm.markSeen()
+                playIndex(0) // start on the latest
             },
-            onDismiss = { vm.playLatest { } },
+            onDismiss = { vm.markSeen() },
             leading = { Text(text = "🎙️", fontSize = 44.sp) },
         )
     }
@@ -191,29 +272,48 @@ private fun VoicePopup(peerName: String, vm: VoiceMessagingViewModel, visible: B
             isPlaying = false
             open = false
         }) {
-            VoiceMessagePlayer(
-                isPlaying = isPlaying,
-                positionMs = positionMs,
-                durationMs = durationMs,
-                onPlayPause = {
-                    if (isPlaying) {
-                        player.pause()
-                        isPlaying = false
-                    } else {
-                        if (durationMs > 0 && positionMs >= durationMs) {
-                            player.seekTo(0)
-                            positionMs = 0
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                VoiceMessagePlayer(
+                    isPlaying = isPlaying,
+                    positionMs = positionMs,
+                    durationMs = durationMs,
+                    onPlayPause = {
+                        if (isPlaying) {
+                            player.pause()
+                            isPlaying = false
+                        } else {
+                            if (durationMs > 0 && positionMs >= durationMs) {
+                                player.seekTo(0)
+                                positionMs = 0
+                            }
+                            player.resume()
+                            isPlaying = true
                         }
-                        player.resume()
-                        isPlaying = true
+                    },
+                    onSeek = { fraction ->
+                        val target = (fraction * durationMs).toInt()
+                        positionMs = target
+                        player.seekTo(target)
+                    },
+                )
+
+                // Step through clips that arrived back-to-back (newest first).
+                if (clipCount > 1) {
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(Color.Black.copy(alpha = 0.55f))
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        ViewerArrow(glyph = "‹", enabled = clipIndex < clipCount - 1) { playIndex(clipIndex + 1) }
+                        Text("Clip ${clipIndex + 1} of $clipCount", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        ViewerArrow(glyph = "›", enabled = clipIndex > 0) { playIndex(clipIndex - 1) }
                     }
-                },
-                onSeek = { fraction ->
-                    val target = (fraction * durationMs).toInt()
-                    positionMs = target
-                    player.seekTo(target)
-                },
-            )
+                }
+            }
         }
     }
 }

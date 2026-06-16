@@ -13,8 +13,9 @@ import kotlinx.coroutines.launch
 
 /**
  * Two-way voice messaging, shared by both roles. Records into [selfId]'s mailbox
- * and plays [peerId]'s latest clip — Norman uses (self=1, peer=2) and Sadie uses
- * (self=2, peer=1), so there's a single implementation for both directions.
+ * and plays [peerId]'s recent clips (newest first, so the listener can step back
+ * through ones that arrived back-to-back). Norman uses (self=1, peer=2) and Sadie
+ * uses (self=2, peer=1), so there's a single implementation for both directions.
  */
 class VoiceMessagingViewModel(
     private val repository: CheckInRepository,
@@ -25,40 +26,36 @@ class VoiceMessagingViewModel(
     var state by mutableStateOf(VoiceMessagingState())
         private set
 
-    // The peer's latest clip, fetched by the availability check so playback is instant.
-    private var latestBytes: ByteArray? = null
-
     init {
-        // Fetch any existing message right away.
-        checkLatest(markNew = false)
+        // Fetch any existing clips right away.
+        loadRecent(markNew = false)
 
-        // React instantly when a push says the peer just sent a clip...
+        // React instantly when a push says the peer just sent a clip.
         viewModelScope.launch {
             NotificationBus.events.collect { event ->
-                if (event == "VOICE_MESSAGE") {
-                    checkLatest(markNew = true)
-                }
+                if (event == "VOICE_MESSAGE") loadRecent(markNew = true)
             }
         }
     }
 
-    /** Is there a current clip from the peer? Caches it for instant playback. */
-    private fun checkLatest(markNew: Boolean = false) {
+    /**
+     * Fetch the peer's recent clips (server enforces expiry), newest first. The
+     * count is derived from this server list, so a missed push self-corrects on
+     * the next refresh. [markNew] pops the notification; startup passes false.
+     */
+    fun loadRecent(markNew: Boolean = false) {
         viewModelScope.launch {
-            repository.getLatestVoice(peerId)
-                .onSuccess { bytes ->
-                    latestBytes = bytes
-                    val nextUnread = if (markNew) state.unreadCount + 1 else state.unreadCount
-                    state = state.copy(
-                        available = true,
-                        hasNewMessage = if (markNew) true else state.hasNewMessage,
-                        unreadCount = nextUnread
-                    )
+            repository.getRecentVoices(peerId)
+                .onSuccess { names ->
+                    state = if (names.isEmpty()) {
+                        state.copy(clips = emptyList(), available = false, hasNewMessage = false)
+                    } else {
+                        state.copy(clips = names, available = true, hasNewMessage = markNew || state.hasNewMessage)
+                    }
                 }
                 .onFailure {
-                    // 404 = nothing there, or the message expired.
-                    latestBytes = null
-                    state = state.copy(available = false, hasNewMessage = false, unreadCount = 0)
+                    // 404 / nothing there — or every clip expired.
+                    state = state.copy(clips = emptyList(), available = false, hasNewMessage = false)
                 }
         }
     }
@@ -75,14 +72,19 @@ class VoiceMessagingViewModel(
         }
     }
 
-    /** Play the peer's latest clip (already fetched by the availability check). */
-    fun playLatest(play: (ByteArray) -> Unit) {
-        val bytes = latestBytes
-        if (bytes != null) {
-            state = state.copy(status = "", hasNewMessage = false, unreadCount = 0)
-            play(bytes)
-        } else {
-            state = state.copy(status = "No message right now", available = false)
+    /** Fetch + hand the bytes of the clip at [index] (0 = latest) to [play]. */
+    fun playClip(index: Int, play: (ByteArray) -> Unit) {
+        val names = state.clips
+        if (index !in names.indices) return
+        viewModelScope.launch {
+            repository.getMedia(names[index])
+                .onSuccess { bytes -> play(bytes) }
+                .onFailure { state = state.copy(status = "Couldn't play that clip") }
         }
+    }
+
+    /** Dismiss the "new clip" notification (the clips stay available in the player). */
+    fun markSeen() {
+        state = state.copy(hasNewMessage = false)
     }
 }

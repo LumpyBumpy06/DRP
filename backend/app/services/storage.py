@@ -69,6 +69,27 @@ def latest_recent_object_name(settings: Settings, prefix: str | list[str], max_a
     return name
 
 
+def recent_object_names(settings: Settings, prefix: str | list[str], max_age_seconds: int) -> list[str]:
+    """Every object under `prefix` (or any of several prefixes) stored within
+    `max_age_seconds`, newest first.
+
+    Like [latest_recent_object_name] but returns the whole recent run, so the
+    viewer can page back through snaps/clips that arrived back-to-back, not just
+    the single newest one.
+    """
+    client = get_storage(settings)
+    prefixes = [prefix] if isinstance(prefix, str) else prefix
+    now = datetime.now(UTC)
+    objects = [
+        o
+        for p in prefixes
+        for o in client.list_objects(settings.minio_bucket, prefix=p, recursive=True)
+        if o.object_name and o.last_modified and now - o.last_modified <= timedelta(seconds=max_age_seconds)
+    ]
+    objects.sort(key=lambda o: o.last_modified, reverse=True)
+    return [o.object_name for o in objects]
+
+
 def list_objects(settings: Settings) -> list[tuple[str, datetime]]:
     """Every stored object (voice clips + snaps) with its upload time."""
     client = get_storage(settings)

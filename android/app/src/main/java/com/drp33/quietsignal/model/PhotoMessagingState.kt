@@ -2,13 +2,18 @@ package com.drp33.quietsignal.model
 
 import androidx.compose.ui.graphics.ImageBitmap
 
-/** Latest received snap (decoded for display) + a transient status line. */
+/** Recent received snaps (decoded for display) + a transient status line. */
 data class PhotoMessagingState(
-    val image: ImageBitmap? = null,
+    /** Every currently-viewable snap from the peer, NEWEST FIRST. The viewer opens
+     *  on the first (latest) and can page back through the rest. */
+    val images: List<ImageBitmap> = emptyList(),
     val status: String = "",
-    /** True when the snap just arrived (vs. one loaded silently on startup). */
+    /** True when a snap just arrived (vs. ones loaded silently on startup). */
     val isNew: Boolean = false,
-    /** How many snaps have arrived since the last one was opened, so the UI can
-     * say "2 new photos" when they're sent back-to-back. Reset to 0 once viewed. */
-    val unreadCount: Int = 0,
-)
+) {
+    /** The latest snap — the banner thumbnail and the viewer's first page. */
+    val image: ImageBitmap? get() = images.firstOrNull()
+
+    /** How many snaps are waiting — drives "2 new photos". */
+    val unreadCount: Int get() = images.size
+}

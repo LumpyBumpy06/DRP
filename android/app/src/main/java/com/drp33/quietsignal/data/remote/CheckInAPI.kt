@@ -5,6 +5,7 @@ import com.drp33.quietsignal.data.remote.models.ForestResponse
 import com.drp33.quietsignal.data.remote.models.MemoriesResponse
 import com.drp33.quietsignal.data.remote.models.MemoryTagsRequest
 import com.drp33.quietsignal.data.remote.models.MemoryTagsResponse
+import com.drp33.quietsignal.data.remote.models.ObjectsResponse
 import com.drp33.quietsignal.data.remote.models.TagsResponse
 import com.drp33.quietsignal.data.remote.models.OkayRequest
 import com.drp33.quietsignal.data.remote.models.OkayStatusResponse
@@ -35,12 +36,18 @@ interface CheckInAPI {
     @GET("voice/latest")
     suspend fun getLatestVoice(@Query("user_id") userId: Int): ResponseBody
 
+    @GET("voice/recent")
+    suspend fun getRecentVoices(@Query("user_id") userId: Int): ObjectsResponse
+
     @Multipart
     @POST("photo")
     suspend fun postPhoto(@Part file: MultipartBody.Part)
 
     @GET("photo/latest")
     suspend fun getLatestPhoto(@Query("user_id") userId: Int): ResponseBody
+
+    @GET("photo/recent")
+    suspend fun getRecentPhotos(@Query("user_id") userId: Int): ObjectsResponse
 
     @POST("okay")
 //    suspend fun postSendOkay(@Body request: OkayRequest)

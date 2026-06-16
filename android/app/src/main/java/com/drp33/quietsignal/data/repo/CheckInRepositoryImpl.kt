@@ -68,6 +68,14 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
         }
     }
 
+    override suspend fun getRecentVoices(userId: Int): Result<List<String>> = runCatching {
+        api.getRecentVoices(userId).objects
+    }
+
+    override suspend fun getRecentPhotos(userId: Int): Result<List<String>> = runCatching {
+        api.getRecentPhotos(userId).objects
+    }
+
     override suspend fun postPhoto(clientId: Int, jpeg: ByteArray): Result<Unit> = runCatching {
         val body = jpeg.toRequestBody("image/jpeg".toMediaType())
         val part = MultipartBody.Part.createFormData(

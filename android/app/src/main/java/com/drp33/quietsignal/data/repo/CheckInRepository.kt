@@ -14,6 +14,8 @@ interface CheckInRepository {
     suspend fun getOkayStatus(userId: Int): Result<Boolean>
     suspend fun postVoice(clientId: Int, audio: ByteArray): Result<Unit>
     suspend fun getLatestVoice(userId: Int): Result<ByteArray>
+    suspend fun getRecentVoices(userId: Int): Result<List<String>>
+    suspend fun getRecentPhotos(userId: Int): Result<List<String>>
     suspend fun postPhoto(clientId: Int, jpeg: ByteArray): Result<Unit>
     suspend fun getLatestPhoto(userId: Int): Result<ByteArray>
     suspend fun getTree(): Result<com.drp33.quietsignal.model.TreeState>
