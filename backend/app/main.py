@@ -188,6 +188,11 @@ def get_forest(session: Session = SessionDependency) -> dict:
                 "weekIndex": position,
                 "stage": tree.stage,
                 "deathLevel": tree.death_level,
+                # The window of moments this tree captured + how many, so its
+                # sub-gallery / montage show exactly the right memories.
+                "periodStart": tree.period_start,
+                "periodEnd": tree.period_end,
+                "momentCount": tree.moment_count,
             }
             for position, tree in enumerate(get_forest_trees(session), start=1)
         ]
@@ -206,6 +211,9 @@ def add_to_forest(session: Session = SessionDependency) -> dict:
         "weekIndex": tree.week_index,
         "stage": tree.stage,
         "deathLevel": tree.death_level,
+        "periodStart": tree.period_start,
+        "periodEnd": tree.period_end,
+        "momentCount": tree.moment_count,
     }
 
 

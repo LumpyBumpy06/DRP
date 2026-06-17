@@ -34,10 +34,17 @@ class ForestTree(SQLModel, table=True):
     sequentially as trees are frozen.
     """
 
-    week_start: int = Field(primary_key=True)  # Unix seconds, aligned to WEEK_SECONDS
+    week_start: int = Field(primary_key=True)  # Unix seconds; also the sort key
     week_index: int
     stage: int
     death_level: float
+    # The window of moments (photos/voice) this frozen tree captured: every memory
+    # whose upload time is in [period_start, period_end) belongs to it. Set when the
+    # tree is added to the forest, so its sub-gallery + montage show exactly the
+    # moments it held — independent of any time-bucket maths.
+    period_start: int = 0
+    period_end: int = 0
+    moment_count: int = 0
 
 
 class MomentCounter(SQLModel, table=True):

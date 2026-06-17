@@ -9,4 +9,7 @@ data class ForestWeekResponse(
     val weekIndex: Int = 0,
     val stage: Int = 0,
     val deathLevel: Float = 0f,
+    val periodStart: Long = 0,
+    val periodEnd: Long = 0,
+    val momentCount: Int = 0,
 )

@@ -132,6 +132,9 @@ class CheckInRepositoryImpl(private val api: CheckInAPI): CheckInRepository {
                 weekIndex = it.weekIndex,
                 stage = it.stage,
                 deathLevel = it.deathLevel,
+                periodStart = it.periodStart,
+                periodEnd = it.periodEnd,
+                momentCount = it.momentCount,
             )
         }
     }

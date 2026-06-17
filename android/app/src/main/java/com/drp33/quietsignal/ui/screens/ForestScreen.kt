@@ -116,8 +116,17 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
         }
     }
 
-    val memoriesByWeek = remember(vm.memories) {
-        vm.memories.groupBy { (it.epoch / WEEK_SECONDS) * WEEK_SECONDS }
+    // The memories a frozen tree holds are those shared in its captured window
+    // [periodStart, periodEnd). Legacy trees (added before period ranges existed)
+    // fall back to the old time-bucket match so they still show something.
+    val memoriesFor = remember(vm.memories) {
+        { week: ForestWeek ->
+            if (week.periodEnd > 0L) {
+                vm.memories.filter { it.epoch >= week.periodStart && it.epoch < week.periodEnd }
+            } else {
+                vm.memories.filter { (it.epoch / WEEK_SECONDS) * WEEK_SECONDS == week.weekStart }
+            }
+        }
     }
     // Tapping a tree opens that week's gallery; the gallery offers "Play montage".
     var galleryWeek by remember { mutableStateOf<ForestWeek?>(null) }
@@ -229,7 +238,7 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
                 verticalAlignment = Alignment.Bottom,
             ) {
                 itemsIndexed(display, key = { _, w -> w.weekStart }) { index, week ->
-                    val mems = memoriesByWeek[week.weekStart].orEmpty()
+                    val mems = memoriesFor(week)
                     val far = index % 2 == 1
                     Column(
                         modifier = Modifier
@@ -350,7 +359,7 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
     galleryWeek?.let { week ->
         WeekGalleryDialog(
             week = week,
-            memories = memoriesByWeek[week.weekStart].orEmpty(),
+            memories = memoriesFor(week),
             vm = vm,
             onPlayMontage = { montageWeek = week; galleryWeek = null },
             onClose = { galleryWeek = null },
@@ -366,7 +375,7 @@ fun ForestPane(vm: MemoriesViewModel, contentPadding: PaddingValues = PaddingVal
         ) {
             Montage(
                 week = week,
-                memories = memoriesByWeek[week.weekStart].orEmpty(),
+                memories = memoriesFor(week),
                 vm = vm,
                 onClose = { montageWeek = null },
             )
