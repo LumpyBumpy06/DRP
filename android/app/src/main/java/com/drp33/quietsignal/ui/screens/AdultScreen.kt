@@ -1,5 +1,6 @@
 package com.drp33.quietsignal.ui.screens
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -114,8 +116,9 @@ fun AdultScreen(
             // Living tree — fills the middle. Untouched WateringTree (tree.json).
             // The gentle prompt is drawn OUTSIDE this column as a floating overlay
             // (see below), so it never resizes or shifts the tree.
+            val treeShift by animateDpAsState(targetValue = if (showPrompt) 64.dp else 0.dp, label = "treeShift")
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                WateringTree(stage = tree.stage, deathLevel = tree.deathLevel)
+                WateringTree(stage = tree.stage, deathLevel = tree.deathLevel, modifier = Modifier.offset(y = treeShift))
             }
 
             Text(
@@ -124,7 +127,7 @@ fun AdultScreen(
                 fontSize = 13.5.sp,
                 color = Grove.InkSoft,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().alpha(if (showPrompt) 0f else 1f),
             )
             Spacer(Modifier.height(10.dp))
 
