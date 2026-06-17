@@ -1,4 +1,4 @@
-//const API_BASE = "http://localhost:8000";
+// const API_BASE = "http://127.0.0.1:8000";
 const API_BASE = "https://quietsignal.noxbound.com";
 const SUBMIT_FRAME = "quietsignal-submit-frame";
 const PHOTO_PATH = "/photo";
@@ -8,9 +8,16 @@ const VOICE_ASSET = "sadie.mp3";
 const PHOTO_FILENAME = "photos/2/sadie.png";
 const VOICE_FILENAME = "2/sadie.mp3";
 
+// Tree-stage images live in imgs/ (1.png, 2.png, …). Each "Grow tree" click
+// sends the next one to Norman, which waters the shared tree by one stage on
+// both the elderly and adult screens. There are 10 stage images.
+const GROW_IMG_COUNT = 10;
+let growStep = 1; // 1-based index of the next stage image to send.
+
 const statusEl = document.getElementById("demo-status");
 const photoButton = document.getElementById("send-photo-btn");
 const voiceButton = document.getElementById("send-voice-btn");
+const growButton = document.getElementById("grow-tree-btn");
 
 function setStatus(message, tone = "idle") {
   if (!statusEl) {
@@ -27,6 +34,9 @@ function setButtonsDisabled(disabled) {
   }
   if (voiceButton) {
     voiceButton.disabled = disabled;
+  }
+  if (growButton) {
+    growButton.disabled = disabled;
   }
 }
 
@@ -84,6 +94,24 @@ async function sendDemoMedia(path, fileFactory, successMessage) {
   } finally {
     setButtonsDisabled(false);
   }
+}
+
+// Send the next stage image (imgs/<n>.png) to Norman, watering the shared tree
+// by one stage. Uploaded under "photos/2/..." so it counts as Sadie watering.
+function createStagePhoto(n) {
+  return loadLocalAsset(`imgs/${n}.png`, `photos/2/${n}.png`, "image/png");
+}
+
+if (growButton) {
+  growButton.addEventListener("click", () => {
+    const n = growStep;
+    growStep = (growStep % GROW_IMG_COUNT) + 1; // cycle 1..10
+    void sendDemoMedia(
+      PHOTO_PATH,
+      () => createStagePhoto(n),
+      `Grew the tree — sent stage image ${n}.png to Norman.`,
+    );
+  });
 }
 
 if (photoButton) {

@@ -17,7 +17,9 @@ from datetime import UTC, datetime
 # Stages 0..5 grow the tree to full size; stages 6..9 are the "bird" stages,
 # where the fully-grown tree gains 1, 2, 3 then 4 birds circling it. Stage 9
 # (4 birds) is the highest stage.
-GROWTH_THRESHOLDS = [0, 1, 3, 6, 10, 15, 21, 28, 36, 45]
+# One picture (watering) per stage: each stage needs exactly one more watering,
+# so 10 stages take 10 pictures total — one image per stage in the imgs folder.
+GROWTH_THRESHOLDS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 # No watering for this many "day" windows => fully dead (deathLevel == 1.0).
 # TEST VALUE: with the 20s check-in window this is 3 windows = 60s, so the tree
