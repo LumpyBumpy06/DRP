@@ -159,6 +159,10 @@ h1 {
   background: linear-gradient(135deg, #5b7cff, #6a49ff);
 }
 
+.action-grow {
+  background: linear-gradient(135deg, #43c97a, #2e9e57);
+}
+
 .status {
   margin-top: 16px;
   min-height: 1.4em;
