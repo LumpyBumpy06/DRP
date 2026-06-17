@@ -235,6 +235,20 @@ def add_current_tree_to_forest(session: Session, now: datetime) -> ForestTree:
         death_level=state["deathLevel"],
     )
     session.add(tree)
+
+    # Reset the live tree just like a real week rollover: drop this week's
+    # check-ins and revives so the current tree recomputes to a fresh sapling
+    # (moments back to 0, the day/week timer starting over).
+    def _epoch(ts: datetime) -> float:
+        return (ts.replace(tzinfo=UTC) if ts.tzinfo is None else ts).timestamp()
+
+    for event in session.exec(select(OkayEvent)).all():
+        if _epoch(event.timestamp) >= current_week:
+            session.delete(event)
+    for revive in session.exec(select(ReviveEvent)).all():
+        if _epoch(revive.timestamp) >= current_week:
+            session.delete(revive)
+
     session.commit()
     session.refresh(tree)
     return tree
