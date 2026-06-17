@@ -193,9 +193,10 @@ def test_tree_grows_with_total_waterings_and_wilts() -> None:
     assert fresh["stage"] == 0
     assert fresh["deathLevel"] == 0.0
 
-    # 3 total recent waterings -> stage 2 (thresholds 0,1,3,6,10,15), just watered.
+    # 3 total recent waterings -> stage 3 (thresholds 0,1,2,…,9; one per stage),
+    # just watered.
     grown = compute_tree_state([ago(1), ago(1)], [ago(1)], now, day)
-    assert grown["stage"] == 2
+    assert grown["stage"] == 3
     assert grown["totalWaterings"] == 3
     assert grown["deathLevel"] < 0.1
 
