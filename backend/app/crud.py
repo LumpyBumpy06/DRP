@@ -151,6 +151,13 @@ def reset_tree(session: Session) -> int:
 
     for tree in session.exec(select(ForestTree)).all():
         session.delete(tree)
+
+    # A full restart also zeroes the live moment counter.
+    counter = session.get(MomentCounter, 1)
+    if counter is not None:
+        counter.count = 0
+        session.add(counter)
+
     session.commit()
     return len(events)
 
