@@ -3,15 +3,16 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import Depends, FastAPI, HTTPException, Response, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlmodel import Session
 
 from app.crud import (
     CHECK_IN_WINDOW_SECONDS,
     active_emergency_sender_for,
+    add_current_tree_to_forest,
     add_tag_for,
     add_thread_message,
-    add_current_tree_to_forest,
     all_tag_names,
     clear_emergencies_for,
     create_okay_event,
@@ -49,6 +50,16 @@ from app.services.tree import WEEK_SECONDS, compute_current_week_state, compute_
 from app.settings import get_settings
 
 app = FastAPI()
+
+# The public demo site calls JSON endpoints (e.g. /forest/add) from the browser,
+# which is a cross-origin request — allow it. (The form-submit demo actions don't
+# read the response so they worked without this; fetch-based ones need it.)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Display names for push messages (demo: two fixed users).
 USER_NAMES = {1: "Norman", 2: "Sadie"}
