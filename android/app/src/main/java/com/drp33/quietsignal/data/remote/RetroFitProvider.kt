@@ -14,6 +14,7 @@ object RetroFitProvider {
     // Local testing on a physical device over Wi-Fi — this Mac's LAN IP.
     // (Emulator would use 10.0.2.2; adb-reverse would use 127.0.0.1.)
 //    private const val BASE_URL = "http://127.0.0.1:8000/"
+    // hola
 
     private var okHttpClient: OkHttpClient? = null
 
