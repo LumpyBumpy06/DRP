@@ -47,7 +47,7 @@ from app.models import ThreadMessage, User
 from app.services.firebase import init_firebase
 from app.services.notifications import send_notification
 from app.services.storage import download_audio, latest_recent_object_name, list_objects, recent_object_names, upload_audio
-from app.services.tree import WEEK_SECONDS, compute_current_week_state, compute_tree_state
+from app.services.tree import WEEK_SECONDS, compute_tree_state
 from app.settings import get_settings
 
 app = FastAPI()
@@ -157,9 +157,14 @@ def reset_tree(session: Session = SessionDependency) -> dict:
 
 @app.get("/tree")
 def get_tree(session: Session = SessionDependency) -> dict:
-    """The shared live tree state, plus its current moment count."""
+    """The shared live tree state, plus its current moment count.
+
+    Stage grows from EVERY watering since the last reset (not just this clock
+    week), so the tree never silently drops back to a sapling on a time
+    boundary — it only resets when its events are cleared, which happens solely
+    when the tree is sent to the forest (POST /forest/add) or via /resetTree."""
     now = datetime.now(UTC)
-    state = compute_current_week_state(
+    state = compute_tree_state(
         get_okay_timestamps(session, 1),
         get_okay_timestamps(session, 2),
         now,

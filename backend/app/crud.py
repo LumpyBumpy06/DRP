@@ -15,7 +15,7 @@ from app.models import (
     User,
     UserLink,
 )
-from app.services.tree import compute_current_week_state
+from app.services.tree import WEEK_SECONDS, compute_tree_state, week_start_of
 
 # One "day" in the current simulation. A check-in (or voice message) is only
 # considered current for this long.
@@ -208,7 +208,8 @@ def add_current_tree_to_forest(session: Session, now: datetime) -> ForestTree:
     resets the live tree: its check-ins/revives are cleared so it starts fresh,
     and the moment counter drops back to 0.
     """
-    state = compute_current_week_state(
+    # Freeze the same all-time state the live tree was showing (see get_tree).
+    state = compute_tree_state(
         get_okay_timestamps(session, 1),
         get_okay_timestamps(session, 2),
         now,
@@ -217,9 +218,16 @@ def add_current_tree_to_forest(session: Session, now: datetime) -> ForestTree:
     )
 
     existing = get_forest_trees(session)
-    # `week_start` is just the primary key / sort order now (no time meaning):
-    # bump it past the newest entry so repeated clicks always append in order.
-    week_start = max([t.week_start for t in existing], default=0) + 1
+    # Store the aligned current week-bucket as `week_start` so the app's forest
+    # gallery (which groups memories by `epoch // WEEK_SECONDS`) lines this tree up
+    # with the photos/voice notes shared this week, and the date label is right.
+    # If this bucket is already in the forest (a second add in the same window),
+    # bump past the newest entry so the insert still succeeds (its gallery may be
+    # empty — acceptable for repeated same-week clicks).
+    taken = {t.week_start for t in existing}
+    week_start = week_start_of(now.timestamp())
+    if week_start in taken:
+        week_start = max(taken) + WEEK_SECONDS
     next_index = max((t.week_index for t in existing), default=0) + 1
 
     tree = ForestTree(
