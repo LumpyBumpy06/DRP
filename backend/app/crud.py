@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 from sqlmodel import Session, col, desc, select
 
 from app.models import EmergencyAlert, ForestTree, MemoryTag, OkayEvent, PromptAnnouncement, ReviveEvent, ThreadCaption, ThreadMessage, User, UserLink
-from app.services.tree import WEEK_SECONDS, compute_week_snapshot, week_start_of
+from app.services.tree import WEEK_SECONDS, compute_current_week_state, compute_week_snapshot, week_start_of
 
 # One "day" in the current simulation. A check-in (or voice message) is only
 # considered current for this long.
@@ -199,6 +199,45 @@ def freeze_elapsed_weeks(session: Session, now: datetime) -> None:
         added = True
     if added:
         session.commit()
+
+
+def add_current_tree_to_forest(session: Session, now: datetime) -> ForestTree:
+    """Snapshot the live (current-week) tree into the forest right now.
+
+    Unlike [freeze_elapsed_weeks], which only banks weeks that have already
+    ended, this plants the current tree's exact state as a new forest entry on
+    demand (used by the public demo's "add to forest" button). Each call appends
+    a fresh tree: the stored `week_start` is bumped past every existing one so
+    repeated calls never collide on the primary key.
+    """
+    # Bank any genuinely-elapsed weeks first so ordering stays consistent.
+    freeze_elapsed_weeks(session, now)
+
+    state = compute_current_week_state(
+        get_okay_timestamps(session, 1),
+        get_okay_timestamps(session, 2),
+        now,
+        CHECK_IN_WINDOW_SECONDS,
+        get_revive_timestamps(session, 1) + get_revive_timestamps(session, 2),
+    )
+
+    existing = get_forest_trees(session)
+    # Park the snapshot one week past the newest stored tree (or this week if the
+    # forest is empty) so the primary key is always unique and ordering holds.
+    current_week = week_start_of(now.timestamp())
+    week_start = max([t.week_start for t in existing], default=current_week - WEEK_SECONDS) + WEEK_SECONDS
+    next_index = max((t.week_index for t in existing), default=0) + 1
+
+    tree = ForestTree(
+        week_start=week_start,
+        week_index=next_index,
+        stage=state["stage"],
+        death_level=state["deathLevel"],
+    )
+    session.add(tree)
+    session.commit()
+    session.refresh(tree)
+    return tree
 
 
 def get_latest_okay_event(session: Session, user_id: int) -> OkayEvent | None:

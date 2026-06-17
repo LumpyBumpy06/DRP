@@ -18,6 +18,7 @@ const statusEl = document.getElementById("demo-status");
 const photoButton = document.getElementById("send-photo-btn");
 const voiceButton = document.getElementById("send-voice-btn");
 const growButton = document.getElementById("grow-tree-btn");
+const forestButton = document.getElementById("add-forest-btn");
 
 function setStatus(message, tone = "idle") {
   if (!statusEl) {
@@ -37,6 +38,9 @@ function setButtonsDisabled(disabled) {
   }
   if (growButton) {
     growButton.disabled = disabled;
+  }
+  if (forestButton) {
+    forestButton.disabled = disabled;
   }
 }
 
@@ -117,6 +121,27 @@ if (growButton) {
 if (photoButton) {
   photoButton.addEventListener("click", () => {
     void sendDemoMedia(PHOTO_PATH, createPlaceholderPhoto, "Submitted Sadie's placeholder picture to Norman.");
+  });
+}
+
+// Freeze the current shared tree into the forest right now via /forest/add.
+if (forestButton) {
+  forestButton.addEventListener("click", async () => {
+    setButtonsDisabled(true);
+    setStatus("Adding the current tree to the forest…", "sending");
+    try {
+      const response = await fetch(`${API_BASE}/forest/add`, { method: "POST" });
+      if (!response.ok) {
+        throw new Error(`Request failed (${response.status})`);
+      }
+      const tree = await response.json();
+      setStatus(`Planted the current tree in the forest as Week ${tree.weekIndex} (stage ${tree.stage}).`, "done");
+    } catch (error) {
+      console.error(error);
+      setStatus("Could not add the tree to the forest.", "error");
+    } finally {
+      setButtonsDisabled(false);
+    }
   });
 }
 

@@ -11,6 +11,7 @@ from app.crud import (
     active_emergency_sender_for,
     add_tag_for,
     add_thread_message,
+    add_current_tree_to_forest,
     all_tag_names,
     clear_emergencies_for,
     create_okay_event,
@@ -174,6 +175,21 @@ def get_forest(session: Session = SessionDependency) -> dict:
             }
             for position, tree in enumerate(get_forest_trees(session), start=1)
         ]
+    }
+
+
+@app.post("/forest/add")
+def add_to_forest(session: Session = SessionDependency) -> dict:
+    """Plant the current live tree into the forest immediately.
+
+    Called from the public demo site: snapshots this week's tree exactly as it
+    looks right now and appends it as a new forest entry."""
+    tree = add_current_tree_to_forest(session, datetime.now(UTC))
+    return {
+        "weekStart": tree.week_start,
+        "weekIndex": tree.week_index,
+        "stage": tree.stage,
+        "deathLevel": tree.death_level,
     }
 
 
