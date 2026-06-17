@@ -45,8 +45,8 @@ from app.db import create_engine_from_settings, get_session, init_db
 from app.models import ThreadMessage, User
 from app.services.firebase import init_firebase
 from app.services.notifications import send_notification
-from app.services.storage import download_audio, latest_recent_object_name, list_objects, recent_object_names, upload_audio
-from app.services.tree import WEEK_SECONDS, compute_current_week_state, compute_tree_state
+from app.services.storage import delete_object, download_audio, latest_recent_object_name, list_objects, recent_object_names, upload_audio
+from app.services.tree import WEEK_SECONDS, compute_current_week_state, compute_tree_state, week_start_of
 from app.settings import get_settings
 
 app = FastAPI()
@@ -194,8 +194,22 @@ def add_to_forest(session: Session = SessionDependency) -> dict:
     """Plant the current live tree into the forest immediately.
 
     Called from the public demo site: snapshots this week's tree exactly as it
-    looks right now and appends it as a new forest entry."""
-    tree = add_current_tree_to_forest(session, datetime.now(UTC))
+    looks right now and appends it as a new forest entry, then resets the live
+    tree — its check-ins/revives AND this week's memory-board moments are cleared
+    so the home screen's moment count drops back to 0, like a real week rollover."""
+    now = datetime.now(UTC)
+    tree = add_current_tree_to_forest(session, now)
+
+    # Moments are counted from the memory-board objects whose upload time falls in
+    # the current week, so clear those too (the DB events are reset in the CRUD).
+    week_start = week_start_of(now.timestamp())
+    try:
+        for object_name, last_modified in _board_objects():
+            if int(last_modified.timestamp()) >= week_start:
+                delete_object(settings, object_name)
+    except Exception:
+        logging.exception("Could not clear this week's memory moments")
+
     return {
         "weekStart": tree.week_start,
         "weekIndex": tree.week_index,

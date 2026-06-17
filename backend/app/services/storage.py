@@ -96,6 +96,12 @@ def list_objects(settings: Settings) -> list[tuple[str, datetime]]:
     return [(o.object_name, o.last_modified) for o in client.list_objects(settings.minio_bucket, recursive=True) if o.object_name and o.last_modified]
 
 
+def delete_object(settings: Settings, object_name: str) -> None:
+    """Permanently remove a stored object (a voice clip or snap)."""
+    client = get_storage(settings)
+    client.remove_object(settings.minio_bucket, object_name)
+
+
 def download_audio(settings: Settings, object_name: str) -> bytes:
     client = get_storage(settings)
     response = client.get_object(settings.minio_bucket, object_name)
