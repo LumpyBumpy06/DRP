@@ -40,6 +40,15 @@ class ForestTree(SQLModel, table=True):
     death_level: float
 
 
+class MomentCounter(SQLModel, table=True):
+    """A single shared counter of "moments" (photos + voice notes) on the live
+    tree. Bumped by one each time media is stored, and reset to 0 when the tree
+    is added to the forest. One row only (id=1)."""
+
+    id: int = Field(default=1, primary_key=True)
+    count: int = 0
+
+
 class EmergencyAlert(SQLModel, table=True):
     # One row per sender while their SOS is unacknowledged; deleted when a carer
     # taps "All good". Persisting it (rather than relying only on the push) lets

@@ -2,8 +2,20 @@ from datetime import UTC, datetime, timedelta
 
 from sqlmodel import Session, col, desc, select
 
-from app.models import EmergencyAlert, ForestTree, MemoryTag, OkayEvent, PromptAnnouncement, ReviveEvent, ThreadCaption, ThreadMessage, User, UserLink
-from app.services.tree import WEEK_SECONDS, compute_current_week_state, compute_week_snapshot, week_start_of
+from app.models import (
+    EmergencyAlert,
+    ForestTree,
+    MemoryTag,
+    MomentCounter,
+    OkayEvent,
+    PromptAnnouncement,
+    ReviveEvent,
+    ThreadCaption,
+    ThreadMessage,
+    User,
+    UserLink,
+)
+from app.services.tree import compute_current_week_state
 
 # One "day" in the current simulation. A check-in (or voice message) is only
 # considered current for this long.
@@ -151,68 +163,51 @@ def get_forest_trees(session: Session) -> list[ForestTree]:
     return list(session.exec(select(ForestTree).order_by(col(ForestTree.week_start))).all())
 
 
-def freeze_elapsed_weeks(session: Session, now: datetime) -> None:
-    """Snapshot any elapsed weeks that aren't yet in the forest.
+# ---------- MOMENT COUNTER (live-tree moments) ----------
 
-    Idempotent and cheap: called on every /tree and /forest read, it looks at
-    weeks between the last frozen one (or the first watering) and the current
-    week, and stores one ForestTree per week that had at least one watering.
-    Once a row exists it is never touched again, so the forest only ever grows.
-    """
-    current_week = week_start_of(now.timestamp())
 
-    existing = get_forest_trees(session)
-    frozen_weeks = {t.week_start for t in existing}
-    next_index = max((t.week_index for t in existing), default=0) + 1
-
-    norman = get_okay_timestamps(session, 1)
-    sadie = get_okay_timestamps(session, 2)
-    revives = get_revive_timestamps(session, 1) + get_revive_timestamps(session, 2)
-    combined = norman + sadie + revives
-    if not combined:
-        return
-
-    def _epoch(ts: datetime) -> float:
-        return (ts.replace(tzinfo=UTC) if ts.tzinfo is None else ts).timestamp()
-
-    first_week = week_start_of(min(_epoch(t) for t in combined))
-    # Resume after the newest frozen week so we never re-evaluate old weeks.
-    if frozen_weeks:
-        first_week = max(first_week, max(frozen_weeks) + WEEK_SECONDS)
-
-    added = False
-    for week_start in range(first_week, current_week, WEEK_SECONDS):
-        if week_start in frozen_weeks:
-            continue
-        # Every elapsed week plants a tree — an idle week just plants a
-        # fully-neglected sapling rather than nothing.
-        snapshot = compute_week_snapshot(norman, sadie, week_start, CHECK_IN_WINDOW_SECONDS, revives)
-        session.add(
-            ForestTree(
-                week_start=week_start,
-                week_index=next_index,
-                stage=snapshot["stage"],
-                death_level=snapshot["deathLevel"],
-            )
-        )
-        next_index += 1
-        added = True
-    if added:
+def _moment_counter(session: Session) -> MomentCounter:
+    """The single moment-counter row, created on first use."""
+    counter = session.get(MomentCounter, 1)
+    if counter is None:
+        counter = MomentCounter(id=1, count=0)
+        session.add(counter)
         session.commit()
+        session.refresh(counter)
+    return counter
+
+
+def get_moment_count(session: Session) -> int:
+    """How many moments (photos + voice notes) the live tree currently holds."""
+    return _moment_counter(session).count
+
+
+def increment_moment_count(session: Session) -> int:
+    """Bump the live tree's moment count by one — called whenever media is stored."""
+    counter = _moment_counter(session)
+    counter.count += 1
+    session.add(counter)
+    session.commit()
+    session.refresh(counter)
+    return counter.count
+
+
+def reset_moment_count(session: Session) -> None:
+    """Set the live tree's moment count back to 0."""
+    counter = _moment_counter(session)
+    counter.count = 0
+    session.add(counter)
+    session.commit()
 
 
 def add_current_tree_to_forest(session: Session, now: datetime) -> ForestTree:
-    """Snapshot the live (current-week) tree into the forest right now.
+    """Plant the current live tree into the forest — only ever on demand (the
+    public-site button), never automatically on a timer.
 
-    Unlike [freeze_elapsed_weeks], which only banks weeks that have already
-    ended, this plants the current tree's exact state as a new forest entry on
-    demand (used by the public demo's "add to forest" button). Each call appends
-    a fresh tree: the stored `week_start` is bumped past every existing one so
-    repeated calls never collide on the primary key.
+    Snapshots the live tree's stage/death, appends it as a new forest entry, and
+    resets the live tree: its check-ins/revives are cleared so it starts fresh,
+    and the moment counter drops back to 0.
     """
-    # Bank any genuinely-elapsed weeks first so ordering stays consistent.
-    freeze_elapsed_weeks(session, now)
-
     state = compute_current_week_state(
         get_okay_timestamps(session, 1),
         get_okay_timestamps(session, 2),
@@ -222,10 +217,9 @@ def add_current_tree_to_forest(session: Session, now: datetime) -> ForestTree:
     )
 
     existing = get_forest_trees(session)
-    # Park the snapshot one week past the newest stored tree (or this week if the
-    # forest is empty) so the primary key is always unique and ordering holds.
-    current_week = week_start_of(now.timestamp())
-    week_start = max([t.week_start for t in existing], default=current_week - WEEK_SECONDS) + WEEK_SECONDS
+    # `week_start` is just the primary key / sort order now (no time meaning):
+    # bump it past the newest entry so repeated clicks always append in order.
+    week_start = max([t.week_start for t in existing], default=0) + 1
     next_index = max((t.week_index for t in existing), default=0) + 1
 
     tree = ForestTree(
@@ -236,18 +230,13 @@ def add_current_tree_to_forest(session: Session, now: datetime) -> ForestTree:
     )
     session.add(tree)
 
-    # Reset the live tree just like a real week rollover: drop this week's
-    # check-ins and revives so the current tree recomputes to a fresh sapling
-    # (moments back to 0, the day/week timer starting over).
-    def _epoch(ts: datetime) -> float:
-        return (ts.replace(tzinfo=UTC) if ts.tzinfo is None else ts).timestamp()
-
+    # Reset the live tree: drop every check-in / revive so it recomputes fresh,
+    # and zero the moment counter.
     for event in session.exec(select(OkayEvent)).all():
-        if _epoch(event.timestamp) >= current_week:
-            session.delete(event)
+        session.delete(event)
     for revive in session.exec(select(ReviveEvent)).all():
-        if _epoch(revive.timestamp) >= current_week:
-            session.delete(revive)
+        session.delete(revive)
+    reset_moment_count(session)
 
     session.commit()
     session.refresh(tree)

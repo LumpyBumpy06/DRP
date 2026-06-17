@@ -17,11 +17,11 @@ from app.crud import (
     clear_emergencies_for,
     create_okay_event,
     create_revive_event,
-    freeze_elapsed_weeks,
     get_all_thread_messages,
     get_forest_trees,
     get_latest_check_in_event,
     get_linked_users,
+    get_moment_count,
     get_okay_timestamps,
     get_revive_timestamps,
     get_tags_for,
@@ -30,6 +30,7 @@ from app.crud import (
     get_thread_captions,
     get_thread_messages,
     get_user_tokens,
+    increment_moment_count,
     is_okay_within_6h,
     mark_prompt_announced,
     raise_emergency,
@@ -45,8 +46,8 @@ from app.db import create_engine_from_settings, get_session, init_db
 from app.models import ThreadMessage, User
 from app.services.firebase import init_firebase
 from app.services.notifications import send_notification
-from app.services.storage import delete_object, download_audio, latest_recent_object_name, list_objects, recent_object_names, upload_audio
-from app.services.tree import WEEK_SECONDS, compute_current_week_state, compute_tree_state, week_start_of
+from app.services.storage import download_audio, latest_recent_object_name, list_objects, recent_object_names, upload_audio
+from app.services.tree import WEEK_SECONDS, compute_current_week_state, compute_tree_state
 from app.settings import get_settings
 
 app = FastAPI()
@@ -156,24 +157,23 @@ def reset_tree(session: Session = SessionDependency) -> dict:
 
 @app.get("/tree")
 def get_tree(session: Session = SessionDependency) -> dict:
-    """The shared tree state — this week's tree, which resets each week boundary."""
+    """The shared live tree state, plus its current moment count."""
     now = datetime.now(UTC)
-    # Bank any week that just finished before reporting the fresh one.
-    freeze_elapsed_weeks(session, now)
-    return compute_current_week_state(
+    state = compute_current_week_state(
         get_okay_timestamps(session, 1),
         get_okay_timestamps(session, 2),
         now,
         CHECK_IN_WINDOW_SECONDS,
         get_revive_timestamps(session, 1) + get_revive_timestamps(session, 2),
     )
+    state["momentCount"] = get_moment_count(session)
+    return state
 
 
 @app.get("/forest")
 def get_forest(session: Session = SessionDependency) -> dict:
-    """The frozen weekly trees, oldest first. Stored permanently in the DB —
-    the live (current-week) tree is NOT included; it joins once its week ends."""
-    freeze_elapsed_weeks(session, datetime.now(UTC))
+    """The frozen trees, oldest first. A tree only joins the forest when the
+    public-site button is pressed (POST /forest/add) — never on a timer."""
     return {
         "weeks": [
             {
@@ -193,23 +193,9 @@ def get_forest(session: Session = SessionDependency) -> dict:
 def add_to_forest(session: Session = SessionDependency) -> dict:
     """Plant the current live tree into the forest immediately.
 
-    Called from the public demo site: snapshots this week's tree exactly as it
-    looks right now and appends it as a new forest entry, then resets the live
-    tree — its check-ins/revives AND this week's memory-board moments are cleared
-    so the home screen's moment count drops back to 0, like a real week rollover."""
-    now = datetime.now(UTC)
-    tree = add_current_tree_to_forest(session, now)
-
-    # Moments are counted from the memory-board objects whose upload time falls in
-    # the current week, so clear those too (the DB events are reset in the CRUD).
-    week_start = week_start_of(now.timestamp())
-    try:
-        for object_name, last_modified in _board_objects():
-            if int(last_modified.timestamp()) >= week_start:
-                delete_object(settings, object_name)
-    except Exception:
-        logging.exception("Could not clear this week's memory moments")
-
+    Snapshots the current live tree, appends it to the forest, and resets the
+    live tree — its moment count drops back to 0."""
+    tree = add_current_tree_to_forest(session, datetime.now(UTC))
     return {
         "weekStart": tree.week_start,
         "weekIndex": tree.week_index,
@@ -302,6 +288,9 @@ async def receive_voice(file: UploadFile, session: Session = SessionDependency) 
         content_type=file.content_type or "audio/mp4",
     )
 
+    # Every stored voice note is one more moment on the live tree.
+    increment_moment_count(session)
+
     sender_id = _sender_id_from(object_name)
     if sender_id is not None:
         # A voice message also "waters" the shared tree.
@@ -352,6 +341,9 @@ async def receive_photo(file: UploadFile, session: Session = SessionDependency) 
     object_name = file.filename or f"photos/0/{datetime.now(UTC):%Y%m%dT%H%M%S}-{uuid.uuid4().hex}.jpg"
 
     upload_audio(settings, data, object_name, content_type=file.content_type or "image/jpeg")
+
+    # Every stored snap is one more moment on the live tree.
+    increment_moment_count(session)
 
     sender_id = _photo_sender_from(object_name)
     if sender_id is not None:

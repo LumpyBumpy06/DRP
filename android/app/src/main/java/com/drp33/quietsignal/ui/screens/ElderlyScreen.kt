@@ -39,7 +39,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 import com.drp33.quietsignal.data.SettingsPreferences
-import com.drp33.quietsignal.model.WEEK_SECONDS
 import com.drp33.quietsignal.ui.theme.Grove
 import com.drp33.quietsignal.ui.theme.NunitoSans
 import com.drp33.quietsignal.util.vibrateDoubleTap
@@ -75,8 +74,8 @@ fun ElderlyScreen(
         memoriesVm.load(onlyMetadata = true)
         threadsVm.loadThreads()
     }
-    val weekStart = (System.currentTimeMillis() / 1000 / WEEK_SECONDS) * WEEK_SECONDS
-    val momentCount = memoriesVm.memories.count { (it.epoch / WEEK_SECONDS) * WEEK_SECONDS == weekStart }
+    // Moment count comes straight from the server-tracked live-tree counter.
+    val momentCount = tree.momentCount
     val lastMomentEpoch = memoriesVm.memories.maxOfOrNull { it.epoch }
 
     var showSettings by remember { mutableStateOf(false) }
